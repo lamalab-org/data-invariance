@@ -6,8 +6,8 @@ import hydra
 import wandb
 from omegaconf import DictConfig, OmegaConf
 
-from models import MLP
-from train import make_dataloaders, train_erm
+from models import MLP, SplitMLP
+from train import make_dataloaders, train_erm, train_random_split
 from utils import get_device, set_seed
 
 
@@ -44,10 +44,15 @@ def main(cfg: DictConfig) -> None:
 
     # input_dim derived from the dataset so the model is not coupled to image shape
     input_dim = loaders["train"].dataset.images.shape[1:].numel()  # 3*28*28 = 2352
-    model = MLP(input_dim=input_dim, hidden_dim=cfg.model.hidden_dim).to(device)
 
     if cfg.method.name == "erm":
+        model = MLP(input_dim=input_dim, hidden_dim=cfg.model.hidden_dim).to(device)
         train_erm(cfg, model, loaders, device, run)
+
+    elif cfg.method.name == "random_split":
+        model = SplitMLP(input_dim=input_dim, hidden_dim=cfg.model.hidden_dim).to(device)
+        train_random_split(cfg, model, loaders, device, run)
+
     else:
         raise NotImplementedError(f"method '{cfg.method.name}' not yet implemented")
 

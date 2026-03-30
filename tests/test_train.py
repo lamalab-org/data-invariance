@@ -6,15 +6,15 @@ import torch
 import wandb
 from omegaconf import OmegaConf
 
-from models import MLP
-from train import evaluate, make_dataloaders, train_erm
+from models import MLP, SplitMLP
+from train import evaluate, make_dataloaders, symmetric_kl, train_erm, train_random_split
 
 
 def make_cfg():
     return OmegaConf.create({
         "data": {"train_correlation": 0.9, "test_correlation": 0.1, "label_noise": 0.25, "data_dir": "./data"},
         "model": {"hidden_dim": 64},
-        "training": {"lr": 1e-3, "weight_decay": 1e-4, "batch_size": 128, "epochs": 1, "seed": 0},
+        "training": {"lr": 1e-3, "weight_decay": 1e-4, "batch_size": 128, "epochs": 1, "seed": 0, "lambda_disagree": 1.0},
         "method": {"name": "erm"},
         "wandb": {"enabled": False},
     })
@@ -163,3 +163,104 @@ def test_train_erm_loss_below_random():
         f"train loss {metrics['train/loss']:.4f} not below random baseline {random_baseline:.4f} — "
         "check that gradients are flowing and the loss is computed correctly"
     )
+
+
+# ---------------------------------------------------------------------------
+# SplitMLP
+# ---------------------------------------------------------------------------
+
+def test_split_mlp_forward_shapes():
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64)
+    x = torch.randn(4, 3, 28, 28)
+    logits_a, logits_b = model(x)
+    assert logits_a.shape == (4, 2)
+    assert logits_b.shape == (4, 2)
+
+
+def test_split_mlp_predict_is_probabilities():
+    """predict() must return a valid probability distribution (rows sum to 1)."""
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64)
+    x = torch.randn(8, 3, 28, 28)
+    probs = model.predict(x)
+    assert probs.shape == (8, 2)
+    assert torch.allclose(probs.sum(dim=1), torch.ones(8), atol=1e-5)
+
+
+def test_split_mlp_heads_differ_after_init():
+    """The two heads should have different random initialisation — they are independent."""
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64)
+    assert not torch.equal(model.head_a.weight, model.head_b.weight)
+
+
+# ---------------------------------------------------------------------------
+# symmetric_kl
+# ---------------------------------------------------------------------------
+
+def test_symmetric_kl_zero_for_equal_logits():
+    """KL divergence between identical distributions must be zero."""
+    logits = torch.randn(8, 2)
+    kl = symmetric_kl(logits, logits)
+    assert kl.item() < 1e-5, f"expected ~0 for identical logits, got {kl.item()}"
+
+
+def test_symmetric_kl_positive_for_different_logits():
+    """KL divergence between different distributions must be positive."""
+    logits_a = torch.tensor([[2.0, -2.0]] * 8)   # strongly predicts class 0
+    logits_b = torch.tensor([[-2.0, 2.0]] * 8)   # strongly predicts class 1
+    kl = symmetric_kl(logits_a, logits_b)
+    assert kl.item() > 1.0, f"expected large KL for opposite predictions, got {kl.item()}"
+
+
+def test_symmetric_kl_is_symmetric():
+    logits_a = torch.randn(8, 2)
+    logits_b = torch.randn(8, 2)
+    assert abs(symmetric_kl(logits_a, logits_b).item() - symmetric_kl(logits_b, logits_a).item()) < 1e-5
+
+
+# ---------------------------------------------------------------------------
+# train_random_split
+# ---------------------------------------------------------------------------
+
+def test_train_random_split_metric_keys():
+    cfg = make_cfg()
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_random_split(cfg, model, loaders, device, run)
+    run.finish()
+
+    expected = {
+        "train/loss", "train/acc", "train/disagreement",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+    }
+    assert set(metrics.keys()) == expected
+
+
+def test_train_random_split_disagreement_is_finite():
+    """Disagreement must be a finite non-negative number — NaN would indicate a bug."""
+    cfg = make_cfg()
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_random_split(cfg, model, loaders, device, run)
+    run.finish()
+
+    assert math.isfinite(metrics["train/disagreement"])
+    assert metrics["train/disagreement"] >= 0.0
+
+
+def test_random_assignment_is_balanced():
+    """With a random 50/50 split, each head should get roughly half the examples."""
+    import torch
+    cfg = make_cfg()
+    loaders = make_dataloaders(cfg)
+    N = len(loaders["train"].dataset)
+    g = torch.Generator().manual_seed(cfg.training.seed)
+    assignment = torch.randint(0, 2, (N,), generator=g)
+    frac_a = (assignment == 0).float().mean().item()
+    assert abs(frac_a - 0.5) < 0.05, f"assignment imbalance: {frac_a:.3f} assigned to head A"
