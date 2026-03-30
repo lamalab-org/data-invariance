@@ -448,12 +448,33 @@ def train_adversarial_split(
     )
 
     metrics: dict[str, float] = {}
+    prev_disagree = 0.0   # previous epoch's mean disagreement — used for threshold gating
     for epoch in range(cfg.training.epochs):
-        # Lambda warmup: ramp linearly from 0 to lambda_disagree over N epochs.
-        # Starting at 0 lets heads diverge first; only then does the penalty
-        # force a shared robust representation.
-        warmup = cfg.training.lambda_warmup_epochs
-        lam = cfg.training.lambda_disagree * (min(1.0, epoch / warmup) if warmup > 0 else 1.0)
+        # --- Effective lambda for this epoch ---
+        # Two independent schedules; the effective lambda is their minimum so that
+        # BOTH conditions must be satisfied before the full penalty is applied.
+        #
+        # 1. Epoch-based warmup: ramp linearly from 0 to lambda_disagree over N epochs.
+        warmup_e = cfg.training.lambda_warmup_epochs
+        lam_epoch = cfg.training.lambda_disagree * (min(1.0, epoch / warmup_e) if warmup_e > 0 else 1.0)
+        #
+        # 2. Disagreement-threshold gating: hold lambda=0 until the heads have
+        #    diverged enough, then ramp over lambda_ramp_range KL units.
+        #    Uses prev_disagree (end of previous epoch) so it is lag-free within
+        #    the current epoch and doesn't require an extra forward pass.
+        thr = cfg.training.lambda_threshold
+        if thr > 0.0:
+            if prev_disagree < thr:
+                lam_disagree = 0.0
+            elif cfg.training.lambda_ramp_range > 0.0:
+                progress = (prev_disagree - thr) / cfg.training.lambda_ramp_range
+                lam_disagree = cfg.training.lambda_disagree * min(1.0, progress)
+            else:
+                lam_disagree = cfg.training.lambda_disagree   # hard step
+        else:
+            lam_disagree = cfg.training.lambda_disagree       # threshold disabled
+        #
+        lam = min(lam_epoch, lam_disagree)
 
         # Warmup phase: adversary is frozen. Assignment logits stay fixed so the
         # model pre-differentiates the heads on the current (possibly random) partition.
@@ -536,6 +557,8 @@ def train_adversarial_split(
             s_all = assignment_logits.sigmoid().clamp(1e-7, 1.0 - 1e-7)
             entropy = (-s_all * s_all.log() - (1.0 - s_all) * (1.0 - s_all).log()).mean()
 
+        prev_disagree = epoch_disagree / epoch_n   # for next epoch's threshold check
+
         id_metrics = evaluate(model, loaders["id_test"], device)
         ood_metrics = evaluate(model, loaders["ood_test"], device)
 
@@ -543,6 +566,7 @@ def train_adversarial_split(
             "train/loss": epoch_loss / epoch_n,
             "train/acc": epoch_correct / epoch_n,
             "train/disagreement": epoch_disagree / epoch_n,
+            "train/lambda": lam,             # shows exactly when threshold fires in wandb
             "train/assignment_entropy": entropy.item(),
             "eval/id_acc": id_metrics["acc"],
             "eval/id_auroc": id_metrics["auroc"],

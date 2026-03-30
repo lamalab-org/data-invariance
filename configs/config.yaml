@@ -70,3 +70,15 @@ training:
   # accelerating commitment toward hard 0/1 partitions.
   # 0 → disabled (original formulation).
   adv_entropy_bonus: 0.0
+
+  # Disagreement-threshold lambda scheduling.
+  # Forces lambda=0 until the heads have diverged enough; only then applies the
+  # KL penalty. Composable with lambda_warmup_epochs — the effective lambda is
+  # the minimum of both schedules.
+  #
+  # lambda_threshold: disagreement (KL) below which lambda is held at 0.
+  #   0.0 → disabled (lambda_warmup_epochs controls everything).
+  # lambda_ramp_range: disagreement units above threshold over which lambda
+  #   ramps linearly from 0 to its full value. 0.0 → hard step at threshold.
+  lambda_threshold: 0.0
+  lambda_ramp_range: 0.0

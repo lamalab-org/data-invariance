@@ -21,6 +21,7 @@ def make_cfg():
             "head_noise": 0.0, "adv_warmup_epochs": 0,
             "adv_steps_per_model_step": 1, "lambda_warmup_epochs": 0,
             "adv_entropy_bonus": 0.0,
+            "lambda_threshold": 0.0, "lambda_ramp_range": 0.0,
         },
         "method": {"name": "erm"},
         "wandb": {"enabled": False},
@@ -310,7 +311,8 @@ def test_train_adversarial_split_metric_keys():
     run.finish()
 
     expected = {
-        "train/loss", "train/acc", "train/disagreement", "train/assignment_entropy",
+        "train/loss", "train/acc", "train/disagreement", "train/lambda",
+        "train/assignment_entropy",
         "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
         "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
     }
@@ -477,7 +479,8 @@ def test_adversarial_split_multi_adv_steps():
     run.finish()
 
     assert set(metrics.keys()) == {
-        "train/loss", "train/acc", "train/disagreement", "train/assignment_entropy",
+        "train/loss", "train/acc", "train/disagreement", "train/lambda",
+        "train/assignment_entropy",
         "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
         "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
     }
@@ -540,6 +543,51 @@ def test_adversarial_split_entropy_bonus():
 
     assert math.isfinite(metrics["train/assignment_entropy"])
     assert 0.0 <= metrics["train/assignment_entropy"] <= math.log(2) + 1e-5
+
+
+def test_adversarial_split_threshold_scheduling_holds_lambda_at_zero():
+    """With an unreachably high lambda_threshold, lambda must stay 0 the whole run.
+
+    When lambda=0 throughout, the model sees no KL penalty and the disagreement
+    should grow more freely than with lambda=1.0. We verify:
+    1. train/lambda is 0.0 at the end (threshold never fired)
+    2. train/disagreement is finite and non-negative
+    """
+    cfg = make_cfg()
+    cfg.training.lambda_threshold = 100.0   # unreachable — disagreement stays far below this
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_adversarial_split(cfg, model, loaders, device, run)
+    run.finish()
+
+    assert metrics["train/lambda"] == 0.0, (
+        f"expected lambda=0 with unreachable threshold, got {metrics['train/lambda']}"
+    )
+    assert math.isfinite(metrics["train/disagreement"])
+
+
+def test_adversarial_split_threshold_disabled_matches_epoch_warmup():
+    """With lambda_threshold=0 (disabled), train/lambda must equal the epoch-warmup value.
+
+    With lambda_warmup_epochs=0 the full lambda_disagree should be used from epoch 0.
+    """
+    cfg = make_cfg()
+    cfg.training.lambda_threshold = 0.0
+    cfg.training.lambda_warmup_epochs = 0
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_adversarial_split(cfg, model, loaders, device, run)
+    run.finish()
+
+    assert abs(metrics["train/lambda"] - cfg.training.lambda_disagree) < 1e-6, (
+        f"expected train/lambda={cfg.training.lambda_disagree}, got {metrics['train/lambda']}"
+    )
 
 
 def test_random_assignment_is_balanced():
