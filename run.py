@@ -6,6 +6,10 @@ import hydra
 import wandb
 from omegaconf import DictConfig, OmegaConf
 
+from models import MLP
+from train import make_dataloaders, train_erm
+from utils import get_device, set_seed
+
 
 def make_run_name(cfg: DictConfig) -> str:
     """Compose a human-readable run name from method and timestamp.
@@ -34,8 +38,18 @@ def main(cfg: DictConfig) -> None:
         mode="online" if cfg.wandb.enabled else "disabled",
     )
 
-    # TODO: call train(cfg, run) once train.py is implemented
-    raise NotImplementedError("Wire up train() here once train.py is implemented.")
+    set_seed(cfg.training.seed)
+    device = get_device()
+    loaders = make_dataloaders(cfg)
+
+    # input_dim derived from the dataset so the model is not coupled to image shape
+    input_dim = loaders["train"].dataset.images.shape[1:].numel()  # 3*28*28 = 2352
+    model = MLP(input_dim=input_dim, hidden_dim=cfg.model.hidden_dim).to(device)
+
+    if cfg.method.name == "erm":
+        train_erm(cfg, model, loaders, device, run)
+    else:
+        raise NotImplementedError(f"method '{cfg.method.name}' not yet implemented")
 
     run.finish()
 

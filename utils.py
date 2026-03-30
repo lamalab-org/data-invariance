@@ -19,6 +19,18 @@ def set_seed(seed: int) -> None:
     torch.cuda.manual_seed_all(seed)
 
 
+def log_metrics(run: object, metrics: dict[str, float], step: int) -> None:
+    """Log metrics to wandb and print to stdout.
+
+    This is the single source of truth for metric names — training code must
+    never call run.log() directly. Keeping names centralised here means wandb
+    reports stay stable even as we add new methods.
+    """
+    run.log(metrics, step=step)
+    parts = "  ".join(f"{k}: {v:.4f}" for k, v in metrics.items())
+    print(f"[epoch {step:03d}] {parts}")
+
+
 def get_device() -> torch.device:
     """Return the best available device.
 

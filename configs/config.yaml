@@ -29,3 +29,6 @@ training:
   # Adversary step size — only used by adversarial_split. Larger than model lr so
   # assignment weights move meaningfully within each alternating step.
   adv_lr: 1e-2
+  # AdamW weight decay. Decoupled from the gradient update (unlike Adam's broken
+  # weight decay). Small value — we are not sweeping this yet.
+  weight_decay: 1e-4
