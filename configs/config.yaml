@@ -1,0 +1,31 @@
+defaults:
+  - method: erm  # override via `python run.py method=adversarial_split`
+  - _self_
+
+wandb:
+  project: data-invariance
+  # Tags support CLI override: `python run.py "wandb.tags=[dev,final,high_corr]"`
+  # Keep "dev" until results are paper-ready; swap to "final" for reported runs.
+  tags: [dev]
+  enabled: true
+
+data:
+  train_correlation: 0.9   # strong spurious color-label correlation during training
+  test_correlation: 0.1    # weak correlation at test time — this is the distribution shift
+  label_noise: 0.25        # matches original CMNIST; prevents trivial color=label solutions
+  data_dir: ./data
+
+model:
+  hidden_dim: 256
+
+training:
+  lr: 1e-3
+  batch_size: 256
+  epochs: 10
+  seed: 42
+  # Weight on the KL disagreement term. Shared across all split methods so sweeps
+  # are comparable. Too small → adversary has no effect; too large → heads diverge.
+  lambda_disagree: 1.0
+  # Adversary step size — only used by adversarial_split. Larger than model lr so
+  # assignment weights move meaningfully within each alternating step.
+  adv_lr: 1e-2

@@ -1,0 +1,29 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Data — MNIST downloads, too large for git
+data/
+
+# Hydra outputs — each run saves its own config + logs here
+outputs/
+multirun/
+
+# Wandb local cache
+wandb/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# macOS
+.DS_Store
+
+# Editor
+.idea/
+.vscode/

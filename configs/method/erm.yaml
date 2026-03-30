@@ -1,0 +1,3 @@
+# Standard ERM — single head, no splitting, no disagreement penalty.
+# This is the baseline that should fail OOD by relying on color.
+name: erm
