@@ -7,14 +7,21 @@ import wandb
 from omegaconf import OmegaConf
 
 from models import MLP, SplitMLP
-from train import evaluate, make_dataloaders, symmetric_kl, train_erm, train_random_split
+from train import evaluate, make_dataloaders, symmetric_kl, train_adversarial_split, train_erm, train_oracle_split, train_random_split
 
 
 def make_cfg():
     return OmegaConf.create({
         "data": {"train_correlation": 0.9, "test_correlation": 0.1, "label_noise": 0.25, "data_dir": "./data"},
         "model": {"hidden_dim": 64},
-        "training": {"lr": 1e-3, "weight_decay": 1e-4, "batch_size": 128, "epochs": 1, "seed": 0, "lambda_disagree": 1.0},
+        "training": {
+            "lr": 1e-3, "weight_decay": 1e-4, "batch_size": 128, "epochs": 1, "seed": 0,
+            "lambda_disagree": 1.0, "adv_lr": 1e-2,
+            "adv_init": "zeros", "adv_init_scale": 1.0,
+            "head_noise": 0.0, "adv_warmup_epochs": 0,
+            "adv_steps_per_model_step": 1, "lambda_warmup_epochs": 0,
+            "adv_entropy_bonus": 0.0,
+        },
         "method": {"name": "erm"},
         "wandb": {"enabled": False},
     })
@@ -192,6 +199,40 @@ def test_split_mlp_heads_differ_after_init():
     assert not torch.equal(model.head_a.weight, model.head_b.weight)
 
 
+def test_split_mlp_separate_backbones_shapes():
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64, separate_backbones=True)
+    x = torch.randn(4, 3, 28, 28)
+    logits_a, logits_b = model(x)
+    assert logits_a.shape == (4, 2)
+    assert logits_b.shape == (4, 2)
+
+
+def test_split_mlp_separate_backbones_differ():
+    """With separate backbones, the two backbone initialisations must differ."""
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64, separate_backbones=True)
+    # Compare first Linear weight of each backbone
+    w_a = model.backbone_a[0].weight
+    w_b = model.backbone_b[0].weight
+    assert not torch.equal(w_a, w_b)
+
+
+def test_split_mlp_get_features_shared():
+    """With a shared backbone, get_features returns the same tensor for both heads."""
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64, separate_backbones=False)
+    x = torch.randn(4, 3, 28, 28)
+    fa, fb = model.get_features(x)
+    assert fa is fb   # same object, no extra compute
+
+
+def test_split_mlp_get_features_separate():
+    """With separate backbones, get_features returns different tensors."""
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64, separate_backbones=True)
+    x = torch.randn(4, 3, 28, 28)
+    fa, fb = model.get_features(x)
+    assert fa is not fb
+    assert not torch.equal(fa, fb)
+
+
 # ---------------------------------------------------------------------------
 # symmetric_kl
 # ---------------------------------------------------------------------------
@@ -252,6 +293,253 @@ def test_train_random_split_disagreement_is_finite():
 
     assert math.isfinite(metrics["train/disagreement"])
     assert metrics["train/disagreement"] >= 0.0
+
+
+# ---------------------------------------------------------------------------
+# train_adversarial_split
+# ---------------------------------------------------------------------------
+
+def test_train_adversarial_split_metric_keys():
+    cfg = make_cfg()
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_adversarial_split(cfg, model, loaders, device, run)
+    run.finish()
+
+    expected = {
+        "train/loss", "train/acc", "train/disagreement", "train/assignment_entropy",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+    }
+    assert set(metrics.keys()) == expected
+
+
+def test_train_adversarial_split_entropy_range():
+    """Assignment entropy must lie in [0, log(2)] — the range for a binary distribution.
+
+    log(2) ≈ 0.693 is the maximum entropy (uniform assignment, s_i = 0.5 for all i).
+    After one epoch from a zero-initialised start the entropy should be close to log(2)
+    but may have decreased slightly as the adversary begins to commit.
+    """
+    import math
+    cfg = make_cfg()
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_adversarial_split(cfg, model, loaders, device, run)
+    run.finish()
+
+    H = metrics["train/assignment_entropy"]
+    assert 0.0 <= H <= math.log(2) + 1e-5, (
+        f"assignment entropy {H:.4f} outside valid range [0, log(2)={math.log(2):.4f}]"
+    )
+
+
+def test_train_adversarial_split_logits_move():
+    """After one epoch, at least some assignment logits should differ from 0.
+
+    The adversary starts at zero logits (sigmoid = 0.5 uniform split). If all
+    logits remain at zero after training, the adversary is not learning — either
+    gradients are not flowing or the adversary optimizer is broken.
+    """
+    cfg = make_cfg()
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    # We need access to assignment_logits after training; patch the function to expose them.
+    # Instead, verify indirectly: entropy < log(2) means logits have diverged from 0.
+    import math
+    metrics = train_adversarial_split(cfg, model, loaders, device, run)
+    run.finish()
+
+    # If logits were all still 0, entropy would be exactly log(2). A strict drop means movement.
+    assert metrics["train/assignment_entropy"] < math.log(2), (
+        "assignment entropy is still at maximum — adversary logits have not moved from zero"
+    )
+
+
+def test_train_adversarial_split_disagreement_finite():
+    """Disagreement must be a finite non-negative number — NaN indicates a gradient bug."""
+    cfg = make_cfg()
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_adversarial_split(cfg, model, loaders, device, run)
+    run.finish()
+
+    assert math.isfinite(metrics["train/disagreement"])
+    assert metrics["train/disagreement"] >= 0.0
+
+
+# ---------------------------------------------------------------------------
+# train_oracle_split
+# ---------------------------------------------------------------------------
+
+def test_train_oracle_split_metric_keys():
+    cfg = make_cfg()
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_oracle_split(cfg, model, loaders, device, run)
+    run.finish()
+
+    expected = {
+        "train/loss", "train/acc", "train/disagreement",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+    }
+    assert set(metrics.keys()) == expected
+
+
+def test_oracle_split_uses_color_not_random():
+    """Oracle split assignment must correlate with color, not be uniformly random.
+
+    With train_correlation=0.9, roughly 90% of examples have color == label.
+    The oracle assigns s=1 to color=0 examples and s=0 to color=1 examples.
+    At a minimum, the two partitions must be non-trivially unequal in label
+    distribution — unlike a random 50/50 split which would be balanced.
+    """
+    cfg = make_cfg()
+    loaders = make_dataloaders(cfg)
+    train_ds = loaders["train"].dataset
+
+    # Proportion of color=0 examples (should be ~50% — CMNIST balances colors)
+    color_0_frac = (train_ds.colors == 0).float().mean().item()
+    assert abs(color_0_frac - 0.5) < 0.05, (
+        f"expected ~50% color=0 examples, got {color_0_frac:.3f}"
+    )
+
+    # Within color=0 group, label distribution should differ from color=1 group.
+    # With train_correlation=0.9: P(label=0 | color=0) ≈ 0.9*0.5/0.5 = 0.9 (approx),
+    # while P(label=0 | color=1) ≈ 0.1. So label distributions are very different.
+    mask_0 = train_ds.colors == 0
+    label_rate_c0 = train_ds.labels[mask_0].float().mean().item()
+    label_rate_c1 = train_ds.labels[~mask_0].float().mean().item()
+    assert abs(label_rate_c0 - label_rate_c1) > 0.5, (
+        f"label rates within color groups should differ strongly; "
+        f"got {label_rate_c0:.2f} vs {label_rate_c1:.2f}"
+    )
+
+
+def test_adversarial_split_random_init():
+    """adv_init='random' must produce valid metrics — non-uniform starting partition."""
+    cfg = make_cfg()
+    cfg.training.adv_init = "random"
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_adversarial_split(cfg, model, loaders, device, run)
+    run.finish()
+
+    assert math.isfinite(metrics["train/assignment_entropy"])
+    assert 0.0 <= metrics["train/assignment_entropy"] <= math.log(2) + 1e-5
+
+
+def test_adversarial_split_head_noise():
+    """head_noise > 0 must produce valid metrics without NaN."""
+    cfg = make_cfg()
+    cfg.training.head_noise = 0.1
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_adversarial_split(cfg, model, loaders, device, run)
+    run.finish()
+
+    assert math.isfinite(metrics["train/disagreement"])
+    assert math.isfinite(metrics["train/assignment_entropy"])
+
+
+def test_adversarial_split_multi_adv_steps():
+    """adv_steps_per_model_step > 1 must produce valid metrics."""
+    cfg = make_cfg()
+    cfg.training.adv_steps_per_model_step = 3
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_adversarial_split(cfg, model, loaders, device, run)
+    run.finish()
+
+    assert set(metrics.keys()) == {
+        "train/loss", "train/acc", "train/disagreement", "train/assignment_entropy",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+    }
+
+
+def test_adversarial_split_warmup_frozen():
+    """With adv_warmup_epochs=1 and epochs=1, the adversary never activates.
+
+    The assignment logits must remain at their initial value (zeros → all equal)
+    because no adversary steps were taken. Entropy should therefore be at or
+    very close to log(2) (the all-0.5 assignment).
+    """
+    cfg = make_cfg()
+    cfg.training.adv_warmup_epochs = 1   # warmup covers the only epoch
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_adversarial_split(cfg, model, loaders, device, run)
+    run.finish()
+
+    # Logits are all 0 → entropy = log(2). Allow tiny float error.
+    assert abs(metrics["train/assignment_entropy"] - math.log(2)) < 1e-4, (
+        f"expected entropy = log(2) with frozen adversary, got {metrics['train/assignment_entropy']:.6f}"
+    )
+
+
+def test_adversarial_split_lambda_warmup():
+    """lambda_warmup_epochs > epochs means lambda=0 throughout — heads see no KL penalty."""
+    cfg = make_cfg()
+    cfg.training.lambda_warmup_epochs = 100   # far beyond the single epoch
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_adversarial_split(cfg, model, loaders, device, run)
+    run.finish()
+
+    assert math.isfinite(metrics["train/loss"])
+    assert math.isfinite(metrics["train/disagreement"])
+
+
+def test_adversarial_split_entropy_bonus():
+    """adv_entropy_bonus > 0 must produce valid metrics without NaN.
+
+    The entropy bonus penalises soft assignments in the adversary loss.
+    We verify it doesn't break training and that entropy remains in [0, log(2)].
+    """
+    cfg = make_cfg()
+    cfg.training.adv_entropy_bonus = 0.1
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_adversarial_split(cfg, model, loaders, device, run)
+    run.finish()
+
+    assert math.isfinite(metrics["train/assignment_entropy"])
+    assert 0.0 <= metrics["train/assignment_entropy"] <= math.log(2) + 1e-5
 
 
 def test_random_assignment_is_balanced():

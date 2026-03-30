@@ -55,30 +55,56 @@ class MLP(nn.Module):
 class SplitMLP(nn.Module):
     """Two-head MLP for split-based training methods (random split, adversarial split).
 
-    The shared backbone produces a single feature vector per example. Two independent
-    heads produce separate predictions. Training methods assign each example to one head
-    via soft weights s_i ∈ [0,1] and penalise disagreement between the heads.
+    Two independent heads produce separate predictions. Training methods assign each
+    example to one head via soft weights s_i ∈ [0,1] and penalise disagreement.
 
-    forward() returns (logits_a, logits_b) — raw logits from both heads on the same input.
-    This lets the training loop compute task losses and the KL disagreement term in one pass.
+    separate_backbones=False (default): one shared backbone feeds both heads.
+        Both heads see identical features — only their linear maps can differ.
+        This is cheap but limits specialisation: the representation is shared.
 
-    predict() returns averaged probabilities for evaluation, so we compare fairly with ERM's
-    single head. Averaging is principled: it is the mixture model (equal weight on each head).
+    separate_backbones=True: each head has its own backbone, independently
+        initialised and updated. The two pathways can learn genuinely different
+        representations, which is necessary for the adversarial partition to
+        cause meaningful specialisation. Costs 2× the parameters and compute.
+
+    forward() returns (logits_a, logits_b) — raw logits from both heads.
+    get_features() returns (features_a, features_b) — used by the adversarial
+        training loop to inject per-head noise before the linear heads.
+    predict() returns averaged probabilities for evaluation (mixture model).
     """
 
-    def __init__(self, input_dim: int, hidden_dim: int = 256) -> None:
+    def __init__(self, input_dim: int, hidden_dim: int = 256, separate_backbones: bool = False) -> None:
         super().__init__()
-        self.backbone = _make_backbone(input_dim, hidden_dim)
+        self.separate_backbones = separate_backbones
+        if separate_backbones:
+            # Independent initialisations — the two pathways start from different
+            # random weights and can diverge freely under the adversarial partition.
+            self.backbone_a = _make_backbone(input_dim, hidden_dim)
+            self.backbone_b = _make_backbone(input_dim, hidden_dim)
+        else:
+            self.backbone = _make_backbone(input_dim, hidden_dim)
         self.head_a = nn.Linear(hidden_dim, 2)
         self.head_b = nn.Linear(hidden_dim, 2)
 
+    def get_features(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return (features_a, features_b) — the backbone outputs for each head.
+
+        With a shared backbone both tensors are the same object (no extra compute).
+        With separate backbones each is an independent forward pass through its own
+        backbone. Used by the adversarial training loop to inject per-head noise
+        before the linear heads without duplicating the backbone/head split logic.
+        """
+        flat = x.flatten(1)   # (B, input_dim)
+        if self.separate_backbones:
+            return self.backbone_a(flat), self.backbone_b(flat)   # independent
+        f = self.backbone(flat)
+        return f, f   # same tensor — no overhead vs the original forward
+
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        # flatten(1): (B, 3, 28, 28) → (B, input_dim)
-        features = self.backbone(x.flatten(1))   # (B, hidden_dim)
-        return self.head_a(features), self.head_b(features)  # each (B, 2)
+        features_a, features_b = self.get_features(x)   # (B, hidden_dim) each
+        return self.head_a(features_a), self.head_b(features_b)   # each (B, 2)
 
     def predict(self, x: torch.Tensor) -> torch.Tensor:
         """Return averaged class probabilities (B, 2). Used by evaluate()."""
         logits_a, logits_b = self.forward(x)
-        # Average the two probability distributions — the mixture model
         return (logits_a.softmax(dim=1) + logits_b.softmax(dim=1)) / 2

@@ -151,10 +151,14 @@ for each batch (x, y, idx):
     model_loss.backward()
     model_optimizer.step()
 
-    # Adversary step: maximize disagreement via assignment weights
-    adv_loss = -disagreement  # negate because we maximize
+    # Adversary step: maximize task loss (causes head specialisation → disagreement)
+    # KL has zero gradient w.r.t. s_i (KL depends only on model weights, not s_i),
+    # so the correct adversary objective is the task loss, not -disagreement.
+    # Gradient: ∂adv_loss/∂s_i = -(CE_A(i) - CE_B(i)) → pushes example toward harder head.
+    adv_loss = -(s * cross_entropy(pred_A, y) + (1-s) * cross_entropy(pred_B, y)).mean()
     adv_loss.backward()
     assignment_optimizer.step()
+    assignment_logits.clamp_(-5.0, 5.0)  # prevent sigmoid saturation
 ```
 
 ---

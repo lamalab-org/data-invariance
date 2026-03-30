@@ -287,3 +287,272 @@ def train_random_split(
         log_metrics(run, metrics, step=epoch)
 
     return metrics
+
+
+def train_oracle_split(
+    cfg: DictConfig,
+    model: torch.nn.Module,
+    loaders: dict[str, DataLoader],
+    device: torch.device,
+    run: object,
+) -> dict[str, float]:
+    """Oracle split training loop — upper bound for learned partition methods.
+
+    Assignment is fixed to the ground-truth color label: color=0 examples train
+    head A (s=1), color=1 examples train head B (s=0). Within each head's data,
+    color is constant and therefore non-predictive, forcing both heads to learn
+    the true digit feature rather than the spurious color shortcut.
+
+    This is the best partition we could ever give the adversary. If adversarial
+    split can approach this OOD accuracy, the learned partition is doing its job.
+    If it can't, the adversary hasn't found the color-correlated split.
+
+    The training loop is identical to train_random_split — only the assignment
+    source differs (color label vs random coin flip).
+
+    Returns the final epoch's metrics dict.
+    """
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=cfg.training.lr,
+        weight_decay=cfg.training.weight_decay,
+    )
+
+    metrics: dict[str, float] = {}
+    for epoch in range(cfg.training.epochs):
+        model.train()
+        epoch_loss = 0.0
+        epoch_correct = 0
+        epoch_n = 0
+        epoch_disagree = 0.0
+
+        for batch in loaders["train"]:
+            x = batch["image"].to(device)    # (B, 3, 28, 28)
+            y = batch["label"].to(device)    # (B,) int64
+            # color=0 → red → head A (s=1); color=1 → green → head B (s=0)
+            s = (1 - batch["color"]).float().to(device)   # (B,) ∈ {0.0, 1.0}
+
+            logits_a, logits_b = model(x)    # each (B, 2)
+
+            ce_a = F.cross_entropy(logits_a, y, reduction="none")  # (B,)
+            ce_b = F.cross_entropy(logits_b, y, reduction="none")  # (B,)
+
+            loss_a = (s * ce_a).mean()
+            loss_b = ((1.0 - s) * ce_b).mean()
+            disagree = symmetric_kl(logits_a, logits_b)
+
+            loss = loss_a + loss_b + cfg.training.lambda_disagree * disagree
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            epoch_loss += loss.item() * len(y)
+            avg_probs = (logits_a.softmax(1) + logits_b.softmax(1)) / 2
+            epoch_correct += (avg_probs.argmax(1) == y).sum().item()
+            epoch_n += len(y)
+            epoch_disagree += disagree.item() * len(y)
+
+        id_metrics = evaluate(model, loaders["id_test"], device)
+        ood_metrics = evaluate(model, loaders["ood_test"], device)
+
+        metrics = {
+            "train/loss": epoch_loss / epoch_n,
+            "train/acc": epoch_correct / epoch_n,
+            "train/disagreement": epoch_disagree / epoch_n,
+            "eval/id_acc": id_metrics["acc"],
+            "eval/id_auroc": id_metrics["auroc"],
+            "eval/id_precision": id_metrics["precision"],
+            "eval/id_recall": id_metrics["recall"],
+            "eval/ood_acc": ood_metrics["acc"],
+            "eval/ood_auroc": ood_metrics["auroc"],
+            "eval/ood_precision": ood_metrics["precision"],
+            "eval/ood_recall": ood_metrics["recall"],
+        }
+        log_metrics(run, metrics, step=epoch)
+
+    return metrics
+
+
+def train_adversarial_split(
+    cfg: DictConfig,
+    model: torch.nn.Module,
+    loaders: dict[str, DataLoader],
+    device: torch.device,
+    run: object,
+) -> dict[str, float]:
+    """Adversarial split + KL disagreement penalty training loop.
+
+    The adversary maintains one learnable scalar logit per training example.
+    sigmoid(logit_i) = s_i ∈ (0,1): s_i ≈ 1 routes example i to head A,
+    s_i ≈ 0 routes it to head B.
+
+    Each batch alternates two gradient steps:
+
+    1. **Model step** — minimise weighted task loss + lambda * KL disagreement.
+       s is detached so model gradients don't flow back through assignment logits.
+
+    2. **Adversary step(s)** — maximise the weighted task loss. KL has zero
+       gradient w.r.t. s_i (depends only on model weights), so the adversary
+       maximises -(s*CE_A + (1-s)*CE_B), pushing each example toward its harder
+       head, which causes specialisation and drives disagreement indirectly.
+       ce_a/ce_b are detached from the model graph so model weights are fixed.
+       Running adv_steps_per_model_step > 1 lets the adversary commit to a
+       partition before the model can re-equalise the heads.
+
+    Symmetry-breaking options (all off by default):
+    - adv_init="random"        — non-uniform starting partition → CE_A ≠ CE_B
+                                  from step 1, giving the adversary an immediate
+                                  gradient signal.
+    - head_noise > 0           — independent Gaussian noise added to backbone
+                                  features before each head, preventing both heads
+                                  collapsing to identical linear maps.
+    - adv_warmup_epochs > 0    — assignment logits are frozen for the first N
+                                  epochs (combined with adv_init="random": heads
+                                  pre-differentiate on a fixed random partition
+                                  before the adversary starts optimising it).
+    - lambda_warmup_epochs > 0 — lambda is ramped linearly from 0 to
+                                  lambda_disagree over N epochs, letting heads
+                                  diverge before the disagreement penalty kicks in.
+
+    Logged metrics:
+    - train/disagreement       — KL between heads (same diagnostic as random split)
+    - train/assignment_entropy — H(s_i) averaged over all training examples.
+                                  Max = log(2) ≈ 0.693 (uniform); min = 0 (hard).
+                                  Should decrease as the adversary commits.
+
+    Returns the final epoch's metrics dict.
+    """
+    train_ds = loaders["train"].dataset
+    N = len(train_ds)
+
+    # --- Assignment logit initialisation ---
+    # "zeros"  → sigmoid(0) = 0.5 everywhere; the adversary starts blind.
+    # "random" → N(0, adv_init_scale²); immediately non-uniform so CE_A ≠ CE_B
+    #            and the adversary has a real gradient from the very first step.
+    #            Seed offset (+1) so this draw is independent of data/model seeds.
+    if cfg.training.adv_init == "zeros":
+        init_vals = torch.zeros(N)
+    else:
+        g = torch.Generator().manual_seed(cfg.training.seed + 1)
+        init_vals = torch.randn(N, generator=g) * cfg.training.adv_init_scale
+    assignment_logits = init_vals.to(device).requires_grad_(True)
+
+    # Plain Adam for the adversary: AdamW's weight decay pulls logits toward 0
+    # (sigmoid → 0.5, uniform split), directly fighting the adversary objective.
+    adv_optimizer = torch.optim.Adam([assignment_logits], lr=cfg.training.adv_lr)
+    model_optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=cfg.training.lr,
+        weight_decay=cfg.training.weight_decay,
+    )
+
+    metrics: dict[str, float] = {}
+    for epoch in range(cfg.training.epochs):
+        # Lambda warmup: ramp linearly from 0 to lambda_disagree over N epochs.
+        # Starting at 0 lets heads diverge first; only then does the penalty
+        # force a shared robust representation.
+        warmup = cfg.training.lambda_warmup_epochs
+        lam = cfg.training.lambda_disagree * (min(1.0, epoch / warmup) if warmup > 0 else 1.0)
+
+        # Warmup phase: adversary is frozen. Assignment logits stay fixed so the
+        # model pre-differentiates the heads on the current (possibly random) partition.
+        adversary_active = epoch >= cfg.training.adv_warmup_epochs
+
+        model.train()
+        epoch_loss = 0.0
+        epoch_correct = 0
+        epoch_n = 0
+        epoch_disagree = 0.0
+
+        for batch in loaders["train"]:
+            x = batch["image"].to(device)    # (B, 3, 28, 28)
+            y = batch["label"].to(device)    # (B,) int64
+            idx = batch["index"].to(device)  # (B,) global example indices
+
+            # --- Forward pass ---
+            # get_features() works for both shared and separate-backbone models.
+            # Noise is injected here (training only) — evaluate() uses predict()
+            # which goes through the clean forward path without noise.
+            features_a, features_b = model.get_features(x)   # (B, hidden_dim) each
+
+            if cfg.training.head_noise > 0.0:
+                # Independent draws per head — prevents collapse to identical maps
+                # even when the backbone is shared (features_a is features_b).
+                features_a = features_a + torch.randn_like(features_a) * cfg.training.head_noise
+                features_b = features_b + torch.randn_like(features_b) * cfg.training.head_noise
+
+            logits_a = model.head_a(features_a)   # (B, 2)
+            logits_b = model.head_b(features_b)   # (B, 2)
+
+            ce_a = F.cross_entropy(logits_a, y, reduction="none")   # (B,)
+            ce_b = F.cross_entropy(logits_b, y, reduction="none")   # (B,)
+
+            # --- Model step ---
+            s = assignment_logits[idx].sigmoid().detach()   # (B,) — no grad through logits
+            loss_a = (s * ce_a).mean()
+            loss_b = ((1.0 - s) * ce_b).mean()
+            disagree = symmetric_kl(logits_a, logits_b)
+
+            model_loss = loss_a + loss_b + lam * disagree
+            model_optimizer.zero_grad()
+            model_loss.backward()
+            model_optimizer.step()
+
+            # --- Adversary step(s) ---
+            # ce_a / ce_b are detached from the current model graph; model is fixed.
+            # Multiple steps exploit the same per-example losses — this is equivalent
+            # to a larger effective adversary learning rate with near-zero extra compute.
+            #
+            # Optional entropy bonus: -β * H(s_i) is subtracted from adv_loss,
+            # penalising soft (uncertain) assignments. This pushes the adversary
+            # toward hard 0/1 splits faster than the task-loss gradient alone.
+            # β = 0 recovers the original formulation.
+            if adversary_active:
+                for _ in range(cfg.training.adv_steps_per_model_step):
+                    s_adv = assignment_logits[idx].sigmoid()   # (B,) — live grad
+                    task_term = -(s_adv * ce_a.detach() + (1.0 - s_adv) * ce_b.detach()).mean()
+                    if cfg.training.adv_entropy_bonus > 0.0:
+                        s_c = s_adv.clamp(1e-7, 1.0 - 1e-7)
+                        batch_entropy = (-s_c * s_c.log() - (1.0 - s_c) * (1.0 - s_c).log()).mean()
+                        adv_loss = task_term - cfg.training.adv_entropy_bonus * batch_entropy
+                    else:
+                        adv_loss = task_term
+                    adv_optimizer.zero_grad()
+                    adv_loss.backward()
+                    adv_optimizer.step()
+                    with torch.no_grad():
+                        assignment_logits.clamp_(-5.0, 5.0)
+
+            epoch_loss += model_loss.item() * len(y)
+            avg_probs = (logits_a.softmax(1) + logits_b.softmax(1)) / 2
+            epoch_correct += (avg_probs.argmax(1) == y).sum().item()
+            epoch_n += len(y)
+            epoch_disagree += disagree.item() * len(y)
+
+        # Assignment entropy: H(s_i) averaged over all training examples.
+        # Clamp guards log(0) even though logit clamping already bounds s to [0.007, 0.993].
+        with torch.no_grad():
+            s_all = assignment_logits.sigmoid().clamp(1e-7, 1.0 - 1e-7)
+            entropy = (-s_all * s_all.log() - (1.0 - s_all) * (1.0 - s_all).log()).mean()
+
+        id_metrics = evaluate(model, loaders["id_test"], device)
+        ood_metrics = evaluate(model, loaders["ood_test"], device)
+
+        metrics = {
+            "train/loss": epoch_loss / epoch_n,
+            "train/acc": epoch_correct / epoch_n,
+            "train/disagreement": epoch_disagree / epoch_n,
+            "train/assignment_entropy": entropy.item(),
+            "eval/id_acc": id_metrics["acc"],
+            "eval/id_auroc": id_metrics["auroc"],
+            "eval/id_precision": id_metrics["precision"],
+            "eval/id_recall": id_metrics["recall"],
+            "eval/ood_acc": ood_metrics["acc"],
+            "eval/ood_auroc": ood_metrics["auroc"],
+            "eval/ood_precision": ood_metrics["precision"],
+            "eval/ood_recall": ood_metrics["recall"],
+        }
+        log_metrics(run, metrics, step=epoch)
+
+    return metrics

@@ -17,6 +17,10 @@ data:
 
 model:
   hidden_dim: 256
+  # Whether SplitMLP uses one shared backbone or two independent backbones.
+  # Separate backbones allow the two heads to learn genuinely different
+  # representations; shared backbone limits specialisation to the linear heads.
+  separate_backbones: false
 
 training:
   lr: 1e-3
@@ -32,3 +36,37 @@ training:
   # AdamW weight decay. Decoupled from the gradient update (unlike Adam's broken
   # weight decay). Small value — we are not sweeping this yet.
   weight_decay: 1e-4
+
+  # ---- Adversarial split options (ignored by erm / random_split) ----
+
+  # Assignment logit initialisation.
+  # "zeros"  → sigmoid(0) = 0.5 everywhere, fully uniform start.
+  # "random" → draw from N(0, adv_init_scale²), immediately creates a non-uniform
+  #            partition so CE_A ≠ CE_B from step 1 and the adversary has a gradient.
+  adv_init: "zeros"
+  adv_init_scale: 1.0          # std of the random init; only used when adv_init=random
+
+  # Gaussian noise std added independently to backbone features before each head.
+  # Even with a shared backbone, each head sees slightly different inputs every
+  # forward pass, preventing collapse to identical linear maps.
+  head_noise: 0.0
+
+  # Epochs to keep assignment logits frozen before the adversary activates.
+  # Combined with adv_init=random: pre-differentiates the heads on a fixed random
+  # partition before the adversary starts optimising it.
+  adv_warmup_epochs: 0
+
+  # Adversary gradient steps per model step. More steps give the adversary time
+  # to commit to a partition before the model can equalise the heads again.
+  adv_steps_per_model_step: 1
+
+  # Epochs to linearly ramp lambda from 0 to lambda_disagree.
+  # 0 → use lambda_disagree from epoch 0 (current behaviour).
+  # N → start at lambda=0, reach full lambda at epoch N. Lets heads diverge first.
+  lambda_warmup_epochs: 0
+
+  # Entropy bonus coefficient for the adversary.
+  # Adds -beta * H(s_i) to the adversary loss, penalising soft assignments and
+  # accelerating commitment toward hard 0/1 partitions.
+  # 0 → disabled (original formulation).
+  adv_entropy_bonus: 0.0
