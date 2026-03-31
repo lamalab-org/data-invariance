@@ -58,17 +58,19 @@ def symmetric_kl(logits_a: torch.Tensor, logits_b: torch.Tensor) -> torch.Tensor
     Returns:
         scalar — mean symmetric KL over the batch
     """
-    # Clamp log-probs to avoid -inf when heads are near-deterministic (e.g. oracle/separate
-    # backbones): F.kl_div computes pb * (log pb - log_pa), so log_pa → -∞ with finite pb
-    # gives inf → NaN in the gradient.  -100 corresponds to p ≈ 3.7e-44, safely non-zero.
-    log_pa = logits_a.log_softmax(dim=1).clamp(min=-100)   # (B, C)
-    log_pb = logits_b.log_softmax(dim=1).clamp(min=-100)   # (B, C)
-    pa = log_pa.exp()                      # (B, C) probabilities for head A
-    pb = log_pb.exp()                      # (B, C) probabilities for head B
-
-    # batchmean: sums over classes, averages over batch — the correct reduction for KL
-    kl_ab = F.kl_div(log_pa, pb, reduction="batchmean")
-    kl_ba = F.kl_div(log_pb, pa, reduction="batchmean")
+    # Clamp probabilities (not log-probs) so that log(p) stays finite.
+    # F.kl_div is avoided because it recomputes log(target) internally — on MPS,
+    # target values near 0 underflow to exactly 0.0, giving 0 * log(0) = NaN.
+    # Explicit formula with clamped probs is safe on every device.
+    # eps=1e-7: log(1e-7) ≈ -16, so symmetric KL is bounded at ≈ 16 nats max —
+    # much tighter than the previous -100 clamp and prevents gradient explosion.
+    eps = 1e-7
+    pa = logits_a.softmax(dim=1).clamp(min=eps)   # (B, C)
+    pb = logits_b.softmax(dim=1).clamp(min=eps)   # (B, C)
+    log_pa = pa.log()
+    log_pb = pb.log()
+    kl_ab = (pa * (log_pa - log_pb)).sum(dim=1).mean()   # KL(A || B)
+    kl_ba = (pb * (log_pb - log_pa)).sum(dim=1).mean()   # KL(B || A)
     return 0.5 * (kl_ab + kl_ba)
 
 
@@ -105,7 +107,7 @@ def evaluate(model: torch.nn.Module, loader: DataLoader, device: torch.device) -
 
             # Cross-entropy from probabilities: use log + nll_loss
             # sum reduction so we can compute a properly weighted mean at the end
-            total_loss += F.nll_loss(probs.log(), y, reduction="sum").item()
+            total_loss += F.nll_loss(probs.clamp(min=1e-7).log(), y, reduction="sum").item()
             total_n += len(y)
 
             pos_probs = probs[:, 1]         # (B,) probability of positive class
@@ -343,12 +345,18 @@ def train_oracle_split(
 
             loss_a = (s * ce_a).mean()
             loss_b = ((1.0 - s) * ce_b).mean()
-            disagree = symmetric_kl(logits_a, logits_b)
-
-            loss = loss_a + loss_b + cfg.training.lambda_disagree * disagree
+            # Oracle split: task loss only — no KL penalty.
+            # The oracle partition is the upper bound for partition quality; adding
+            # a KL penalty would fight the very specialisation we're trying to measure.
+            # We still compute disagree for logging so the curve is comparable to
+            # other methods, but it does not enter the gradient.
+            loss = loss_a + loss_b
+            with torch.no_grad():
+                disagree = symmetric_kl(logits_a, logits_b)
 
             optimizer.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
             epoch_loss += loss.item() * len(y)
@@ -522,6 +530,7 @@ def train_adversarial_split(
             model_loss = loss_a + loss_b + lam * disagree
             model_optimizer.zero_grad()
             model_loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             model_optimizer.step()
 
             # --- Adversary step(s) ---
@@ -692,6 +701,7 @@ def train_adversarial_split_multi(
             model_loss = task_loss + lam * disagree
             model_optimizer.zero_grad()
             model_loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             model_optimizer.step()
 
             # Adversary step(s)
