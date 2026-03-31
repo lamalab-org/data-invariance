@@ -58,8 +58,11 @@ def symmetric_kl(logits_a: torch.Tensor, logits_b: torch.Tensor) -> torch.Tensor
     Returns:
         scalar — mean symmetric KL over the batch
     """
-    log_pa = logits_a.log_softmax(dim=1)   # (B, C) log-probabilities for head A
-    log_pb = logits_b.log_softmax(dim=1)   # (B, C) log-probabilities for head B
+    # Clamp log-probs to avoid -inf when heads are near-deterministic (e.g. oracle/separate
+    # backbones): F.kl_div computes pb * (log pb - log_pa), so log_pa → -∞ with finite pb
+    # gives inf → NaN in the gradient.  -100 corresponds to p ≈ 3.7e-44, safely non-zero.
+    log_pa = logits_a.log_softmax(dim=1).clamp(min=-100)   # (B, C)
+    log_pb = logits_b.log_softmax(dim=1).clamp(min=-100)   # (B, C)
     pa = log_pa.exp()                      # (B, C) probabilities for head A
     pb = log_pb.exp()                      # (B, C) probabilities for head B
 
