@@ -6,8 +6,9 @@ import torch
 import wandb
 from omegaconf import OmegaConf
 
-from models import MLP, SplitMLP
-from train import evaluate, make_dataloaders, symmetric_kl, train_adversarial_split, train_erm, train_oracle_split, train_random_split
+from evaluate import compute_assignment_correlation, compute_assignment_correlation_multi
+from models import MLP, MultiHeadMLP, SplitMLP
+from train import evaluate, make_dataloaders, symmetric_kl, train_adversarial_split, train_adversarial_split_multi, train_erm, train_oracle_split, train_random_split
 
 
 def make_cfg():
@@ -315,6 +316,7 @@ def test_train_adversarial_split_metric_keys():
         "train/assignment_entropy",
         "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
         "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+        "assignment_color_corr", "assignment_color_abs_corr",
     }
     assert set(metrics.keys()) == expected
 
@@ -483,6 +485,7 @@ def test_adversarial_split_multi_adv_steps():
         "train/assignment_entropy",
         "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
         "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+        "assignment_color_corr", "assignment_color_abs_corr",
     }
 
 
@@ -588,6 +591,156 @@ def test_adversarial_split_threshold_disabled_matches_epoch_warmup():
     assert abs(metrics["train/lambda"] - cfg.training.lambda_disagree) < 1e-6, (
         f"expected train/lambda={cfg.training.lambda_disagree}, got {metrics['train/lambda']}"
     )
+
+
+# ---------------------------------------------------------------------------
+# compute_assignment_correlation
+# ---------------------------------------------------------------------------
+
+def test_assignment_correlation_range():
+    """Correlation must be in [-1, 1] and abs_corr in [0, 1]."""
+    cfg = make_cfg()
+    loaders = make_dataloaders(cfg)
+    logits = torch.randn(len(loaders["train"].dataset))
+    result = compute_assignment_correlation(logits, loaders["train"].dataset)
+    assert -1.0 - 1e-5 <= result["assignment_color_corr"] <= 1.0 + 1e-5
+    assert 0.0 <= result["assignment_color_abs_corr"] <= 1.0 + 1e-5
+
+
+def test_assignment_correlation_perfect():
+    """Logits perfectly aligned with colour produce |corr| ≈ 1."""
+    cfg = make_cfg()
+    loaders = make_dataloaders(cfg)
+    ds = loaders["train"].dataset
+    # logits = +5 for colour=1, -5 for colour=0 → sigmoid ≈ 1/0, perfectly aligned
+    logits = ds.colors.float() * 10.0 - 5.0
+    result = compute_assignment_correlation(logits, ds)
+    assert result["assignment_color_abs_corr"] > 0.99
+
+
+def test_assignment_correlation_multi_range():
+    """Multi-head correlation values must be in [0, 1]."""
+    cfg = make_cfg()
+    loaders = make_dataloaders(cfg)
+    K = 4
+    logits = torch.randn(len(loaders["train"].dataset), K)
+    result = compute_assignment_correlation_multi(logits, loaders["train"].dataset)
+    assert 0.0 <= result["assignment_color_max_abs_corr"] <= 1.0 + 1e-5
+    assert 0.0 <= result["assignment_color_mean_abs_corr"] <= 1.0 + 1e-5
+    assert result["assignment_color_max_abs_corr"] >= result["assignment_color_mean_abs_corr"]
+
+
+def test_train_adversarial_split_logs_correlation():
+    """train_adversarial_split must include assignment_color_corr in returned metrics."""
+    cfg = make_cfg()
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_adversarial_split(cfg, model, loaders, device, run)
+    run.finish()
+
+    assert "assignment_color_corr" in metrics
+    assert "assignment_color_abs_corr" in metrics
+    assert 0.0 <= metrics["assignment_color_abs_corr"] <= 1.0 + 1e-5
+
+
+# ---------------------------------------------------------------------------
+# MultiHeadMLP
+# ---------------------------------------------------------------------------
+
+def test_multi_head_mlp_forward_shapes():
+    for K in (2, 4):
+        model = MultiHeadMLP(input_dim=3 * 28 * 28, hidden_dim=64, num_heads=K)
+        x = torch.randn(4, 3, 28, 28)
+        logits_list = model(x)
+        assert len(logits_list) == K
+        for logits in logits_list:
+            assert logits.shape == (4, 2)
+
+
+def test_multi_head_mlp_predict_is_probabilities():
+    model = MultiHeadMLP(input_dim=3 * 28 * 28, hidden_dim=64, num_heads=4)
+    x = torch.randn(8, 3, 28, 28)
+    probs = model.predict(x)
+    assert probs.shape == (8, 2)
+    assert torch.allclose(probs.sum(dim=1), torch.ones(8), atol=1e-5)
+
+
+def test_multi_head_mlp_separate_backbones():
+    model = MultiHeadMLP(input_dim=3 * 28 * 28, hidden_dim=64, num_heads=3, separate_backbones=True)
+    x = torch.randn(4, 3, 28, 28)
+    features = model.get_all_features(x)
+    assert len(features) == 3
+    # With separate backbones each feature tensor must differ
+    assert not torch.equal(features[0], features[1])
+    assert not torch.equal(features[1], features[2])
+
+
+def test_multi_head_mlp_shared_backbone_same_features():
+    model = MultiHeadMLP(input_dim=3 * 28 * 28, hidden_dim=64, num_heads=3, separate_backbones=False)
+    x = torch.randn(4, 3, 28, 28)
+    features = model.get_all_features(x)
+    # Shared backbone: all feature tensors are the same object
+    assert features[0] is features[1]
+    assert features[1] is features[2]
+
+
+# ---------------------------------------------------------------------------
+# train_adversarial_split_multi
+# ---------------------------------------------------------------------------
+
+def test_train_adversarial_split_multi_metric_keys():
+    cfg = make_cfg()
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = MultiHeadMLP(input_dim=3 * 28 * 28, hidden_dim=64, num_heads=4).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_adversarial_split_multi(cfg, model, loaders, device, run)
+    run.finish()
+
+    expected = {
+        "train/loss", "train/acc", "train/disagreement", "train/lambda",
+        "train/assignment_entropy",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+        "assignment_color_max_abs_corr", "assignment_color_mean_abs_corr",
+    }
+    assert set(metrics.keys()) == expected
+
+
+def test_train_adversarial_split_multi_entropy_range():
+    """Entropy must lie in [0, log(K)] for K-way assignments."""
+    cfg = make_cfg()
+    K = 4
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = MultiHeadMLP(input_dim=3 * 28 * 28, hidden_dim=64, num_heads=K).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_adversarial_split_multi(cfg, model, loaders, device, run)
+    run.finish()
+
+    H = metrics["train/assignment_entropy"]
+    assert 0.0 <= H <= math.log(K) + 1e-5, (
+        f"entropy {H:.4f} outside [0, log({K})={math.log(K):.4f}]"
+    )
+
+
+def test_train_adversarial_split_multi_disagreement_finite():
+    cfg = make_cfg()
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = MultiHeadMLP(input_dim=3 * 28 * 28, hidden_dim=64, num_heads=4).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_adversarial_split_multi(cfg, model, loaders, device, run)
+    run.finish()
+
+    assert math.isfinite(metrics["train/disagreement"])
+    assert metrics["train/disagreement"] >= 0.0
 
 
 def test_random_assignment_is_balanced():

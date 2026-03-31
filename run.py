@@ -6,8 +6,8 @@ import hydra
 import wandb
 from omegaconf import DictConfig, OmegaConf
 
-from models import MLP, SplitMLP
-from train import make_dataloaders, train_adversarial_split, train_erm, train_oracle_split, train_random_split
+from models import MLP, MultiHeadMLP, SplitMLP
+from train import make_dataloaders, train_adversarial_split, train_adversarial_split_multi, train_erm, train_oracle_split, train_random_split
 from utils import get_device, set_seed
 
 
@@ -66,12 +66,21 @@ def main(cfg: DictConfig) -> None:
         train_oracle_split(cfg, model, loaders, device, run)
 
     elif cfg.method.name == "adversarial_split":
-        model = SplitMLP(
-            input_dim=input_dim,
-            hidden_dim=cfg.model.hidden_dim,
-            separate_backbones=cfg.model.separate_backbones,
-        ).to(device)
-        train_adversarial_split(cfg, model, loaders, device, run)
+        if cfg.model.num_heads == 2:
+            model = SplitMLP(
+                input_dim=input_dim,
+                hidden_dim=cfg.model.hidden_dim,
+                separate_backbones=cfg.model.separate_backbones,
+            ).to(device)
+            train_adversarial_split(cfg, model, loaders, device, run)
+        else:
+            model = MultiHeadMLP(
+                input_dim=input_dim,
+                hidden_dim=cfg.model.hidden_dim,
+                num_heads=cfg.model.num_heads,
+                separate_backbones=cfg.model.separate_backbones,
+            ).to(device)
+            train_adversarial_split_multi(cfg, model, loaders, device, run)
 
     else:
         raise NotImplementedError(f"method '{cfg.method.name}' not yet implemented")

@@ -7,6 +7,7 @@ from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 
 from data import ColoredMNIST
+from evaluate import compute_assignment_correlation, compute_assignment_correlation_multi
 from utils import log_metrics
 
 
@@ -577,6 +578,176 @@ def train_adversarial_split(
             "eval/ood_precision": ood_metrics["precision"],
             "eval/ood_recall": ood_metrics["recall"],
         }
+        # After the final epoch, compute how well the assignment tracks colour.
+        # Logged only once so it appears as a scalar summary in wandb rather than
+        # a curve — it's a property of the converged partition, not a trajectory.
+        if epoch == cfg.training.epochs - 1:
+            corr_metrics = compute_assignment_correlation(assignment_logits, loaders["train"].dataset)
+            metrics.update(corr_metrics)
+
+        log_metrics(run, metrics, step=epoch)
+
+    return metrics
+
+def train_adversarial_split_multi(
+    cfg: DictConfig,
+    model: torch.nn.Module,
+    loaders: dict[str, DataLoader],
+    device: torch.device,
+    run: object,
+) -> dict[str, float]:
+    """Adversarial split for K>2 heads using softmax (K-simplex) assignments.
+
+    Generalises train_adversarial_split from binary (sigmoid) to K-way (softmax).
+
+    Assignment: (N, K) logits; s_ik = softmax(logits_i)[k] with sum_k s_ik = 1.
+    Adversary pushes each example toward its hardest head — gradient of
+    -(sum_k s_ik * CE_k(i)) w.r.t. logit_ij is -s_ij*(CE_j - avg_CE), negative
+    when head j has above-average CE, so s_ij increases.
+
+    Disagreement: average symmetric KL over all K(K-1)/2 head pairs.
+
+    Assignment entropy: H(s_i) = -sum_k s_ik log s_ik, averaged over examples.
+    Max = log(K) (uniform); min = 0 (hard single-head assignment).
+
+    Lambda scheduling (threshold + warmup) identical to binary case.
+    Correlation diagnostic uses compute_assignment_correlation_multi.
+
+    Returns the final epoch's metrics dict.
+    """
+    train_ds = loaders["train"].dataset
+    N = len(train_ds)
+    K = model.num_heads
+    n_pairs = K * (K - 1) // 2
+
+    if cfg.training.adv_init == "zeros":
+        init_vals = torch.zeros(N, K)
+    else:
+        g = torch.Generator().manual_seed(cfg.training.seed + 1)
+        init_vals = torch.randn(N, K, generator=g) * cfg.training.adv_init_scale
+    assignment_logits = init_vals.to(device).requires_grad_(True)
+
+    adv_optimizer = torch.optim.Adam([assignment_logits], lr=cfg.training.adv_lr)
+    model_optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=cfg.training.lr,
+        weight_decay=cfg.training.weight_decay,
+    )
+
+    metrics: dict[str, float] = {}
+    prev_disagree = 0.0
+    for epoch in range(cfg.training.epochs):
+        # Lambda schedules — identical logic to binary case
+        warmup_e = cfg.training.lambda_warmup_epochs
+        lam_epoch = cfg.training.lambda_disagree * (min(1.0, epoch / warmup_e) if warmup_e > 0 else 1.0)
+
+        thr = cfg.training.lambda_threshold
+        if thr > 0.0:
+            if prev_disagree < thr:
+                lam_disagree = 0.0
+            elif cfg.training.lambda_ramp_range > 0.0:
+                lam_disagree = cfg.training.lambda_disagree * min(
+                    1.0, (prev_disagree - thr) / cfg.training.lambda_ramp_range
+                )
+            else:
+                lam_disagree = cfg.training.lambda_disagree
+        else:
+            lam_disagree = cfg.training.lambda_disagree
+
+        lam = min(lam_epoch, lam_disagree)
+        adversary_active = epoch >= cfg.training.adv_warmup_epochs
+
+        model.train()
+        epoch_loss = 0.0
+        epoch_correct = 0
+        epoch_n = 0
+        epoch_disagree = 0.0
+
+        for batch in loaders["train"]:
+            x = batch["image"].to(device)
+            y = batch["label"].to(device)
+            idx = batch["index"].to(device)
+
+            features_list = model.get_all_features(x)   # K × (B, hidden_dim)
+            if cfg.training.head_noise > 0.0:
+                features_list = [
+                    f + torch.randn_like(f) * cfg.training.head_noise
+                    for f in features_list
+                ]
+            logits_list = [model.heads[k](features_list[k]) for k in range(K)]   # K × (B,2)
+            ce_list = [F.cross_entropy(logits_list[k], y, reduction="none") for k in range(K)]
+
+            # Average pairwise symmetric KL
+            disagree = sum(
+                symmetric_kl(logits_list[j], logits_list[k])
+                for j in range(K) for k in range(j + 1, K)
+            ) / n_pairs
+
+            # Model step
+            s = assignment_logits[idx].softmax(dim=1).detach()   # (B, K)
+            task_loss = sum((s[:, k] * ce_list[k]).mean() for k in range(K))
+            model_loss = task_loss + lam * disagree
+            model_optimizer.zero_grad()
+            model_loss.backward()
+            model_optimizer.step()
+
+            # Adversary step(s)
+            if adversary_active:
+                for _ in range(cfg.training.adv_steps_per_model_step):
+                    s_adv = assignment_logits[idx].softmax(dim=1)   # (B, K)
+                    task_term = -sum(
+                        (s_adv[:, k] * ce_list[k].detach()).mean() for k in range(K)
+                    )
+                    if cfg.training.adv_entropy_bonus > 0.0:
+                        s_c = s_adv.clamp(1e-7, 1.0 - 1e-7)
+                        batch_entropy = -(s_c * s_c.log()).sum(dim=1).mean()
+                        adv_loss = task_term - cfg.training.adv_entropy_bonus * batch_entropy
+                    else:
+                        adv_loss = task_term
+                    adv_optimizer.zero_grad()
+                    adv_loss.backward()
+                    adv_optimizer.step()
+                    with torch.no_grad():
+                        assignment_logits.clamp_(-5.0, 5.0)
+
+            epoch_loss += model_loss.item() * len(y)
+            avg_probs = sum(logits_list[k].softmax(1) for k in range(K)) / K
+            epoch_correct += (avg_probs.argmax(1) == y).sum().item()
+            epoch_n += len(y)
+            epoch_disagree += disagree.item() * len(y)
+
+        # H(s_i) = -sum_k s_ik log s_ik, max = log(K)
+        with torch.no_grad():
+            s_all = assignment_logits.softmax(dim=1).clamp(1e-7, 1.0 - 1e-7)
+            entropy = -(s_all * s_all.log()).sum(dim=1).mean()
+
+        prev_disagree = epoch_disagree / epoch_n
+
+        id_metrics = evaluate(model, loaders["id_test"], device)
+        ood_metrics = evaluate(model, loaders["ood_test"], device)
+
+        metrics = {
+            "train/loss": epoch_loss / epoch_n,
+            "train/acc": epoch_correct / epoch_n,
+            "train/disagreement": epoch_disagree / epoch_n,
+            "train/lambda": lam,
+            "train/assignment_entropy": entropy.item(),
+            "eval/id_acc": id_metrics["acc"],
+            "eval/id_auroc": id_metrics["auroc"],
+            "eval/id_precision": id_metrics["precision"],
+            "eval/id_recall": id_metrics["recall"],
+            "eval/ood_acc": ood_metrics["acc"],
+            "eval/ood_auroc": ood_metrics["auroc"],
+            "eval/ood_precision": ood_metrics["precision"],
+            "eval/ood_recall": ood_metrics["recall"],
+        }
+
+        if epoch == cfg.training.epochs - 1:
+            corr_metrics = compute_assignment_correlation_multi(
+                assignment_logits, loaders["train"].dataset
+            )
+            metrics.update(corr_metrics)
+
         log_metrics(run, metrics, step=epoch)
 
     return metrics

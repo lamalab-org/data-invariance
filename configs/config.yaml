@@ -17,10 +17,13 @@ data:
 
 model:
   hidden_dim: 256
-  # Whether SplitMLP uses one shared backbone or two independent backbones.
-  # Separate backbones allow the two heads to learn genuinely different
-  # representations; shared backbone limits specialisation to the linear heads.
+  # Whether SplitMLP/MultiHeadMLP uses one shared backbone or K independent backbones.
+  # Separate backbones allow each head to learn genuinely different representations;
+  # shared backbone limits specialisation to the linear heads.
   separate_backbones: false
+  # Number of heads for adversarial split. 2 → SplitMLP (binary, sigmoid assignments);
+  # >2 → MultiHeadMLP (K-way, softmax assignments). Other methods always use 2.
+  num_heads: 2
 
 training:
   lr: 1e-3
