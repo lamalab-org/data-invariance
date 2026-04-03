@@ -975,20 +975,41 @@ def discover_environments(
             loss.backward()
             opt.step()
 
-    # Score every training example by prediction entropy H(p).
+    # Score every training example.
+    criterion = getattr(cfg.training, "discovery_criterion", "entropy")
     disc.eval()
-    entropies = torch.zeros(N)
+    scores = torch.zeros(N)
     with torch.no_grad():
         for batch in loaders["train"]:
             x   = batch["image"].to(device)
+            y   = batch["label"].to(device)
             idx = batch["index"]
-            p   = disc(x).softmax(1).clamp(min=1e-7)
-            h   = -(p * p.log()).sum(1)
-            entropies[idx] = h.cpu()
+            logits = disc(x)
+            if criterion == "loss":
+                # Per-example cross-entropy loss.  colour≠label examples score
+                # high (model confidently predicts wrong class based on colour).
+                s = F.cross_entropy(logits, y, reduction="none")
+            else:
+                # Prediction entropy H(p).  Works at low correlation where
+                # colour≠label examples are genuinely uncertain.
+                p = logits.softmax(1).clamp(min=1e-7)
+                s = -(p * p.log()).sum(1)
+            scores[idx] = s.cpu()
 
-    # Balanced median split: bottom 50% entropy -> env A, top 50% -> env B.
-    threshold  = entropies.median()
-    assignment = (entropies >= threshold).long()
+    # Split by score quantile.
+    q = getattr(cfg.training, "discovery_quantile", 0.5)
+    if q == 0.5:
+        # Balanced median split: bottom 50% -> env A, top 50% -> env B.
+        threshold = scores.median()
+        assignment = (scores >= threshold).long()
+    else:
+        # Extremes split: bottom q% -> env A (0), top q% -> env B (1),
+        # middle examples get -1 and are excluded from both environments.
+        low_thresh  = torch.quantile(scores, q)
+        high_thresh = torch.quantile(scores, 1.0 - q)
+        assignment  = torch.full((N,), -1, dtype=torch.long)  # -1 = excluded
+        assignment[scores <= low_thresh]  = 0   # env A: lowest score
+        assignment[scores >= high_thresh] = 1   # env B: highest score
 
     # --- Diagnostics ---
     colors = train_ds.colors.float()
@@ -996,17 +1017,20 @@ def discover_environments(
 
     def _corr(mask: torch.Tensor) -> float:
         c, l = colors[mask], labels[mask]
-        if c.std() < 1e-8 or l.std() < 1e-8:
+        if len(c) < 2 or c.std() < 1e-8 or l.std() < 1e-8:
             return 0.0
         return torch.corrcoef(torch.stack([c, l]))[0, 1].item()
 
     mask_A = assignment == 0
     mask_B = assignment == 1
+    mask_used = mask_A | mask_B   # excludes -1 examples
 
-    s_f = assignment.float()
+    # Correlation computed only over assigned examples (A and B).
+    s_used = assignment[mask_used].float()
+    c_used = colors[mask_used]
     disc_color_abs_corr = (
-        abs(torch.corrcoef(torch.stack([s_f, colors]))[0, 1].item())
-        if s_f.std() > 1e-8 and colors.std() > 1e-8
+        abs(torch.corrcoef(torch.stack([s_used, c_used]))[0, 1].item())
+        if len(s_used) > 1 and s_used.std() > 1e-8 and c_used.std() > 1e-8
         else 0.0
     )
 
@@ -1016,6 +1040,7 @@ def discover_environments(
         "discovery/color_label_corr_B":        _corr(mask_B),
         "discovery/n_env_A":                   float(mask_A.sum().item()),
         "discovery/n_env_B":                   float(mask_B.sum().item()),
+        "discovery/n_excluded":                float((assignment == -1).sum().item()),
     }
     return assignment, diag_metrics
 
@@ -1053,8 +1078,18 @@ def train_discovered_split(
 
     log_metrics(run, discovery_metrics, step=0)
 
+    anneal_factor = getattr(cfg.training, "lambda_anneal_factor", 1.0)
+
     metrics: dict[str, float] = {}
     for epoch in range(cfg.training.epochs):
+        # Lambda annealing: linearly interpolate from lambda_disagree to
+        # lambda_disagree * anneal_factor over training.
+        if cfg.training.epochs > 1 and anneal_factor != 1.0:
+            progress = epoch / (cfg.training.epochs - 1)
+            lam = cfg.training.lambda_disagree * (1.0 + (anneal_factor - 1.0) * progress)
+        else:
+            lam = cfg.training.lambda_disagree
+
         model.train()
         epoch_loss     = 0.0
         epoch_correct  = 0
@@ -1069,23 +1104,32 @@ def train_discovered_split(
             logits = model(x)                              # (B, 2) single head
             ce = F.cross_entropy(logits, y, reduction="none")  # (B,)
 
-            # Split loss by discovered environment
-            env_a_mask = assignment[idx] == 0               # bool (B,)
-            env_b_mask = ~env_a_mask
+            # Split loss by discovered environment.
+            # assignment == -1 marks excluded examples (middle of score
+            # distribution when discovery_quantile < 0.5).
+            batch_assign = assignment[idx]
+            env_a_mask = batch_assign == 0
+            env_b_mask = batch_assign == 1
 
-            # Guard against empty-environment batches (possible if split is
-            # very imbalanced and batch size is small).
             n_a = env_a_mask.sum()
             n_b = env_b_mask.sum()
             if n_a > 0 and n_b > 0:
                 loss_A   = ce[env_a_mask].mean()
                 loss_B   = ce[env_b_mask].mean()
                 risk_var = (loss_A - loss_B) ** 2
-                model_loss = (loss_A + loss_B) / 2 + cfg.training.lambda_disagree * risk_var
-            else:
-                # Fallback: plain ERM if one environment is missing in this batch
-                model_loss = ce.mean()
+                # Task loss only on environment examples — excluded middle
+                # does not contribute to gradients.  This prevents the dominant
+                # spurious signal from overwhelming the V-REx constraint.
+                model_loss = (loss_A + loss_B) / 2 + lam * risk_var
+            elif n_a > 0:
+                model_loss = ce[env_a_mask].mean()
                 risk_var = torch.tensor(0.0)
+            elif n_b > 0:
+                model_loss = ce[env_b_mask].mean()
+                risk_var = torch.tensor(0.0)
+            else:
+                # Batch has only excluded examples — skip gradient update.
+                continue
 
             optimizer.zero_grad()
             model_loss.backward()
@@ -1104,6 +1148,7 @@ def train_discovered_split(
             "train/loss":          epoch_loss     / epoch_n,
             "train/acc":           epoch_correct  / epoch_n,
             "train/risk_variance": epoch_risk_var / epoch_n,
+            "train/lambda":        lam,
             "eval/id_acc":         id_metrics["acc"],
             "eval/id_auroc":       id_metrics["auroc"],
             "eval/id_precision":   id_metrics["precision"],

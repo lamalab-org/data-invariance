@@ -25,6 +25,9 @@ def make_cfg():
             "lambda_threshold": 0.0, "lambda_ramp_range": 0.0,
             "adv_mode": "task_loss",
             "discovery_epochs": 2,
+            "lambda_anneal_factor": 1.0,
+            "discovery_quantile": 0.5,
+            "discovery_criterion": "entropy",
         },
         "method": {"name": "erm"},
         "wandb": {"enabled": False},
@@ -929,7 +932,7 @@ def test_train_discovered_split_metric_keys():
     run.finish()
 
     expected = {
-        "train/loss", "train/acc", "train/risk_variance",
+        "train/loss", "train/acc", "train/risk_variance", "train/lambda",
         "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
         "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
     }

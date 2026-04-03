@@ -71,12 +71,36 @@ training:
   # N → start at lambda=0, reach full lambda at epoch N. Lets heads diverge first.
   lambda_warmup_epochs: 0
 
+  # Lambda multiplier at the final epoch for discovered_split.
+  # lambda(epoch) = lambda_disagree * (1 + (lambda_anneal_factor - 1) * epoch / (epochs - 1))
+  # 1.0 → constant lambda (default). 10.0 → lambda grows 10x from first to last epoch.
+  # Prevents overfitting: as the model equalises risk, the penalty stays effective.
+  lambda_anneal_factor: 1.0
+
   # ---- Environment discovery options (used by discovered_split only) ----
 
   # Epochs to train the throw-away ERM discovery model.
   # Enough to learn the spurious feature but not enough to overfit.
   # 3–10 is usually sufficient; more epochs → more confident scores → sharper split.
   discovery_epochs: 5
+
+  # Scoring criterion for environment discovery.
+  # "entropy" → split by prediction entropy H(p). Works when colour≠label examples
+  #             are genuinely uncertain (low correlation). Fails at high correlation
+  #             where the model is confidently WRONG on colour≠label examples.
+  # "loss"    → split by cross-entropy loss. colour≠label examples have high loss
+  #             (model predicts wrong class based on colour). Works at any correlation.
+  discovery_criterion: "loss"
+
+  # Quantile threshold for environment split.
+  # 0.5 → median split (50/50 balanced).
+  # 0.1 → bottom 10% entropy (most confident) vs top 10% (most uncertain).
+  #        Gives sharper environment contrast but uses less training data.
+  # "extremes" → bottom Q% AND top Q% (both tails), discards the middle.
+  # At high train_correlation (0.9), only ~10% of examples have colour≠label.
+  # A 50/50 split dilutes env B with colour=label majority. Lower quantiles
+  # (0.1–0.2) concentrate the signal.
+  discovery_quantile: 0.5
 
   # Adversary mode — controls what the adversary optimises.
   # "task_loss"  → default: maximise per-head task loss; pushes examples toward their
