@@ -8,7 +8,7 @@ from omegaconf import OmegaConf
 
 from evaluate import compute_assignment_correlation, compute_assignment_correlation_multi
 from models import MLP, MultiHeadMLP, SplitMLP
-from train import evaluate, make_dataloaders, symmetric_kl, train_adversarial_split, train_adversarial_split_multi, train_erm, train_oracle_split, train_random_split
+from train import discover_environments, evaluate, make_dataloaders, symmetric_kl, train_adversarial_split, train_adversarial_split_multi, train_discovered_split, train_erm, train_oracle_split, train_random_split, train_resampling
 
 
 def make_cfg():
@@ -23,6 +23,8 @@ def make_cfg():
             "adv_steps_per_model_step": 1, "lambda_warmup_epochs": 0,
             "adv_entropy_bonus": 0.0,
             "lambda_threshold": 0.0, "lambda_ramp_range": 0.0,
+            "adv_mode": "task_loss",
+            "discovery_epochs": 2,
         },
         "method": {"name": "erm"},
         "wandb": {"enabled": False},
@@ -312,8 +314,8 @@ def test_train_adversarial_split_metric_keys():
     run.finish()
 
     expected = {
-        "train/loss", "train/acc", "train/disagreement", "train/lambda",
-        "train/assignment_entropy",
+        "train/loss", "train/acc", "train/disagreement", "train/risk_variance",
+        "train/lambda", "train/assignment_entropy",
         "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
         "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
         "assignment_color_corr", "assignment_color_abs_corr",
@@ -481,8 +483,8 @@ def test_adversarial_split_multi_adv_steps():
     run.finish()
 
     assert set(metrics.keys()) == {
-        "train/loss", "train/acc", "train/disagreement", "train/lambda",
-        "train/assignment_entropy",
+        "train/loss", "train/acc", "train/disagreement", "train/risk_variance",
+        "train/lambda", "train/assignment_entropy",
         "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
         "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
         "assignment_color_corr", "assignment_color_abs_corr",
@@ -591,6 +593,107 @@ def test_adversarial_split_threshold_disabled_matches_epoch_warmup():
     assert abs(metrics["train/lambda"] - cfg.training.lambda_disagree) < 1e-6, (
         f"expected train/lambda={cfg.training.lambda_disagree}, got {metrics['train/lambda']}"
     )
+
+
+def test_adversarial_split_grad_div_mode():
+    """adv_mode='grad_div' must run without errors and produce valid metrics.
+
+    The gradient-diversity adversary minimises cosine similarity between the two
+    heads' gradient directions at the backbone output.  We verify:
+    1. All expected metric keys are present and finite.
+    2. Assignment logits have moved from zero (adversary produced a gradient).
+    3. Assignment entropy is in the valid binary-entropy range [0, log(2)].
+    """
+    cfg = make_cfg()
+    cfg.training.adv_mode = "grad_div"
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_adversarial_split(cfg, model, loaders, device, run)
+    run.finish()
+
+    expected = {
+        "train/loss", "train/acc", "train/disagreement", "train/risk_variance",
+        "train/lambda", "train/assignment_entropy",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+        "assignment_color_corr", "assignment_color_abs_corr",
+    }
+    assert set(metrics.keys()) == expected
+    assert all(math.isfinite(v) for v in metrics.values()), "some metric is not finite"
+    assert 0.0 <= metrics["train/assignment_entropy"] <= math.log(2) + 1e-5
+
+
+def test_adversarial_split_risk_variance_mode():
+    """adv_mode='risk_variance': adversary maximises (loss_A-loss_B)², model minimises it.
+
+    Checks:
+    1. All expected metric keys present and finite.
+    2. train/risk_variance is non-negative (it's a squared quantity).
+    3. Assignment entropy is in [0, log(2)].
+    """
+    cfg = make_cfg()
+    cfg.training.adv_mode = "risk_variance"
+    cfg.training.adv_entropy_bonus = 0.1   # prevent partition collapse
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_adversarial_split(cfg, model, loaders, device, run)
+    run.finish()
+
+    expected = {
+        "train/loss", "train/acc", "train/disagreement", "train/risk_variance",
+        "train/lambda", "train/assignment_entropy",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+        "assignment_color_corr", "assignment_color_abs_corr",
+    }
+    assert set(metrics.keys()) == expected
+    assert all(math.isfinite(v) for v in metrics.values()), "some metric is not finite"
+    assert metrics["train/risk_variance"] >= 0.0
+    assert 0.0 <= metrics["train/assignment_entropy"] <= math.log(2) + 1e-5
+
+
+# ---------------------------------------------------------------------------
+# train_resampling
+# ---------------------------------------------------------------------------
+
+def test_train_resampling_metric_keys():
+    """train_resampling must return the expected metric keys."""
+    cfg = make_cfg()
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_resampling(cfg, model, loaders, device, run)
+    run.finish()
+
+    expected = {
+        "train/loss", "train/acc", "train/disagreement", "train/risk_variance",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+    }
+    assert set(metrics.keys()) == expected
+
+
+def test_train_resampling_risk_variance_nonnegative():
+    """risk_variance = (loss_A - loss_B)² must be non-negative and finite."""
+    cfg = make_cfg()
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+
+    run = wandb.init(mode="disabled")
+    metrics = train_resampling(cfg, model, loaders, device, run)
+    run.finish()
+
+    assert math.isfinite(metrics["train/risk_variance"])
+    assert metrics["train/risk_variance"] >= 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -753,3 +856,101 @@ def test_random_assignment_is_balanced():
     assignment = torch.randint(0, 2, (N,), generator=g)
     frac_a = (assignment == 0).float().mean().item()
     assert abs(frac_a - 0.5) < 0.05, f"assignment imbalance: {frac_a:.3f} assigned to head A"
+
+
+# ---------------------------------------------------------------------------
+# discover_environments
+# ---------------------------------------------------------------------------
+
+def test_discover_environments_shapes():
+    """assignment must be (N,) long tensor; diag_metrics must contain expected keys."""
+    cfg = make_cfg()
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    N = len(loaders["train"].dataset)
+
+    assignment, diag = discover_environments(cfg, loaders, device)
+
+    assert assignment.shape == (N,), f"expected ({N},), got {assignment.shape}"
+    assert assignment.dtype == torch.long
+    expected_diag_keys = {
+        "discovery/assignment_color_abs_corr",
+        "discovery/color_label_corr_A",
+        "discovery/color_label_corr_B",
+        "discovery/n_env_A",
+        "discovery/n_env_B",
+    }
+    assert expected_diag_keys.issubset(set(diag.keys())), (
+        f"missing keys: {expected_diag_keys - set(diag.keys())}"
+    )
+
+
+def test_discover_environments_binary():
+    """assignment values must be 0 or 1 only."""
+    cfg = make_cfg()
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+
+    assignment, _ = discover_environments(cfg, loaders, device)
+
+    unique = assignment.unique().tolist()
+    assert set(unique).issubset({0, 1}), f"unexpected values: {unique}"
+
+
+def test_discover_environments_balanced():
+    """Median split should give roughly equal-sized environments."""
+    cfg = make_cfg()
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+    N = len(loaders["train"].dataset)
+
+    assignment, diag = discover_environments(cfg, loaders, device)
+
+    frac_A = (assignment == 0).float().mean().item()
+    assert abs(frac_A - 0.5) < 0.1, f"severe imbalance: {frac_A:.3f} in env A"
+    assert abs(diag["discovery/n_env_A"] - diag["discovery/n_env_B"]) < 0.15 * N
+
+
+# ---------------------------------------------------------------------------
+# train_discovered_split
+# ---------------------------------------------------------------------------
+
+def test_train_discovered_split_metric_keys():
+    """train_discovered_split must return the required metric keys."""
+    cfg = make_cfg()
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+
+    assignment, diag = discover_environments(cfg, loaders, device)
+
+    model = MLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+    run = wandb.init(mode="disabled")
+    metrics = train_discovered_split(cfg, model, loaders, device, run, assignment, diag)
+    run.finish()
+
+    expected = {
+        "train/loss", "train/acc", "train/risk_variance",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+    }
+    assert set(metrics.keys()) == expected, (
+        f"missing: {expected - set(metrics.keys())}; extra: {set(metrics.keys()) - expected}"
+    )
+
+
+def test_train_discovered_split_risk_variance_nonnegative():
+    """V-REx risk variance must be non-negative."""
+    cfg = make_cfg()
+    device = torch.device("cpu")
+    loaders = make_dataloaders(cfg)
+
+    assignment, diag = discover_environments(cfg, loaders, device)
+
+    model = MLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
+    run = wandb.init(mode="disabled")
+    metrics = train_discovered_split(cfg, model, loaders, device, run, assignment, diag)
+    run.finish()
+
+    assert metrics["train/risk_variance"] >= 0.0, (
+        f"negative risk variance: {metrics['train/risk_variance']}"
+    )

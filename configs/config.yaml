@@ -46,6 +46,9 @@ training:
   # "zeros"  → sigmoid(0) = 0.5 everywhere, fully uniform start.
   # "random" → draw from N(0, adv_init_scale²), immediately creates a non-uniform
   #            partition so CE_A ≠ CE_B from step 1 and the adversary has a gradient.
+  # "oracle" → initialize from ground-truth color labels (color=0 → +5, color=1 → -5).
+  #            Sanity check: does the mechanism improve OOD when the partition is known?
+  #            If yes, mechanism is sound; only bootstrap/discovery remains to solve.
   adv_init: "zeros"
   adv_init_scale: 1.0          # std of the random init; only used when adv_init=random
 
@@ -67,6 +70,26 @@ training:
   # 0 → use lambda_disagree from epoch 0 (current behaviour).
   # N → start at lambda=0, reach full lambda at epoch N. Lets heads diverge first.
   lambda_warmup_epochs: 0
+
+  # ---- Environment discovery options (used by discovered_split only) ----
+
+  # Epochs to train the throw-away ERM discovery model.
+  # Enough to learn the spurious feature but not enough to overfit.
+  # 3–10 is usually sufficient; more epochs → more confident scores → sharper split.
+  discovery_epochs: 5
+
+  # Adversary mode — controls what the adversary optimises.
+  # "task_loss"  → default: maximise per-head task loss; pushes examples toward their
+  #                harder head, creating an easy/hard partition.  Does NOT reliably
+  #                produce feature diversity.
+  # "grad_div"   → gradient-diversity: minimise cosine similarity between the two
+  #                heads' gradient update directions at the backbone output.
+  #                δ_A_i = W_A^T·(softmax(logits_A_i)−y_i)  [direction backbone features
+  #                need to move to reduce head A's loss on example i]
+  #                adv_loss = cos_sim(Σ s_i δ_A_i, Σ (1−s_i) δ_B_i)
+  #                Pushes toward a partition where heads specialise on DIFFERENT features
+  #                (e.g., colour vs digit shape) rather than easy vs hard examples.
+  adv_mode: "task_loss"
 
   # Entropy bonus coefficient for the adversary.
   # Adds -beta * H(s_i) to the adversary loss, penalising soft assignments and

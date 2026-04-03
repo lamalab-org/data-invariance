@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 
 from data import ColoredMNIST
 from evaluate import compute_assignment_correlation, compute_assignment_correlation_multi
+from models import MLP
 from utils import log_metrics
 
 
@@ -356,7 +357,6 @@ def train_oracle_split(
 
             optimizer.zero_grad()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
             epoch_loss += loss.item() * len(y)
@@ -386,6 +386,117 @@ def train_oracle_split(
     return metrics
 
 
+def train_resampling(
+    cfg: DictConfig,
+    model: torch.nn.Module,
+    loaders: dict[str, DataLoader],
+    device: torch.device,
+    run: object,
+) -> dict[str, float]:
+    """V-REx training with per-step random environments (resampling).
+
+    At every gradient step the current mini-batch is split randomly into two
+    equal halves. Head A is evaluated on the first half, head B on the second.
+    A fresh random split is drawn every step, so there are no global per-example
+    assignment parameters and no second optimiser.
+
+    The model penalty is the **risk variance** between the two heads:
+
+        model_loss = loss_A + loss_B + lambda * (loss_A − loss_B)²
+
+    The squared difference term is the V-REx penalty (Krueger et al., 2021).
+    Minimising it forces the model to perform equally on all data compositions.
+    If a feature (e.g. colour) is useful only in a particular data composition,
+    it will inflate (loss_A − loss_B)² and be penalised.
+
+    KL(head_A || head_B) is logged as `train/disagreement` for comparability
+    with the other split methods but does **not** enter the gradient.
+
+    Returns the final epoch's metrics dict.
+    """
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=cfg.training.lr,
+        weight_decay=cfg.training.weight_decay,
+    )
+    # Separate generator so the per-step splits are independent of data/model seeds.
+    split_rng = torch.Generator(device=device)
+    split_rng.manual_seed(cfg.training.seed + 99)
+
+    metrics: dict[str, float] = {}
+    for epoch in range(cfg.training.epochs):
+        model.train()
+        epoch_loss = 0.0
+        epoch_correct = 0
+        epoch_n = 0
+        epoch_disagree = 0.0
+        epoch_risk_var = 0.0
+
+        for batch in loaders["train"]:
+            x = batch["image"].to(device)    # (B, 3, 28, 28)
+            y = batch["label"].to(device)    # (B,) int64
+            B = len(y)
+
+            logits_a, logits_b = model(x)    # (B, 2) each
+
+            ce_a = F.cross_entropy(logits_a, y, reduction="none")  # (B,)
+            ce_b = F.cross_entropy(logits_b, y, reduction="none")  # (B,)
+
+            # Fresh random 50/50 split of this mini-batch.
+            # idx_A → head A's environment this step; idx_B → head B's.
+            perm = torch.randperm(B, device=device, generator=split_rng)
+            half = B // 2
+            idx_A = perm[:half]
+            idx_B = perm[half:]
+
+            loss_A = ce_a[idx_A].mean()   # head A task loss on its half
+            loss_B = ce_b[idx_B].mean()   # head B task loss on its half
+
+            # V-REx risk-variance penalty: (loss_A − loss_B)²
+            # Gradient: 2*(loss_A−loss_B) * (∂loss_A/∂θ − ∂loss_B/∂θ)
+            # This pushes the model toward equal performance on all splits.
+            risk_var = (loss_A - loss_B) ** 2
+
+            # KL logged for comparability; not in the gradient.
+            with torch.no_grad():
+                disagree = symmetric_kl(logits_a, logits_b)
+
+            model_loss = loss_A + loss_B + cfg.training.lambda_disagree * risk_var
+
+            optimizer.zero_grad()
+            model_loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+
+            epoch_loss += model_loss.item() * B
+            avg_probs = (logits_a.softmax(1) + logits_b.softmax(1)) / 2
+            epoch_correct += (avg_probs.argmax(1) == y).sum().item()
+            epoch_n += B
+            epoch_disagree += disagree.item() * B
+            epoch_risk_var += risk_var.item() * B
+
+        id_metrics = evaluate(model, loaders["id_test"], device)
+        ood_metrics = evaluate(model, loaders["ood_test"], device)
+
+        metrics = {
+            "train/loss": epoch_loss / epoch_n,
+            "train/acc": epoch_correct / epoch_n,
+            "train/disagreement": epoch_disagree / epoch_n,
+            "train/risk_variance": epoch_risk_var / epoch_n,
+            "eval/id_acc": id_metrics["acc"],
+            "eval/id_auroc": id_metrics["auroc"],
+            "eval/id_precision": id_metrics["precision"],
+            "eval/id_recall": id_metrics["recall"],
+            "eval/ood_acc": ood_metrics["acc"],
+            "eval/ood_auroc": ood_metrics["auroc"],
+            "eval/ood_precision": ood_metrics["precision"],
+            "eval/ood_recall": ood_metrics["recall"],
+        }
+        log_metrics(run, metrics, step=epoch)
+
+    return metrics
+
+
 def train_adversarial_split(
     cfg: DictConfig,
     model: torch.nn.Module,
@@ -393,7 +504,7 @@ def train_adversarial_split(
     device: torch.device,
     run: object,
 ) -> dict[str, float]:
-    """Adversarial split + KL disagreement penalty training loop.
+    """Adversarial split + disagreement penalty training loop.
 
     The adversary maintains one learnable scalar logit per training example.
     sigmoid(logit_i) = s_i ∈ (0,1): s_i ≈ 1 routes example i to head A,
@@ -445,6 +556,14 @@ def train_adversarial_split(
     #            Seed offset (+1) so this draw is independent of data/model seeds.
     if cfg.training.adv_init == "zeros":
         init_vals = torch.zeros(N)
+    elif cfg.training.adv_init == "oracle":
+        # Initialize using ground-truth color labels: color=0 → logit=+5 (s≈1, assign to head A),
+        # color=1 → logit=-5 (s≈0, assign to head B). This gives the adversary the correct
+        # partition from the start — a sanity check to verify the mechanism works when discovery
+        # is not required. If OOD improves over ERM here, the mechanism is sound; the only
+        # remaining challenge is the bootstrap/discovery problem.
+        colors = train_ds.colors  # (N,) tensor of 0/1 ground-truth color labels
+        init_vals = torch.where(colors == 0, torch.tensor(5.0), torch.tensor(-5.0))
     else:
         g = torch.Generator().manual_seed(cfg.training.seed + 1)
         init_vals = torch.randn(N, generator=g) * cfg.training.adv_init_scale
@@ -497,6 +616,7 @@ def train_adversarial_split(
         epoch_correct = 0
         epoch_n = 0
         epoch_disagree = 0.0
+        epoch_risk_var = 0.0
 
         for batch in loaders["train"]:
             x = batch["image"].to(device)    # (B, 3, 28, 28)
@@ -527,31 +647,74 @@ def train_adversarial_split(
             loss_b = ((1.0 - s) * ce_b).mean()
             disagree = symmetric_kl(logits_a, logits_b)
 
-            model_loss = loss_a + loss_b + lam * disagree
+            # Two penalty modes for the model:
+            #   "risk_variance" → (loss_a − loss_b)²: V-REx penalty, forces equal per-
+            #                     environment risk. Adversary (below) maximises this.
+            #   anything else   → lambda * KL: prediction-level disagreement penalty.
+            risk_var = (loss_a - loss_b) ** 2
+            if cfg.training.adv_mode == "risk_variance":
+                model_loss = loss_a + loss_b + lam * risk_var
+            else:
+                model_loss = loss_a + loss_b + lam * disagree
+
             model_optimizer.zero_grad()
             model_loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             model_optimizer.step()
 
             # --- Adversary step(s) ---
-            # ce_a / ce_b are detached from the current model graph; model is fixed.
-            # Multiple steps exploit the same per-example losses — this is equivalent
-            # to a larger effective adversary learning rate with near-zero extra compute.
+            # Model is fixed; only assignment_logits are updated here.
+            # Three modes controlled by cfg.training.adv_mode:
             #
-            # Optional entropy bonus: -β * H(s_i) is subtracted from adv_loss,
-            # penalising soft (uncertain) assignments. This pushes the adversary
-            # toward hard 0/1 splits faster than the task-loss gradient alone.
-            # β = 0 recovers the original formulation.
+            # "task_loss" (default): maximise -(s·CE_A + (1-s)·CE_B).
+            #   Pushes examples toward harder heads → easy/hard partition.
+            #
+            # "risk_variance": maximise (loss_a − loss_b)².
+            #   Paired with the model's V-REx penalty (minimise same term).
+            #   Finds the split with maximum risk difference; model is forced to
+            #   perform equally on that worst-case split → invariant predictions.
+            #   adv_entropy_bonus regularises the partition to prevent collapse.
+            #
+            # "grad_div": minimise cosine similarity of gradient directions (experimental).
             if adversary_active:
                 for _ in range(cfg.training.adv_steps_per_model_step):
                     s_adv = assignment_logits[idx].sigmoid()   # (B,) — live grad
-                    task_term = -(s_adv * ce_a.detach() + (1.0 - s_adv) * ce_b.detach()).mean()
-                    if cfg.training.adv_entropy_bonus > 0.0:
-                        s_c = s_adv.clamp(1e-7, 1.0 - 1e-7)
-                        batch_entropy = (-s_c * s_c.log() - (1.0 - s_c) * (1.0 - s_c).log()).mean()
-                        adv_loss = task_term - cfg.training.adv_entropy_bonus * batch_entropy
+
+                    if cfg.training.adv_mode == "risk_variance":
+                        # Adversary maximises the risk variance to find worst-case split.
+                        # ce_a/ce_b are detached — model weights fixed during adv step.
+                        loss_a_adv = (s_adv * ce_a.detach()).mean()
+                        loss_b_adv = ((1.0 - s_adv) * ce_b.detach()).mean()
+                        adv_base = -(loss_a_adv - loss_b_adv) ** 2
+                        if cfg.training.adv_entropy_bonus > 0.0:
+                            s_c = s_adv.clamp(1e-7, 1.0 - 1e-7)
+                            batch_entropy = (-s_c * s_c.log() - (1.0 - s_c) * (1.0 - s_c).log()).mean()
+                            adv_loss = adv_base - cfg.training.adv_entropy_bonus * batch_entropy
+                        else:
+                            adv_loss = adv_base
+
+                    elif cfg.training.adv_mode == "grad_div":
+                        with torch.no_grad():
+                            err_A = logits_a.softmax(1) - F.one_hot(y, num_classes=2).float()
+                            err_B = logits_b.softmax(1) - F.one_hot(y, num_classes=2).float()
+                            delta_A = err_A @ model.head_a.weight   # (B, hidden_dim)
+                            delta_B = err_B @ model.head_b.weight   # (B, hidden_dim)
+                        g_A = (s_adv.unsqueeze(1) * delta_A).sum(dim=0)
+                        g_B = ((1.0 - s_adv).unsqueeze(1) * delta_B).sum(dim=0)
+                        adv_loss = F.cosine_similarity(
+                            g_A.unsqueeze(0), g_B.unsqueeze(0), dim=1, eps=1e-8
+                        ).squeeze()
+
                     else:
-                        adv_loss = task_term
+                        # "task_loss" mode (default)
+                        task_term = -(s_adv * ce_a.detach() + (1.0 - s_adv) * ce_b.detach()).mean()
+                        if cfg.training.adv_entropy_bonus > 0.0:
+                            s_c = s_adv.clamp(1e-7, 1.0 - 1e-7)
+                            batch_entropy = (-s_c * s_c.log() - (1.0 - s_c) * (1.0 - s_c).log()).mean()
+                            adv_loss = task_term - cfg.training.adv_entropy_bonus * batch_entropy
+                        else:
+                            adv_loss = task_term
+
                     adv_optimizer.zero_grad()
                     adv_loss.backward()
                     adv_optimizer.step()
@@ -563,6 +726,7 @@ def train_adversarial_split(
             epoch_correct += (avg_probs.argmax(1) == y).sum().item()
             epoch_n += len(y)
             epoch_disagree += disagree.item() * len(y)
+            epoch_risk_var += risk_var.item() * len(y)
 
         # Assignment entropy: H(s_i) averaged over all training examples.
         # Clamp guards log(0) even though logit clamping already bounds s to [0.007, 0.993].
@@ -579,7 +743,8 @@ def train_adversarial_split(
             "train/loss": epoch_loss / epoch_n,
             "train/acc": epoch_correct / epoch_n,
             "train/disagreement": epoch_disagree / epoch_n,
-            "train/lambda": lam,             # shows exactly when threshold fires in wandb
+            "train/risk_variance": epoch_risk_var / epoch_n,
+            "train/lambda": lam,
             "train/assignment_entropy": entropy.item(),
             "eval/id_acc": id_metrics["acc"],
             "eval/id_auroc": id_metrics["auroc"],
@@ -761,6 +926,193 @@ def train_adversarial_split_multi(
             )
             metrics.update(corr_metrics)
 
+        log_metrics(run, metrics, step=epoch)
+
+    return metrics
+
+
+# ---------------------------------------------------------------------------
+# Two-phase environment discovery
+# ---------------------------------------------------------------------------
+
+def discover_environments(
+    cfg: DictConfig,
+    loaders: dict[str, DataLoader],
+    device: torch.device,
+) -> tuple[torch.Tensor, dict[str, float]]:
+    """Phase 1: score training examples by ERM prediction entropy, split into two environments.
+
+    A small MLP is trained for cfg.training.discovery_epochs epochs, then discarded.
+    At partial training the model has already learned the spurious feature (colour)
+    because it is the easiest available signal.  Examples where the model is
+    **confident** are therefore likely the easy ones — colour=label, spurious
+    feature aligned — while **uncertain** examples are the ones where colour!=label
+    and the model has no shortcut.  Splitting on confidence thus creates two
+    environments with genuinely different colour-label correlations:
+
+        Environment A (assignment=0): low entropy  -> high colour-label correlation
+        Environment B (assignment=1): high entropy -> low  colour-label correlation
+
+    Returns:
+        assignment   - (N,) long tensor: 0=env A (confident), 1=env B (uncertain)
+        diag_metrics - discovery diagnostics (colour correlation per env, sizes)
+    """
+    train_ds  = loaders["train"].dataset
+    N         = len(train_ds)
+    input_dim = train_ds.images.shape[1:].numel()
+
+    # Throw-away ERM model.
+    disc = MLP(input_dim=input_dim, hidden_dim=cfg.model.hidden_dim).to(device)
+    opt  = torch.optim.AdamW(disc.parameters(), lr=cfg.training.lr, weight_decay=cfg.training.weight_decay)
+
+    for _ in range(cfg.training.discovery_epochs):
+        disc.train()
+        for batch in loaders["train"]:
+            x = batch["image"].to(device)
+            y = batch["label"].to(device)
+            loss = F.cross_entropy(disc(x), y)
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+
+    # Score every training example by prediction entropy H(p).
+    disc.eval()
+    entropies = torch.zeros(N)
+    with torch.no_grad():
+        for batch in loaders["train"]:
+            x   = batch["image"].to(device)
+            idx = batch["index"]
+            p   = disc(x).softmax(1).clamp(min=1e-7)
+            h   = -(p * p.log()).sum(1)
+            entropies[idx] = h.cpu()
+
+    # Balanced median split: bottom 50% entropy -> env A, top 50% -> env B.
+    threshold  = entropies.median()
+    assignment = (entropies >= threshold).long()
+
+    # --- Diagnostics ---
+    colors = train_ds.colors.float()
+    labels = train_ds.labels.float()
+
+    def _corr(mask: torch.Tensor) -> float:
+        c, l = colors[mask], labels[mask]
+        if c.std() < 1e-8 or l.std() < 1e-8:
+            return 0.0
+        return torch.corrcoef(torch.stack([c, l]))[0, 1].item()
+
+    mask_A = assignment == 0
+    mask_B = assignment == 1
+
+    s_f = assignment.float()
+    disc_color_abs_corr = (
+        abs(torch.corrcoef(torch.stack([s_f, colors]))[0, 1].item())
+        if s_f.std() > 1e-8 and colors.std() > 1e-8
+        else 0.0
+    )
+
+    diag_metrics: dict[str, float] = {
+        "discovery/assignment_color_abs_corr": disc_color_abs_corr,
+        "discovery/color_label_corr_A":        _corr(mask_A),
+        "discovery/color_label_corr_B":        _corr(mask_B),
+        "discovery/n_env_A":                   float(mask_A.sum().item()),
+        "discovery/n_env_B":                   float(mask_B.sum().item()),
+    }
+    return assignment, diag_metrics
+
+
+def train_discovered_split(
+    cfg: DictConfig,
+    model: torch.nn.Module,
+    loaders: dict[str, DataLoader],
+    device: torch.device,
+    run: object,
+    assignment: torch.Tensor,
+    discovery_metrics: dict[str, float],
+) -> dict[str, float]:
+    """Phase 2: train a single MLP with V-REx penalty on discovered environments.
+
+    Uses ONE model (plain MLP), not two heads.  The V-REx penalty forces the
+    single model to have equal risk on both environments.  Because env A has
+    higher colour-label correlation than env B, minimising the risk difference
+    pushes the model toward features equally useful in both environments
+    (digit shape) rather than the spurious colour signal.
+
+    Previous version used SplitMLP (two heads, one per env) which caused domain
+    blindness: each head only saw its own environment and learned its own
+    environment's shortcuts.  A single model avoids this entirely.
+
+    assignment        - (N,) long tensor from discover_environments()
+    discovery_metrics - diagnostics logged at step 0 in wandb
+    """
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=cfg.training.lr,
+        weight_decay=cfg.training.weight_decay,
+    )
+    assignment = assignment.to(device)
+
+    log_metrics(run, discovery_metrics, step=0)
+
+    metrics: dict[str, float] = {}
+    for epoch in range(cfg.training.epochs):
+        model.train()
+        epoch_loss     = 0.0
+        epoch_correct  = 0
+        epoch_n        = 0
+        epoch_risk_var = 0.0
+
+        for batch in loaders["train"]:
+            x   = batch["image"].to(device)
+            y   = batch["label"].to(device)
+            idx = batch["index"].to(device)
+
+            logits = model(x)                              # (B, 2) single head
+            ce = F.cross_entropy(logits, y, reduction="none")  # (B,)
+
+            # Split loss by discovered environment
+            env_a_mask = assignment[idx] == 0               # bool (B,)
+            env_b_mask = ~env_a_mask
+
+            # Guard against empty-environment batches (possible if split is
+            # very imbalanced and batch size is small).
+            n_a = env_a_mask.sum()
+            n_b = env_b_mask.sum()
+            if n_a > 0 and n_b > 0:
+                loss_A   = ce[env_a_mask].mean()
+                loss_B   = ce[env_b_mask].mean()
+                risk_var = (loss_A - loss_B) ** 2
+                model_loss = (loss_A + loss_B) / 2 + cfg.training.lambda_disagree * risk_var
+            else:
+                # Fallback: plain ERM if one environment is missing in this batch
+                model_loss = ce.mean()
+                risk_var = torch.tensor(0.0)
+
+            optimizer.zero_grad()
+            model_loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+
+            epoch_loss     += model_loss.item() * len(y)
+            epoch_correct  += (logits.argmax(1) == y).sum().item()
+            epoch_n        += len(y)
+            epoch_risk_var += risk_var.item() * len(y)
+
+        id_metrics  = evaluate(model, loaders["id_test"],  device)
+        ood_metrics = evaluate(model, loaders["ood_test"], device)
+
+        metrics = {
+            "train/loss":          epoch_loss     / epoch_n,
+            "train/acc":           epoch_correct  / epoch_n,
+            "train/risk_variance": epoch_risk_var / epoch_n,
+            "eval/id_acc":         id_metrics["acc"],
+            "eval/id_auroc":       id_metrics["auroc"],
+            "eval/id_precision":   id_metrics["precision"],
+            "eval/id_recall":      id_metrics["recall"],
+            "eval/ood_acc":        ood_metrics["acc"],
+            "eval/ood_auroc":      ood_metrics["auroc"],
+            "eval/ood_precision":  ood_metrics["precision"],
+            "eval/ood_recall":     ood_metrics["recall"],
+        }
         log_metrics(run, metrics, step=epoch)
 
     return metrics

@@ -7,7 +7,7 @@ import wandb
 from omegaconf import DictConfig, OmegaConf
 
 from models import MLP, MultiHeadMLP, SplitMLP
-from train import make_dataloaders, train_adversarial_split, train_adversarial_split_multi, train_erm, train_oracle_split, train_random_split
+from train import discover_environments, make_dataloaders, train_adversarial_split, train_adversarial_split_multi, train_discovered_split, train_erm, train_oracle_split, train_random_split, train_resampling
 from utils import get_device, set_seed
 
 
@@ -81,6 +81,20 @@ def main(cfg: DictConfig) -> None:
                 separate_backbones=cfg.model.separate_backbones,
             ).to(device)
             train_adversarial_split_multi(cfg, model, loaders, device, run)
+
+    elif cfg.method.name == "resampling":
+        model = SplitMLP(
+            input_dim=input_dim,
+            hidden_dim=cfg.model.hidden_dim,
+            separate_backbones=cfg.model.separate_backbones,
+        ).to(device)
+        train_resampling(cfg, model, loaders, device, run)
+
+    elif cfg.method.name == "discovered_split":
+        assignment, discovery_metrics = discover_environments(cfg, loaders, device)
+        set_seed(cfg.training.seed)  # re-seed so model init is reproducible after discovery
+        model = MLP(input_dim=input_dim, hidden_dim=cfg.model.hidden_dim).to(device)
+        train_discovered_split(cfg, model, loaders, device, run, assignment, discovery_metrics)
 
     else:
         raise NotImplementedError(f"method '{cfg.method.name}' not yet implemented")
