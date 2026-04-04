@@ -939,23 +939,21 @@ def discover_environments(
     cfg: DictConfig,
     loaders: dict[str, DataLoader],
     device: torch.device,
-) -> tuple[torch.Tensor, dict[str, float]]:
-    """Phase 1: score training examples by ERM prediction entropy, split into two environments.
+) -> tuple[torch.Tensor, torch.Tensor, dict[str, float]]:
+    """Score training examples with a throw-away ERM, then split into two environments.
 
-    A small MLP is trained for cfg.training.discovery_epochs epochs, then discarded.
-    At partial training the model has already learned the spurious feature (colour)
-    because it is the easiest available signal.  Examples where the model is
-    **confident** are therefore likely the easy ones — colour=label, spurious
-    feature aligned — while **uncertain** examples are the ones where colour!=label
-    and the model has no shortcut.  Splitting on confidence thus creates two
-    environments with genuinely different colour-label correlations:
-
-        Environment A (assignment=0): low entropy  -> high colour-label correlation
-        Environment B (assignment=1): high entropy -> low  colour-label correlation
+    Pipeline:
+        1. Train a small MLP for ``discovery_epochs`` epochs (then discard it).
+        2. Score each example by cross-entropy loss or prediction entropy.
+        3. Split into env A (low score) and env B (high score) via median or
+           quantile threshold.
+        4. Optionally upweight high-score examples so the minority group
+           dominates the V-REx penalty.
 
     Returns:
-        assignment   - (N,) long tensor: 0=env A (confident), 1=env B (uncertain)
-        diag_metrics - discovery diagnostics (colour correlation per env, sizes)
+        assignment  - (N,) long: 0 = env A, 1 = env B, -1 = excluded.
+        weights     - (N,) float: per-example importance weights.
+        diag_metrics - discovery diagnostics (colour correlation per env, sizes).
     """
     train_ds  = loaders["train"].dataset
     N         = len(train_ds)
@@ -976,7 +974,7 @@ def discover_environments(
             opt.step()
 
     # Score every training example.
-    criterion = getattr(cfg.training, "discovery_criterion", "entropy")
+    criterion = cfg.training.discovery_criterion
     disc.eval()
     scores = torch.zeros(N)
     with torch.no_grad():
@@ -997,9 +995,9 @@ def discover_environments(
             scores[idx] = s.cpu()
 
     # --- Build assignment and per-example weights ---
-    upweight = getattr(cfg.training, "discovery_upweight", 0.0)
-    reweight = getattr(cfg.training, "discovery_reweight", 0.0)
-    q = getattr(cfg.training, "discovery_quantile", 0.5)
+    upweight = cfg.training.discovery_upweight
+    reweight = cfg.training.discovery_reweight
+    q = cfg.training.discovery_quantile
 
     if upweight > 0:
         # Loss-based upweighting (residual rebalancing).
@@ -1101,22 +1099,23 @@ def train_discovered_split(
     weights: torch.Tensor,
     discovery_metrics: dict[str, float],
 ) -> dict[str, float]:
-    """Phase 2: train a single MLP with V-REx penalty on discovered environments.
+    """Train a single MLP with V-REx penalty on discovered environments.
 
-    Uses ONE model (plain MLP), not two heads.  The V-REx penalty forces the
-    single model to have equal risk on both environments.  Because env A has
-    higher colour-label correlation than env B, minimising the risk difference
-    pushes the model toward features equally useful in both environments
-    (digit shape) rather than the spurious colour signal.
+    The V-REx penalty forces equal risk across environments.  Because env A
+    has higher spurious-label correlation than env B, minimising the risk
+    difference pushes the model toward invariant features.
 
-    Previous version used SplitMLP (two heads, one per env) which caused domain
-    blindness: each head only saw its own environment and learned its own
-    environment's shortcuts.  A single model avoids this entirely.
+    Early stopping: when risk variance rises above its running minimum for
+    ``early_stop_patience`` consecutive epochs, training stops and the
+    best-risk-variance checkpoint is restored.
 
-    assignment        - (N,) long tensor from discover_environments()
-    weights           - (N,) float tensor of per-example importance weights
-    discovery_metrics - diagnostics logged at step 0 in wandb
+    Args:
+        assignment:        (N,) long tensor; 0 = env A, 1 = env B, -1 = excluded.
+        weights:           (N,) float tensor of per-example importance weights.
+        discovery_metrics: diagnostics logged at step 0 in wandb.
     """
+    import copy
+
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=cfg.training.lr,
@@ -1127,11 +1126,18 @@ def train_discovered_split(
 
     log_metrics(run, discovery_metrics, step=0)
 
-    anneal_factor = getattr(cfg.training, "lambda_anneal_factor", 1.0)
+    anneal_factor = cfg.training.lambda_anneal_factor
+    patience = cfg.training.early_stop_patience
+
+    # Early-stopping state.
+    best_risk_var = float("inf")
+    best_state = None
+    best_metrics: dict[str, float] = {}
+    epochs_without_improvement = 0
 
     metrics: dict[str, float] = {}
     for epoch in range(cfg.training.epochs):
-        # Lambda annealing: linearly interpolate from lambda_disagree to
+        # Lambda annealing: linearly scale from lambda_disagree to
         # lambda_disagree * anneal_factor over training.
         if cfg.training.epochs > 1 and anneal_factor != 1.0:
             progress = epoch / (cfg.training.epochs - 1)
@@ -1140,47 +1146,38 @@ def train_discovered_split(
             lam = cfg.training.lambda_disagree
 
         model.train()
-        epoch_loss     = 0.0
-        epoch_correct  = 0
-        epoch_n        = 0
+        epoch_loss = 0.0
+        epoch_correct = 0
+        epoch_n = 0
         epoch_risk_var = 0.0
 
         for batch in loaders["train"]:
-            x   = batch["image"].to(device)
-            y   = batch["label"].to(device)
+            x = batch["image"].to(device)
+            y = batch["label"].to(device)
             idx = batch["index"].to(device)
 
-            logits = model(x)                              # (B, 2) single head
-            ce = F.cross_entropy(logits, y, reduction="none")  # (B,)
+            logits = model(x)                                       # (B, 2)
+            ce = F.cross_entropy(logits, y, reduction="none")       # (B,)
 
-            # Split loss by discovered environment.
-            # assignment == -1 marks excluded examples (middle of score
-            # distribution when discovery_quantile < 0.5).
             batch_assign = assignment[idx]
-            w = weights[idx]                                # (B,) importance weights
+            w = weights[idx]                                        # (B,)
             env_a_mask = batch_assign == 0
             env_b_mask = batch_assign == 1
 
-            n_a = env_a_mask.sum()
-            n_b = env_b_mask.sum()
-            if n_a > 0 and n_b > 0:
-                # Weighted per-environment losses.  When reweight > 0,
-                # extreme examples dominate; with uniform weights this
-                # reduces to a simple mean.
+            if env_a_mask.any() and env_b_mask.any():
                 w_a = w[env_a_mask]
                 w_b = w[env_b_mask]
                 loss_A = (w_a * ce[env_a_mask]).sum() / w_a.sum()
                 loss_B = (w_b * ce[env_b_mask]).sum() / w_b.sum()
                 risk_var = (loss_A - loss_B) ** 2
                 model_loss = (loss_A + loss_B) / 2 + lam * risk_var
-            elif n_a > 0:
+            elif env_a_mask.any():
                 model_loss = ce[env_a_mask].mean()
                 risk_var = torch.tensor(0.0)
-            elif n_b > 0:
+            elif env_b_mask.any():
                 model_loss = ce[env_b_mask].mean()
                 risk_var = torch.tensor(0.0)
             else:
-                # Batch has only excluded examples — skip gradient update.
                 continue
 
             optimizer.zero_grad()
@@ -1188,18 +1185,20 @@ def train_discovered_split(
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
-            epoch_loss     += model_loss.item() * len(y)
-            epoch_correct  += (logits.argmax(1) == y).sum().item()
-            epoch_n        += len(y)
+            epoch_loss += model_loss.item() * len(y)
+            epoch_correct += (logits.argmax(1) == y).sum().item()
+            epoch_n += len(y)
             epoch_risk_var += risk_var.item() * len(y)
 
-        id_metrics  = evaluate(model, loaders["id_test"],  device)
+        avg_risk_var = epoch_risk_var / epoch_n
+
+        id_metrics = evaluate(model, loaders["id_test"], device)
         ood_metrics = evaluate(model, loaders["ood_test"], device)
 
         metrics = {
-            "train/loss":          epoch_loss     / epoch_n,
-            "train/acc":           epoch_correct  / epoch_n,
-            "train/risk_variance": epoch_risk_var / epoch_n,
+            "train/loss":          epoch_loss / epoch_n,
+            "train/acc":           epoch_correct / epoch_n,
+            "train/risk_variance": avg_risk_var,
             "train/lambda":        lam,
             "eval/id_acc":         id_metrics["acc"],
             "eval/id_auroc":       id_metrics["auroc"],
@@ -1211,5 +1210,23 @@ def train_discovered_split(
             "eval/ood_recall":     ood_metrics["recall"],
         }
         log_metrics(run, metrics, step=epoch)
+
+        # --- Early stopping on risk variance ---
+        # Only activate after a warmup period (half the total epochs or 5,
+        # whichever is smaller) so the model has time to learn before we
+        # start watching for overfitting.
+        min_epochs = min(cfg.training.epochs // 2, 5)
+        if patience > 0 and epoch >= min_epochs:
+            if avg_risk_var < best_risk_var:
+                best_risk_var = avg_risk_var
+                best_state = copy.deepcopy(model.state_dict())
+                best_metrics = dict(metrics)
+                epochs_without_improvement = 0
+            else:
+                epochs_without_improvement += 1
+                if epochs_without_improvement >= patience:
+                    model.load_state_dict(best_state)
+                    metrics = best_metrics
+                    break
 
     return metrics
