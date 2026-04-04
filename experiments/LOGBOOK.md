@@ -299,12 +299,29 @@ This is particularly relevant for chemistry where the spurious feature (scaffold
 frequency, dataset batch) is naturally multi-valued.  A molecule isn't "spurious
 or not" — it has a *degree* of scaffold prevalence.
 
-**Implementation note:** The K-environment V-REx is a straightforward generalisation:
-```
-losses_per_env = [weighted_ce[env_k].mean() for k in range(K)]
-risk_variance = torch.var(torch.stack(losses_per_env))
-model_loss = mean(losses_per_env) + lambda * risk_variance
-```
+**Results (ContinuousCMNIST, env_correlation=0.9):**
+
+| Method | Best OOD acc | Best OOD worst-group | Notes |
+|--------|:-----------:|:-------------------:|-------|
+| ERM | 55.2% | 17.6% | Learns continuous colour shortcut |
+| K=2 V-REx | 54.0% | **27.1%** | Weak contrast (corr_A=1.0, corr_B=0.94) |
+| K=5 V-REx | 53.4% | 18.5% | Broken: quantile ties collapse environments |
+
+**Key finding:** Continuous spurious features are genuinely harder.  With graded
+colour, the loss-based median split produces only 0.06 contrast (corr_A - corr_B).
+The continuous signal is smooth — no sharp boundary between "uses colour" and
+"doesn't."  K=2 V-REx still improves worst-group (+9.5pp over ERM) but the effect
+is modest.
+
+**K=5 failed** because quantile thresholds collapsed (the discovery ERM is very
+confident → most losses near zero → multiple quantiles at the same value).
+Fix needed: use rank-based assignment instead of threshold-based.
+
+**Implication for chemistry:** Continuous confounders (MW, logP, scaffold frequency)
+will need a different discovery signal than raw loss.  Options:
+- Cluster in feature space (like GEORGE) instead of thresholding loss
+- Use the loss *residual* after accounting for the feature (partial regression)
+- Multiple rounds of discovery (iterative environment refinement)
 
 ### 4. When you need to know what you don't know
 
