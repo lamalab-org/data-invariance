@@ -1045,8 +1045,10 @@ def discover_environments(
         # fully so its backbone learns dataset-specific features.  These
         # features are then frozen for V-REx training.
         if cfg.dataset.arch == "resnet":
-            freeze_disc = not freeze_bb  # freeze during discovery UNLESS we need features for later
-            backbone, out_dim = make_resnet_backbone(freeze=freeze_disc)
+            # Always freeze the pretrained backbone during discovery.
+            # ImageNet features are high-quality and task-agnostic;
+            # fine-tuning during discovery would overfit them to the shortcut.
+            backbone, out_dim = make_resnet_backbone(freeze=True)
             disc = MLP(backbone=backbone, backbone_out_dim=out_dim).to(device)
         else:
             disc = MLP(input_dim=train_ds.input_dim, hidden_dim=cfg.model.hidden_dim).to(device)
