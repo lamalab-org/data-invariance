@@ -492,6 +492,30 @@ This is a natural generalisation.  The question is what K to use.  Options:
 - K dataset batches (different labs, different measurement campaigns)
 - K property ranges (low, medium, high molecular weight)
 
+### Chemistry: TADF emission wavelength
+
+Dataset: 2137 TADF emitters, binary classification (< 492 nm vs >= 492 nm),
+1636 molecular descriptors (RDKit + Morgan FP).
+
+**Property-based spurious correlation:** NumHeteroatoms is subsampled to
+correlate with label at 0.9 in training.  OOD test = misaligned examples
+(NumHeteroatoms disagrees with label).
+
+| Method | corr | ID acc | OOD acc (misaligned) |
+|--------|:----:|:------:|:-------------------:|
+| ERM | 0.9 | 76.4% | 45.2% |
+| JTT | 0.9 | 75.2% | **50.6%** |
+| Ours | 0.9 | 69.9% | 45.8% |
+| ERM | 0.7 | pending | pending |
+| Ours | 0.7 | pending | pending |
+
+**Key finding:** At 0.9 correlation, all methods are near-random on OOD (the
+shortcut is too strong for the small dataset — only ~70 counterexamples in
+training).  JTT marginally helps; our method slightly hurts (same "anti-colour"
+issue seen on CMNIST at high correlation).
+
+Testing with weaker correlation (0.7) to see if more counterexamples help.
+
 ### Chemistry datasets
 
 Target datasets where scaffold or property splits are known to cause OOD gaps:
