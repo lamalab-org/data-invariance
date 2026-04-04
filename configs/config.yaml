@@ -1,5 +1,6 @@
 defaults:
   - method: erm  # override via `python run.py method=adversarial_split`
+  - dataset: cmnist  # override via `python run.py dataset=waterbirds`
   - _self_
 
 wandb:
@@ -8,12 +9,6 @@ wandb:
   # Keep "dev" until results are paper-ready; swap to "final" for reported runs.
   tags: [dev]
   enabled: true
-
-data:
-  train_correlation: 0.9   # strong spurious color-label correlation during training
-  test_correlation: 0.1    # weak correlation at test time — this is the distribution shift
-  label_noise: 0.25        # matches original CMNIST; prevents trivial color=label solutions
-  data_dir: ./data
 
 model:
   hidden_dim: 256

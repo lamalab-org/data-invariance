@@ -13,7 +13,7 @@ from train import discover_environments, evaluate, make_dataloaders, symmetric_k
 
 def make_cfg():
     return OmegaConf.create({
-        "data": {"train_correlation": 0.9, "test_correlation": 0.1, "label_noise": 0.25, "data_dir": "./data"},
+        "dataset": {"name": "cmnist", "arch": "mlp", "train_correlation": 0.9, "test_correlation": 0.1, "label_noise": 0.25, "data_dir": "./data"},
         "model": {"hidden_dim": 64},
         "training": {
             "lr": 1e-3, "weight_decay": 1e-4, "batch_size": 128, "epochs": 1, "seed": 0,

@@ -26,14 +26,14 @@ def make_dataloaders(cfg: DictConfig) -> dict[str, DataLoader]:
         {"train": ..., "id_test": ..., "ood_test": ...}
     """
     seed = cfg.training.seed
-    noise = cfg.data.label_noise
-    data_dir = cfg.data.data_dir
+    noise = cfg.dataset.label_noise
+    data_dir = cfg.dataset.data_dir
 
-    train_ds = ColoredMNIST(cfg.data.train_correlation, label_noise=noise, split="train", data_dir=data_dir, seed=seed)
+    train_ds = ColoredMNIST(cfg.dataset.train_correlation, label_noise=noise, split="train", data_dir=data_dir, seed=seed)
     # ID test: same correlation as train — measures in-distribution performance
-    id_test_ds = ColoredMNIST(cfg.data.train_correlation, label_noise=noise, split="test", data_dir=data_dir, seed=seed)
+    id_test_ds = ColoredMNIST(cfg.dataset.train_correlation, label_noise=noise, split="test", data_dir=data_dir, seed=seed)
     # OOD test: flipped correlation — the spurious color cue now hurts; this is the key metric
-    ood_test_ds = ColoredMNIST(cfg.data.test_correlation, label_noise=noise, split="test", data_dir=data_dir, seed=seed)
+    ood_test_ds = ColoredMNIST(cfg.dataset.test_correlation, label_noise=noise, split="test", data_dir=data_dir, seed=seed)
 
     kwargs = dict(batch_size=cfg.training.batch_size, num_workers=0, pin_memory=False)
     return {
