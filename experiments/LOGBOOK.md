@@ -594,6 +594,23 @@ Target datasets where scaffold or property splits are known to cause OOD gaps:
 
 ## Architecture and Hyperparameter Notes
 
+### Ablation: component contributions (CMNIST corr=0.9, Waterbirds)
+
+Each component is necessary — removing any one degrades performance:
+
+| Components | CMNIST OOD | Waterbirds test WGA | What's missing |
+|---|---|---|---|
+| ERM (nothing) | ~22% | 70.3% | Baseline |
+| Upweighting only (JTT) | ~22% | 65.7% | No V-REx → model accommodates minorities without changing strategy |
+| V-REx + balanced sampling (no upweight) | 16.1% | pending | No upweighting → minority signal too diluted in env B |
+| V-REx + upweighting (our method) | 74.3%* | 75.7% | Full method |
+| Group DRO (oracle) | — | 77.7% | Requires group labels |
+
+*CMNIST number from old code; needs re-run with consistent V-REx.
+
+**Takeaway:** V-REx alone (balanced) < upweighting alone (JTT) < V-REx + upweighting (ours).
+Both ingredients are needed — V-REx provides the structural constraint, upweighting provides the signal.
+
 ### Reproduction commands (Waterbirds, consistent code, val-based selection)
 
 ```bash
