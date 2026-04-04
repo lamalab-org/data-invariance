@@ -351,7 +351,18 @@ features.  Loss-based scoring is initially weak (gap=0.06) but improves
 because each V-REx round partially breaks the colour dependence, creating
 a new loss landscape where the remaining colour signal is more visible.
 
-5-round experiment pending — does the trend continue?
+5-round experiment confirms the trend accelerates:
+
+| Round | corr_A | corr_B | Gap | assignment-colour corr |
+|-------|--------|--------|:---:|:---------------------:|
+| 1 (from ERM) | 1.000 | 0.938 | 0.062 | 0.15 |
+| 2 | 1.000 | 0.930 | 0.070 | 0.36 |
+| 3 | 0.999 | 0.893 | 0.106 | 0.67 |
+| 4 | 1.000 | 0.907 | 0.093 | 0.58 (slight dip) |
+| **5** | **0.998** | **0.839** | **0.159** | **0.80** |
+
+The gap nearly triples (0.06 → 0.16) and assignment-colour correlation reaches
+0.80.  The method progressively discovers the continuous spurious feature.
 
 **Implication for chemistry:** Iterative discovery is promising for continuous
 confounders.  The first round finds rough environments; subsequent rounds
