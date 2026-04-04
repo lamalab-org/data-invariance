@@ -116,13 +116,29 @@
 | **Ours** (disc=5, upweight=50) | No | **85.4%** | 1 | 88.7% | Matches Group DRO without labels |
 | **Ours** (disc=10, upweight=50) | No | 84.1% | 8 | 90.9% | More stable variant |
 
-**Key finding 1:** JTT ≈ ERM on Waterbirds. Pure upweighting does NOT help — the model accommodates the upweighted minority while still relying on background. This shows V-REx is the critical ingredient, not the upweighting.
+### Re-run with consistent V-REx code + validation-based model selection
 
-**Key finding 2:** Ours ≈ Group DRO without group labels. The V-REx equal-risk constraint forces the model to find features that work across both environments, matching the oracle that has explicit group supervision.
+All experiments re-run with:
+- Consistent V-REx penalty (sum-of-squared-deviations)
+- Model selected by **validation** worst-group accuracy (not test)
+- Single seed (seed=42)
 
-**Key finding 3:** Method generalises from synthetic (CMNIST) to real images.
+| Method | Group labels? | Val WGA (select) | **Test WGA** | Test acc |
+|--------|:------------:|:---:|:---:|:---:|
+| ERM | No | 63.2% | 70.3% | 91.8% |
+| JTT (binary) | No | 64.6% | 65.7% | 83.3% |
+| **Group DRO** | **Yes** | 80.5% | **77.7%** | 91.9% |
+| **Ours** | No | 72.2% | **75.7%** | 90.5% |
 
-**Note:** Results are noisy — worst-group oscillates heavily across epochs. Early stopping is essential. Multiple seeds needed for reliable comparisons.
+**Key finding 1:** Ours (75.7%) beats ERM (70.3%) by +5.4pp with proper selection.
+
+**Key finding 2:** Ours approaches Group DRO (77.7%) without group labels — only 2pp gap.
+
+**Key finding 3:** JTT (65.7%) is WORSE than ERM. Upweighting alone hurts.
+
+**Key finding 4:** Old cherry-picked numbers were inflated (ERM was 80.7%, now 70.3%). Proper model selection is critical.
+
+**Note:** Still single-seed. Multi-seed needed for error bars.
 
 ---
 
