@@ -6,7 +6,7 @@ import torchmetrics
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 
-from data import ColoredMNIST, ContinuousCMNIST, MultiSpuriousCMNIST, WaterbirdsDataset
+from data import ColoredMNIST, ContinuousCMNIST, MultiSpuriousCMNIST, TADFDataset, WaterbirdsDataset
 from evaluate import compute_assignment_correlation, compute_assignment_correlation_multi
 from models import MLP, make_resnet_backbone
 from utils import log_metrics
@@ -58,6 +58,16 @@ def make_dataloaders(cfg: DictConfig) -> dict[str, DataLoader]:
             brightness_correlation=cfg.dataset.test_brightness_correlation,
             label_noise=noise, split="test", data_dir=data_dir, seed=seed,
         )
+
+    elif cfg.dataset.name == "tadf":
+        seed = cfg.training.seed
+        ppath = cfg.dataset.parquet_path
+        train_ds = TADFDataset(parquet_path=ppath, split="train", seed=seed)
+        # ID test: random held-out 20%
+        id_test_ds = TADFDataset(parquet_path=ppath, split="test", seed=seed)
+        # OOD test: leave-one-author-group-out
+        ood_author = cfg.dataset.ood_author
+        ood_test_ds = TADFDataset(parquet_path=ppath, split=f"ood_{ood_author}", seed=seed)
 
     elif cfg.dataset.name == "waterbirds":
         data_dir = cfg.dataset.data_dir

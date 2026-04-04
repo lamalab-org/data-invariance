@@ -424,3 +424,134 @@ class WaterbirdsDataset(Dataset):
 
     def __len__(self) -> int:
         return len(self._labels)
+
+
+class TADFDataset(Dataset):
+    """TADF emission wavelength classification with author-group confounding.
+
+    Binary classification: short-wavelength emitters (< median) vs
+    long-wavelength emitters (>= median).
+
+    Spurious correlation: certain author groups publish predominantly on
+    one class (e.g., Chuluo Yang → 76% long-wavelength).  A model that
+    learns author-correlated features (e.g., specific scaffold preferences
+    of a research group) rather than genuine electronic structure will
+    fail on leave-one-author-group-out evaluation.
+
+    Features: 2265 precomputed molecular descriptors (RDKit + Morgan FP)
+    from the clever-materials-hans pipeline.  These are tabular features,
+    not images — the model is a standard MLP on the feature vector.
+
+    Splits:
+        "train": 80% random split (or all data minus held-out author)
+        "test":  20% random split
+        "ood_<author>": all examples from a specific author group
+
+    Args:
+        parquet_path: Path to tadf_preprocess.parquet.
+        split:        "train", "test", or "ood_<AuthorName>".
+        seed:         Random seed for train/test split.
+    """
+
+    def __init__(
+        self,
+        parquet_path: str,
+        split: str = "train",
+        seed: int = 42,
+    ) -> None:
+        import pandas as pd
+        import numpy as np
+
+        df = pd.read_parquet(parquet_path)
+
+        # Parse target: take first value from standard_value string.
+        def _parse(x):
+            if not isinstance(x, str):
+                return np.nan
+            return float(x.strip("[]").split(",")[0])
+
+        df["_target_nm"] = df["standard_value"].apply(_parse)
+        df = df.dropna(subset=["_target_nm"]).reset_index(drop=True)
+
+        # Binary label at median.
+        median_nm = df["_target_nm"].median()
+        df["_label"] = (df["_target_nm"] >= median_nm).astype(int)
+
+        # Feature matrix: all feat_ columns, drop constant and NaN columns.
+        feat_cols = [c for c in df.columns if c.startswith("feat_")]
+        feats = df[feat_cols].copy()
+        feats = feats.fillna(0.0)
+        # Drop constant columns.
+        non_const = feats.columns[feats.std() > 1e-10]
+        feats = feats[non_const]
+        feat_cols = list(non_const)
+
+        # Standardise features (zero mean, unit variance).
+        self._feat_mean = feats.mean()
+        self._feat_std = feats.std().clip(lower=1e-8)
+        feats = (feats - self._feat_mean) / self._feat_std
+
+        # Author group as spurious attribute.
+        # Binarise: top author (most biased toward class 1) vs rest.
+        author_col = df["author_last_name"].fillna("unknown")
+
+        # Find the author with highest class-1 fraction (among those with >= 20 papers).
+        author_counts = author_col.value_counts()
+        big_authors = author_counts[author_counts >= 20].index
+        author_class1_frac = {
+            a: df.loc[author_col == a, "_label"].mean() for a in big_authors
+        }
+        # Spurious = 1 if from a high-class1-fraction author group.
+        # Use median author-class1-fraction as threshold.
+        if author_class1_frac:
+            author_median_frac = np.median(list(author_class1_frac.values()))
+            high_frac_authors = {a for a, f in author_class1_frac.items() if f > author_median_frac}
+            spurious = torch.tensor(
+                [1 if a in high_frac_authors else 0 for a in author_col], dtype=torch.long
+            )
+        else:
+            spurious = torch.zeros(len(df), dtype=torch.long)
+
+        # Train/test split.
+        rng = np.random.RandomState(seed)
+        n = len(df)
+        indices = rng.permutation(n)
+        n_train = int(0.8 * n)
+
+        if split == "train":
+            idx = indices[:n_train]
+        elif split == "test":
+            idx = indices[n_train:]
+        elif split.startswith("ood_"):
+            # Leave-one-author-group-out: hold out all examples from this author.
+            author_name = split[4:]
+            idx = np.where(author_col == author_name)[0]
+        else:
+            raise ValueError(f"Unknown split: {split}")
+
+        self.images = torch.tensor(feats.iloc[idx].values, dtype=torch.float32)
+        self.labels = torch.tensor(df["_label"].iloc[idx].values, dtype=torch.long)
+        self._spurious = spurious[idx]
+        self._author_names = author_col.iloc[idx].values
+        self._feat_cols = feat_cols
+        self._median_nm = median_nm
+
+    @property
+    def spurious(self) -> torch.Tensor:
+        """Binary: 1 = high-class1-fraction author group, 0 = rest."""
+        return self._spurious
+
+    @property
+    def input_dim(self) -> int:
+        return self.images.shape[1]
+
+    def __getitem__(self, idx: int) -> dict:
+        return {
+            "image": self.images[idx],  # (D,) feature vector, named "image" for compatibility
+            "label": self.labels[idx].item(),
+            "spurious": self._spurious[idx].item(),
+            "index": idx,
+        }
+
+    def __len__(self) -> int:
+        return len(self.labels)
