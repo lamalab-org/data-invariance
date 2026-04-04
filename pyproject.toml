@@ -17,6 +17,8 @@ dependencies = [
     "hydra-core>=1.3",
     "wandb>=0.17",
     "torchmetrics>=1.3",
+    "datasets>=2.18",
+    "Pillow>=10.0",
 ]
 
 [dependency-groups]

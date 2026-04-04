@@ -6,34 +6,37 @@ import torchmetrics
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 
-from data import ColoredMNIST
+from data import ColoredMNIST, WaterbirdsDataset
 from evaluate import compute_assignment_correlation, compute_assignment_correlation_multi
-from models import MLP
+from models import MLP, make_resnet_backbone
 from utils import log_metrics
 
 
 def make_dataloaders(cfg: DictConfig) -> dict[str, DataLoader]:
     """Build train, ID-test, and OOD-test dataloaders.
 
-    All three datasets share the same label_noise and seed so only the
-    color-label correlation differs between them. This isolates the
-    distribution shift to exactly one variable.
-
-    The datasets are constructed on CPU and kept there; DataLoader moves
-    batches to device per-step. This avoids pinning 60k images in GPU memory.
-
-    Returns:
-        {"train": ..., "id_test": ..., "ood_test": ...}
+    Dispatches on cfg.dataset.name to construct the right dataset class.
+    Returns {"train": ..., "id_test": ..., "ood_test": ...}.
     """
-    seed = cfg.training.seed
-    noise = cfg.dataset.label_noise
-    data_dir = cfg.dataset.data_dir
+    if cfg.dataset.name == "cmnist":
+        seed = cfg.training.seed
+        noise = cfg.dataset.label_noise
+        data_dir = cfg.dataset.data_dir
 
-    train_ds = ColoredMNIST(cfg.dataset.train_correlation, label_noise=noise, split="train", data_dir=data_dir, seed=seed)
-    # ID test: same correlation as train — measures in-distribution performance
-    id_test_ds = ColoredMNIST(cfg.dataset.train_correlation, label_noise=noise, split="test", data_dir=data_dir, seed=seed)
-    # OOD test: flipped correlation — the spurious color cue now hurts; this is the key metric
-    ood_test_ds = ColoredMNIST(cfg.dataset.test_correlation, label_noise=noise, split="test", data_dir=data_dir, seed=seed)
+        train_ds = ColoredMNIST(cfg.dataset.train_correlation, label_noise=noise, split="train", data_dir=data_dir, seed=seed)
+        id_test_ds = ColoredMNIST(cfg.dataset.train_correlation, label_noise=noise, split="test", data_dir=data_dir, seed=seed)
+        ood_test_ds = ColoredMNIST(cfg.dataset.test_correlation, label_noise=noise, split="test", data_dir=data_dir, seed=seed)
+
+    elif cfg.dataset.name == "waterbirds":
+        data_dir = cfg.dataset.data_dir
+        train_ds = WaterbirdsDataset(split="train", data_dir=data_dir)
+        # Waterbirds has fixed val/test splits (both balanced across groups).
+        # "id_test" = validation set, "ood_test" = test set.
+        id_test_ds = WaterbirdsDataset(split="val", data_dir=data_dir)
+        ood_test_ds = WaterbirdsDataset(split="test", data_dir=data_dir)
+
+    else:
+        raise ValueError(f"Unknown dataset: {cfg.dataset.name}")
 
     kwargs = dict(batch_size=cfg.training.batch_size, num_workers=0, pin_memory=False)
     return {
@@ -955,13 +958,18 @@ def discover_environments(
         weights     - (N,) float: per-example importance weights.
         diag_metrics - discovery diagnostics (colour correlation per env, sizes).
     """
-    train_ds  = loaders["train"].dataset
-    N         = len(train_ds)
-    input_dim = train_ds.input_dim
+    train_ds = loaders["train"].dataset
+    N = len(train_ds)
 
-    # Throw-away ERM model.
-    disc = MLP(input_dim=input_dim, hidden_dim=cfg.model.hidden_dim).to(device)
-    opt  = torch.optim.AdamW(disc.parameters(), lr=cfg.training.lr, weight_decay=cfg.training.weight_decay)
+    # Throw-away ERM model — must match the dataset's architecture.
+    # For ResNet: freeze the pretrained backbone, only train the linear head.
+    # This is much faster and 5 discovery epochs suffice to learn the shortcut.
+    if cfg.dataset.arch == "resnet":
+        backbone, out_dim = make_resnet_backbone(freeze=True)
+        disc = MLP(backbone=backbone, backbone_out_dim=out_dim).to(device)
+    else:
+        disc = MLP(input_dim=train_ds.input_dim, hidden_dim=cfg.model.hidden_dim).to(device)
+    opt = torch.optim.AdamW(disc.parameters(), lr=cfg.training.lr, weight_decay=cfg.training.weight_decay)
 
     for _ in range(cfg.training.discovery_epochs):
         disc.train()

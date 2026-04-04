@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import torch
 import torchvision
 from torch.utils.data import Dataset
+from torchvision import transforms
 
 
 class ColoredMNIST(Dataset):
@@ -113,3 +116,113 @@ class ColoredMNIST(Dataset):
 
     def __len__(self) -> int:
         return len(self.labels)
+
+
+# ImageNet statistics used to normalise inputs for pretrained ResNet.
+_IMAGENET_MEAN = [0.485, 0.456, 0.406]
+_IMAGENET_STD = [0.229, 0.224, 0.225]
+
+
+def _waterbirds_transform(split: str) -> transforms.Compose:
+    """Standard transforms for Waterbirds following Sagawa et al. (2020).
+
+    Train: random crop + flip for augmentation.
+    Val/Test: deterministic resize + center crop for reproducible evaluation.
+    Both: ImageNet normalisation (required because the ResNet backbone was
+    pretrained on ImageNet-normalised inputs).
+    """
+    if split == "train":
+        return transforms.Compose([
+            transforms.Resize(256),
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize(_IMAGENET_MEAN, _IMAGENET_STD),
+        ])
+    else:
+        return transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize(_IMAGENET_MEAN, _IMAGENET_STD),
+        ])
+
+
+class WaterbirdsDataset(Dataset):
+    """Waterbirds: bird type classification with background as spurious feature.
+
+    From Sagawa et al. (2020).  Waterbirds appear on water backgrounds 95%
+    of the time in training; landbirds appear on land backgrounds 95% of the
+    time.  A model that uses background as a shortcut fails on the minority
+    groups (waterbird on land, landbird on water).
+
+    Loaded via the Hugging Face ``datasets`` library from ``grodino/waterbirds``.
+    The library handles downloading and caching automatically.
+
+    Standard splits:
+        train:       4,795 examples (imbalanced — rarest group has only 56)
+        validation:  1,199 examples (balanced across groups)
+        test:        5,794 examples (balanced across groups)
+
+    Group composition in training:
+        landbird  + land:   3,498  (73%)
+        waterbird + water:  1,057  (22%)
+        landbird  + water:    184  ( 4%)
+        waterbird + land:      56  ( 1%)  ← hardest group
+
+    Args:
+        split:     "train", "val", or "test".
+        data_dir:  Cache directory for the Hugging Face download.
+        transform: Optional custom transform; if None, uses the standard
+                   ImageNet-normalised crop/resize.
+    """
+
+    def __init__(
+        self,
+        split: str = "train",
+        data_dir: str = "./data/waterbirds",
+        transform: transforms.Compose | None = None,
+    ) -> None:
+        from datasets import load_dataset
+
+        # Map our split names to HF split names.
+        hf_split = {"train": "train", "val": "validation", "test": "test"}[split]
+        ds = load_dataset("grodino/waterbirds", split=hf_split, cache_dir=data_dir)
+
+        # Store labels and spurious attributes as tensors for the .spurious
+        # and .labels interface used by discover_environments and evaluate.
+        self._labels = torch.tensor(ds["label"], dtype=torch.long)
+        self._spurious = torch.tensor(ds["place"], dtype=torch.long)
+        self._images = ds["image"]  # list of PIL images, loaded lazily
+
+        self.transform = transform or _waterbirds_transform(split)
+
+    @property
+    def labels(self) -> torch.Tensor:
+        return self._labels
+
+    @property
+    def spurious(self) -> torch.Tensor:
+        """Spurious attribute: background type (0=land, 1=water)."""
+        return self._spurious
+
+    @property
+    def input_dim(self) -> int:
+        # ResNet handles its own input dimensions; this is not used.
+        raise NotImplementedError(
+            "WaterbirdsDataset uses a ResNet backbone — input_dim is not applicable."
+        )
+
+    def __getitem__(self, idx: int) -> dict:
+        img = self._images[idx]
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        return {
+            "image": self.transform(img),         # (3, 224, 224)
+            "label": self._labels[idx].item(),    # int ∈ {0, 1}
+            "spurious": self._spurious[idx].item(),  # int ∈ {0, 1}
+            "index": idx,
+        }
+
+    def __len__(self) -> int:
+        return len(self._labels)

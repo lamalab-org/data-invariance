@@ -1,0 +1,7 @@
+# Waterbirds — real-image spurious correlation benchmark (Sagawa et al. 2020).
+# Binary classification: waterbird (1) vs landbird (0).
+# Spurious feature: background (water=1, land=0), 95% correlated with label.
+# Loaded via HuggingFace datasets library (auto-download + caching).
+name: waterbirds
+arch: resnet
+data_dir: ./data/waterbirds

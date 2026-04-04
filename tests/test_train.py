@@ -221,8 +221,9 @@ def test_split_mlp_separate_backbones_differ():
     """With separate backbones, the two backbone initialisations must differ."""
     model = SplitMLP(input_dim=3 * 28 * 28, hidden_dim=64, separate_backbones=True)
     # Compare first Linear weight of each backbone
-    w_a = model.backbone_a[0].weight
-    w_b = model.backbone_b[0].weight
+    # Index 1 because index 0 is nn.Flatten
+    w_a = model.backbone_a[1].weight
+    w_b = model.backbone_b[1].weight
     assert not torch.equal(w_a, w_b)
 
 
