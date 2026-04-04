@@ -179,10 +179,33 @@ CnC is lower priority (complex to implement, contrastive framework).
 
 ### Critical ablation: JTT vs Ours
 
-To clearly show V-REx's contribution:
-- **JTT:** train ERM → identify high-loss examples → retrain with upweighted loss (no V-REx)
-- **Ours:** train ERM → score by loss → split into envs → retrain with upweighted V-REx
-- If ours > JTT: the environment structure + equal-risk constraint adds value beyond upweighting
+**Result:** JTT (our continuous-weight version) ≈ ERM (80.5% vs 80.7%).
+Ours = 85.4%, matching Group DRO. V-REx is the critical ingredient.
+
+**But why did JTT work in the original paper (~87%)?**
+
+Our initial "JTT" implementation was not faithful to the original paper:
+
+| | Original JTT (Liu et al. 2021) | Our initial "JTT" |
+|---|---|---|
+| Identification | Binary: misclassified yes/no | Continuous: loss / max_loss |
+| Weighting | Fixed λ on error set, 1 elsewhere | Graded: 1 + factor * loss/max_loss |
+| Discovery epochs | T=1 (very short) | 5 (longer) |
+
+The difference matters. Binary identification precisely targets the minority group —
+after 1 epoch, the ERM mostly misclassifies minority examples. Continuous weighting
+spreads weight across ALL high-loss examples, including noisy majority examples.
+
+**The interesting twist:** Our method ALSO uses continuous weighting but it works.
+Why? Because V-REx doesn't just upweight — it splits into environments AND forces
+equal risk. The environment structure gives the continuous weights *meaning*:
+- Without structure (JTT): continuous upweighting → noisy ERM, model can satisfy
+  the loss by accommodating upweighted examples without changing strategy
+- With structure (V-REx): continuous upweighting within environments → equal risk
+  forces the model to perform equally on both groups, it can't just memorise
+
+We implemented proper binary JTT (identify misclassified, fixed upweight) to fairly
+compare. Results pending.
 
 ---
 

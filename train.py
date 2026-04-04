@@ -1234,6 +1234,82 @@ def train_discovered_split(
     return metrics
 
 
+def discover_jtt_weights(
+    cfg: DictConfig,
+    loaders: dict[str, DataLoader],
+    device: torch.device,
+) -> tuple[torch.Tensor, dict[str, float]]:
+    """JTT identification phase — faithful to Liu et al. 2021.
+
+    Train a short ERM, then check which examples it *misclassifies*.
+    Those get a fixed upweight factor; everything else gets weight 1.
+
+    This is different from our continuous loss-based weighting:
+    - JTT: binary (misclassified → upweight, correct → 1)
+    - Ours: continuous (weight proportional to loss)
+
+    Binary identification focuses weight precisely on the minority group.
+    Continuous weighting dilutes across all high-loss examples including
+    noisy majority-group examples.
+
+    Returns:
+        weights      - (N,) float: 1.0 for correct, upweight_factor for misclassified.
+        diag_metrics - diagnostics (how many misclassified, overlap with spurious).
+    """
+    train_ds = loaders["train"].dataset
+    N = len(train_ds)
+    upweight_factor = cfg.training.discovery_upweight
+
+    # Train throw-away ERM (same as discover_environments phase 1).
+    if cfg.dataset.arch == "resnet":
+        backbone, out_dim = make_resnet_backbone(freeze=True)
+        disc = MLP(backbone=backbone, backbone_out_dim=out_dim).to(device)
+    else:
+        disc = MLP(input_dim=train_ds.input_dim, hidden_dim=cfg.model.hidden_dim).to(device)
+    opt = torch.optim.AdamW(disc.parameters(), lr=cfg.training.lr, weight_decay=cfg.training.weight_decay)
+
+    for _ in range(cfg.training.discovery_epochs):
+        disc.train()
+        for batch in loaders["train"]:
+            x = batch["image"].to(device)
+            y = batch["label"].to(device)
+            loss = F.cross_entropy(disc(x), y)
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+
+    # Identify misclassified examples.
+    disc.eval()
+    misclassified = torch.zeros(N, dtype=torch.bool)
+    with torch.no_grad():
+        for batch in loaders["train"]:
+            x = batch["image"].to(device)
+            y = batch["label"].to(device)
+            idx = batch["index"]
+            preds = disc(x).argmax(1)
+            misclassified[idx] = (preds != y).cpu()
+
+    # Binary weights: misclassified → upweight, correct → 1.
+    weights = torch.ones(N)
+    weights[misclassified] = upweight_factor
+
+    # Diagnostics.
+    n_error = misclassified.sum().item()
+    spurious = train_ds.spurious
+    labels = train_ds.labels
+    # What fraction of misclassified examples are from the minority group?
+    minority_mask = spurious != labels  # spurious feature doesn't match label
+    n_error_minority = (misclassified & minority_mask).sum().item()
+
+    diag_metrics = {
+        "jtt/n_misclassified": float(n_error),
+        "jtt/frac_misclassified": float(n_error) / N,
+        "jtt/frac_errors_from_minority": float(n_error_minority) / max(n_error, 1),
+        "jtt/upweight_factor": float(upweight_factor),
+    }
+    return weights, diag_metrics
+
+
 def train_jtt(
     cfg: DictConfig,
     model: torch.nn.Module,

@@ -117,11 +117,13 @@ def main(cfg: DictConfig) -> None:
         train_discovered_split(cfg, model, loaders, device, run, assignment, weights, discovery_metrics)
 
     elif method == "jtt":
-        # JTT uses the same discovery phase as discovered_split but trains
-        # with plain upweighted ERM — no environment split, no V-REx.
-        assignment, weights, discovery_metrics = discover_environments(cfg, loaders, device)
+        # JTT (Just Train Twice): train discovery ERM, identify misclassified
+        # examples, upweight them with a fixed factor in a second round.
+        # Faithful to Liu et al. 2021: binary weights (misclassified → λ_up, rest → 1).
+        from train import discover_jtt_weights
+        weights, discovery_metrics = discover_jtt_weights(cfg, loaders, device)
         set_seed(cfg.training.seed)
-        model = _make_model(cfg, loaders, "erm", device)  # single-head model
+        model = _make_model(cfg, loaders, "erm", device)
         train_jtt(cfg, model, loaders, device, run, weights, discovery_metrics)
 
     elif method == "group_dro":
