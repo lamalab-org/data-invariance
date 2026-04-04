@@ -78,22 +78,29 @@ def symmetric_kl(logits_a: torch.Tensor, logits_b: torch.Tensor) -> torch.Tensor
     return 0.5 * (kl_ab + kl_ba)
 
 
+def _eval_metrics(prefix: str, m: dict[str, float]) -> dict[str, float]:
+    """Build prefixed metric dict from evaluate() output, including worst_group_acc if present."""
+    d = {
+        f"{prefix}_acc": m["acc"],
+        f"{prefix}_auroc": m["auroc"],
+        f"{prefix}_precision": m["precision"],
+        f"{prefix}_recall": m["recall"],
+    }
+    if "worst_group_acc" in m:
+        d[f"{prefix}_worst_group_acc"] = m["worst_group_acc"]
+    return d
+
+
 def evaluate(model: torch.nn.Module, loader: DataLoader, device: torch.device) -> dict[str, float]:
-    """Evaluate model on a dataloader, returning accuracy, loss, precision, recall, and AUROC.
+    """Evaluate model on a dataloader.
 
-    Calls model.predict(x) which returns class probabilities (B, 2). Both MLP and
-    SplitMLP implement predict(), so this function is model-agnostic.
-
-    Precision/recall are included now so we notice if the model collapses to predicting
-    one class — accuracy alone can hide that on balanced datasets and will miss it entirely
-    if we move to an imbalanced setting later.
-
-    AUROC is threshold-free and robust to class imbalance, making it a better summary
-    statistic than accuracy when comparing across conditions.
+    Returns accuracy, precision, recall, AUROC, loss, and worst-group accuracy.
+    Worst-group accuracy is the minimum accuracy across the 4 (label, spurious)
+    groups — the standard metric for Waterbirds and other group-robustness
+    benchmarks.  It is computed whenever the batch contains a "spurious" key.
     """
     model.eval()
 
-    # task="binary" because we have exactly 2 classes (digits 0-4 vs 5-9)
     accuracy = torchmetrics.Accuracy(task="binary").to(device)
     precision = torchmetrics.Precision(task="binary").to(device)
     recall = torchmetrics.Recall(task="binary").to(device)
@@ -102,33 +109,62 @@ def evaluate(model: torch.nn.Module, loader: DataLoader, device: torch.device) -
     total_loss = 0.0
     total_n = 0
 
+    # Collect per-example predictions and group labels for worst-group accuracy.
+    all_preds = []
+    all_labels = []
+    all_spurious = []
+    has_spurious = False
+
     with torch.no_grad():
         for batch in loader:
-            x = batch["image"].to(device)   # (B, 3, 28, 28)
-            y = batch["label"].to(device)   # (B,) int64
+            x = batch["image"].to(device)
+            y = batch["label"].to(device)
 
-            probs = model.predict(x)        # (B, 2) — probabilities, model-agnostic
+            probs = model.predict(x)          # (B, 2)
+            preds = probs.argmax(dim=1)       # (B,)
 
-            # Cross-entropy from probabilities: use log + nll_loss
-            # sum reduction so we can compute a properly weighted mean at the end
             total_loss += F.nll_loss(probs.clamp(min=1e-7).log(), y, reduction="sum").item()
             total_n += len(y)
-
-            pos_probs = probs[:, 1]         # (B,) probability of positive class
-            preds = probs.argmax(dim=1)     # (B,) predicted class
 
             accuracy.update(preds, y)
             precision.update(preds, y)
             recall.update(preds, y)
-            auroc.update(pos_probs, y)
+            auroc.update(probs[:, 1], y)
 
-    return {
+            if "spurious" in batch:
+                has_spurious = True
+                all_preds.append(preds.cpu())
+                all_labels.append(y.cpu())
+                s = batch["spurious"]
+                if isinstance(s, torch.Tensor):
+                    all_spurious.append(s.clone())
+                else:
+                    all_spurious.append(torch.tensor(s if not isinstance(s, int) else [s]))
+
+    result = {
         "acc": accuracy.compute().item(),
         "precision": precision.compute().item(),
         "recall": recall.compute().item(),
         "auroc": auroc.compute().item(),
         "loss": total_loss / total_n,
     }
+
+    # Worst-group accuracy: min accuracy over (label, spurious) groups.
+    if has_spurious:
+        preds_t = torch.cat(all_preds)
+        labels_t = torch.cat(all_labels)
+        spurious_t = torch.cat(all_spurious)
+        # Group index: label * 2 + spurious → {0, 1, 2, 3}
+        groups = labels_t * 2 + spurious_t
+        group_accs = {}
+        for g in range(4):
+            mask = groups == g
+            if mask.any():
+                group_accs[g] = (preds_t[mask] == labels_t[mask]).float().mean().item()
+        if group_accs:
+            result["worst_group_acc"] = min(group_accs.values())
+
+    return result
 
 
 def train_erm(
@@ -183,14 +219,8 @@ def train_erm(
         metrics = {
             "train/loss": epoch_loss / epoch_n,
             "train/acc": epoch_correct / epoch_n,
-            "eval/id_acc": id_metrics["acc"],
-            "eval/id_auroc": id_metrics["auroc"],
-            "eval/id_precision": id_metrics["precision"],
-            "eval/id_recall": id_metrics["recall"],
-            "eval/ood_acc": ood_metrics["acc"],
-            "eval/ood_auroc": ood_metrics["auroc"],
-            "eval/ood_precision": ood_metrics["precision"],
-            "eval/ood_recall": ood_metrics["recall"],
+            **_eval_metrics("eval/id", id_metrics),
+            **_eval_metrics("eval/ood", ood_metrics),
         }
         log_metrics(run, metrics, step=epoch)
 
@@ -285,14 +315,8 @@ def train_random_split(
             "train/loss": epoch_loss / epoch_n,
             "train/acc": epoch_correct / epoch_n,
             "train/disagreement": epoch_disagree / epoch_n,
-            "eval/id_acc": id_metrics["acc"],
-            "eval/id_auroc": id_metrics["auroc"],
-            "eval/id_precision": id_metrics["precision"],
-            "eval/id_recall": id_metrics["recall"],
-            "eval/ood_acc": ood_metrics["acc"],
-            "eval/ood_auroc": ood_metrics["auroc"],
-            "eval/ood_precision": ood_metrics["precision"],
-            "eval/ood_recall": ood_metrics["recall"],
+            **_eval_metrics("eval/id", id_metrics),
+            **_eval_metrics("eval/ood", ood_metrics),
         }
         log_metrics(run, metrics, step=epoch)
 
@@ -375,14 +399,8 @@ def train_oracle_split(
             "train/loss": epoch_loss / epoch_n,
             "train/acc": epoch_correct / epoch_n,
             "train/disagreement": epoch_disagree / epoch_n,
-            "eval/id_acc": id_metrics["acc"],
-            "eval/id_auroc": id_metrics["auroc"],
-            "eval/id_precision": id_metrics["precision"],
-            "eval/id_recall": id_metrics["recall"],
-            "eval/ood_acc": ood_metrics["acc"],
-            "eval/ood_auroc": ood_metrics["auroc"],
-            "eval/ood_precision": ood_metrics["precision"],
-            "eval/ood_recall": ood_metrics["recall"],
+            **_eval_metrics("eval/id", id_metrics),
+            **_eval_metrics("eval/ood", ood_metrics),
         }
         log_metrics(run, metrics, step=epoch)
 
@@ -486,14 +504,8 @@ def train_resampling(
             "train/acc": epoch_correct / epoch_n,
             "train/disagreement": epoch_disagree / epoch_n,
             "train/risk_variance": epoch_risk_var / epoch_n,
-            "eval/id_acc": id_metrics["acc"],
-            "eval/id_auroc": id_metrics["auroc"],
-            "eval/id_precision": id_metrics["precision"],
-            "eval/id_recall": id_metrics["recall"],
-            "eval/ood_acc": ood_metrics["acc"],
-            "eval/ood_auroc": ood_metrics["auroc"],
-            "eval/ood_precision": ood_metrics["precision"],
-            "eval/ood_recall": ood_metrics["recall"],
+            **_eval_metrics("eval/id", id_metrics),
+            **_eval_metrics("eval/ood", ood_metrics),
         }
         log_metrics(run, metrics, step=epoch)
 
@@ -749,14 +761,8 @@ def train_adversarial_split(
             "train/risk_variance": epoch_risk_var / epoch_n,
             "train/lambda": lam,
             "train/assignment_entropy": entropy.item(),
-            "eval/id_acc": id_metrics["acc"],
-            "eval/id_auroc": id_metrics["auroc"],
-            "eval/id_precision": id_metrics["precision"],
-            "eval/id_recall": id_metrics["recall"],
-            "eval/ood_acc": ood_metrics["acc"],
-            "eval/ood_auroc": ood_metrics["auroc"],
-            "eval/ood_precision": ood_metrics["precision"],
-            "eval/ood_recall": ood_metrics["recall"],
+            **_eval_metrics("eval/id", id_metrics),
+            **_eval_metrics("eval/ood", ood_metrics),
         }
         # After the final epoch, compute how well the assignment tracks colour.
         # Logged only once so it appears as a scalar summary in wandb rather than
@@ -913,14 +919,8 @@ def train_adversarial_split_multi(
             "train/disagreement": epoch_disagree / epoch_n,
             "train/lambda": lam,
             "train/assignment_entropy": entropy.item(),
-            "eval/id_acc": id_metrics["acc"],
-            "eval/id_auroc": id_metrics["auroc"],
-            "eval/id_precision": id_metrics["precision"],
-            "eval/id_recall": id_metrics["recall"],
-            "eval/ood_acc": ood_metrics["acc"],
-            "eval/ood_auroc": ood_metrics["auroc"],
-            "eval/ood_precision": ood_metrics["precision"],
-            "eval/ood_recall": ood_metrics["recall"],
+            **_eval_metrics("eval/id", id_metrics),
+            **_eval_metrics("eval/ood", ood_metrics),
         }
 
         if epoch == cfg.training.epochs - 1:
@@ -1208,14 +1208,8 @@ def train_discovered_split(
             "train/acc":           epoch_correct / epoch_n,
             "train/risk_variance": avg_risk_var,
             "train/lambda":        lam,
-            "eval/id_acc":         id_metrics["acc"],
-            "eval/id_auroc":       id_metrics["auroc"],
-            "eval/id_precision":   id_metrics["precision"],
-            "eval/id_recall":      id_metrics["recall"],
-            "eval/ood_acc":        ood_metrics["acc"],
-            "eval/ood_auroc":      ood_metrics["auroc"],
-            "eval/ood_precision":  ood_metrics["precision"],
-            "eval/ood_recall":     ood_metrics["recall"],
+            **_eval_metrics("eval/id", id_metrics),
+            **_eval_metrics("eval/ood", ood_metrics),
         }
         log_metrics(run, metrics, step=epoch)
 

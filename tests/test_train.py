@@ -133,7 +133,11 @@ def test_evaluate_metric_keys():
     loaders = make_dataloaders(cfg)
     model = MLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
     metrics = evaluate(model, loaders["id_test"], device)
-    assert set(metrics.keys()) == {"acc", "precision", "recall", "auroc", "loss"}
+    expected = {"acc", "precision", "recall", "auroc", "loss"}
+    # worst_group_acc is present when the dataset provides spurious labels
+    if "worst_group_acc" in metrics:
+        expected.add("worst_group_acc")
+    assert set(metrics.keys()) == expected
 
 
 # ---------------------------------------------------------------------------
@@ -152,8 +156,8 @@ def test_train_erm_returns_correct_metric_keys():
 
     expected = {
         "train/loss", "train/acc",
-        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
-        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall", "eval/id_worst_group_acc",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall", "eval/ood_worst_group_acc",
     }
     assert set(metrics.keys()) == expected
 
@@ -285,8 +289,8 @@ def test_train_random_split_metric_keys():
 
     expected = {
         "train/loss", "train/acc", "train/disagreement",
-        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
-        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall", "eval/id_worst_group_acc",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall", "eval/ood_worst_group_acc",
     }
     assert set(metrics.keys()) == expected
 
@@ -323,8 +327,8 @@ def test_train_adversarial_split_metric_keys():
     expected = {
         "train/loss", "train/acc", "train/disagreement", "train/risk_variance",
         "train/lambda", "train/assignment_entropy",
-        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
-        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall", "eval/id_worst_group_acc",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall", "eval/ood_worst_group_acc",
         "assignment_color_corr", "assignment_color_abs_corr",
     }
     assert set(metrics.keys()) == expected
@@ -409,8 +413,8 @@ def test_train_oracle_split_metric_keys():
 
     expected = {
         "train/loss", "train/acc", "train/disagreement",
-        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
-        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall", "eval/id_worst_group_acc",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall", "eval/ood_worst_group_acc",
     }
     assert set(metrics.keys()) == expected
 
@@ -492,8 +496,8 @@ def test_adversarial_split_multi_adv_steps():
     assert set(metrics.keys()) == {
         "train/loss", "train/acc", "train/disagreement", "train/risk_variance",
         "train/lambda", "train/assignment_entropy",
-        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
-        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall", "eval/id_worst_group_acc",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall", "eval/ood_worst_group_acc",
         "assignment_color_corr", "assignment_color_abs_corr",
     }
 
@@ -624,8 +628,8 @@ def test_adversarial_split_grad_div_mode():
     expected = {
         "train/loss", "train/acc", "train/disagreement", "train/risk_variance",
         "train/lambda", "train/assignment_entropy",
-        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
-        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall", "eval/id_worst_group_acc",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall", "eval/ood_worst_group_acc",
         "assignment_color_corr", "assignment_color_abs_corr",
     }
     assert set(metrics.keys()) == expected
@@ -655,8 +659,8 @@ def test_adversarial_split_risk_variance_mode():
     expected = {
         "train/loss", "train/acc", "train/disagreement", "train/risk_variance",
         "train/lambda", "train/assignment_entropy",
-        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
-        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall", "eval/id_worst_group_acc",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall", "eval/ood_worst_group_acc",
         "assignment_color_corr", "assignment_color_abs_corr",
     }
     assert set(metrics.keys()) == expected
@@ -682,8 +686,8 @@ def test_train_resampling_metric_keys():
 
     expected = {
         "train/loss", "train/acc", "train/disagreement", "train/risk_variance",
-        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
-        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall", "eval/id_worst_group_acc",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall", "eval/ood_worst_group_acc",
     }
     assert set(metrics.keys()) == expected
 
@@ -814,8 +818,8 @@ def test_train_adversarial_split_multi_metric_keys():
     expected = {
         "train/loss", "train/acc", "train/disagreement", "train/lambda",
         "train/assignment_entropy",
-        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
-        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall", "eval/id_worst_group_acc",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall", "eval/ood_worst_group_acc",
         "assignment_color_max_abs_corr", "assignment_color_mean_abs_corr",
     }
     assert set(metrics.keys()) == expected
@@ -937,8 +941,8 @@ def test_train_discovered_split_metric_keys():
 
     expected = {
         "train/loss", "train/acc", "train/risk_variance", "train/lambda",
-        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall",
-        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall",
+        "eval/id_acc", "eval/id_auroc", "eval/id_precision", "eval/id_recall", "eval/id_worst_group_acc",
+        "eval/ood_acc", "eval/ood_auroc", "eval/ood_precision", "eval/ood_recall", "eval/ood_worst_group_acc",
     }
     assert set(metrics.keys()) == expected, (
         f"missing: {expected - set(metrics.keys())}; extra: {set(metrics.keys()) - expected}"
