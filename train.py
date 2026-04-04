@@ -1232,3 +1232,179 @@ def train_discovered_split(
                     break
 
     return metrics
+
+
+def train_jtt(
+    cfg: DictConfig,
+    model: torch.nn.Module,
+    loaders: dict[str, DataLoader],
+    device: torch.device,
+    run: object,
+    weights: torch.Tensor,
+    discovery_metrics: dict[str, float],
+) -> dict[str, float]:
+    """JTT (Just Train Twice) — Liu et al. 2021.
+
+    Phase 1 (discover_environments) has already run: we have per-example
+    loss-based weights.  Phase 2 trains a fresh model with upweighted loss
+    on the examples the discovery ERM got wrong.
+
+    This is the ablation that isolates what V-REx adds: JTT uses the same
+    discovery + upweighting but trains with plain weighted ERM (no environment
+    split, no risk-variance penalty).
+
+    Args:
+        weights: (N,) float tensor from discover_environments.
+        discovery_metrics: logged at step 0.
+    """
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=cfg.training.lr,
+        weight_decay=cfg.training.weight_decay,
+    )
+    weights = weights.to(device)
+
+    log_metrics(run, discovery_metrics, step=0)
+
+    metrics: dict[str, float] = {}
+    for epoch in range(cfg.training.epochs):
+        model.train()
+        epoch_loss = 0.0
+        epoch_correct = 0
+        epoch_n = 0
+
+        for batch in loaders["train"]:
+            x = batch["image"].to(device)
+            y = batch["label"].to(device)
+            idx = batch["index"].to(device)
+
+            logits = model(x)
+            ce = F.cross_entropy(logits, y, reduction="none")  # (B,)
+
+            # Weighted ERM loss — high-loss examples from discovery get higher weight.
+            # This is the JTT objective: no environment split, no V-REx.
+            w = weights[idx]
+            loss = (w * ce).sum() / w.sum()
+
+            optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+
+            epoch_loss += loss.item() * len(y)
+            epoch_correct += (logits.argmax(1) == y).sum().item()
+            epoch_n += len(y)
+
+        id_metrics = evaluate(model, loaders["id_test"], device)
+        ood_metrics = evaluate(model, loaders["ood_test"], device)
+
+        metrics = {
+            "train/loss": epoch_loss / epoch_n,
+            "train/acc": epoch_correct / epoch_n,
+            **_eval_metrics("eval/id", id_metrics),
+            **_eval_metrics("eval/ood", ood_metrics),
+        }
+        log_metrics(run, metrics, step=epoch)
+
+    return metrics
+
+
+def train_group_dro(
+    cfg: DictConfig,
+    model: torch.nn.Module,
+    loaders: dict[str, DataLoader],
+    device: torch.device,
+    run: object,
+) -> dict[str, float]:
+    """Group DRO — Sagawa et al. 2020.
+
+    At each step, compute per-group loss, then upweight the group with the
+    highest loss.  This directly minimises worst-group risk.
+
+    Requires ground-truth group labels (label x spurious) on every training
+    example — this is the oracle upper bound for methods that don't have
+    group annotations.
+
+    Groups are defined as (label, spurious) pairs:
+        group 0: label=0, spurious=0
+        group 1: label=0, spurious=1
+        group 2: label=1, spurious=0
+        group 3: label=1, spurious=1
+
+    The group weights q are maintained on a simplex and updated via
+    exponentiated gradient ascent:
+        q_g <- q_g * exp(eta * loss_g)
+        q <- q / sum(q)
+
+    eta (step_size) controls how aggressively we upweight the worst group.
+    Sagawa et al. use eta=0.01 as default.
+    """
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=cfg.training.lr,
+        weight_decay=cfg.training.weight_decay,
+    )
+
+    n_groups = 4
+    # Group weights on the simplex — start uniform.
+    group_weights = torch.ones(n_groups, device=device) / n_groups
+    dro_step_size = 0.01  # eta from Sagawa et al.
+
+    metrics: dict[str, float] = {}
+    for epoch in range(cfg.training.epochs):
+        model.train()
+        epoch_loss = 0.0
+        epoch_correct = 0
+        epoch_n = 0
+
+        for batch in loaders["train"]:
+            x = batch["image"].to(device)
+            y = batch["label"].to(device)
+            s = batch["spurious"]
+            if isinstance(s, torch.Tensor):
+                s = s.to(device)
+            else:
+                s = torch.tensor(s, device=device)
+
+            logits = model(x)
+            ce = F.cross_entropy(logits, y, reduction="none")  # (B,)
+
+            # Group index: label * 2 + spurious
+            groups = y * 2 + s  # (B,) ∈ {0, 1, 2, 3}
+
+            # Per-group mean loss.
+            group_losses = torch.zeros(n_groups, device=device)
+            for g in range(n_groups):
+                mask = groups == g
+                if mask.any():
+                    group_losses[g] = ce[mask].mean()
+
+            # DRO loss: weighted combination of per-group losses.
+            loss = (group_weights * group_losses).sum()
+
+            optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+
+            # Update group weights via exponentiated gradient ascent.
+            with torch.no_grad():
+                group_weights = group_weights * torch.exp(dro_step_size * group_losses)
+                group_weights = group_weights / group_weights.sum()
+
+            epoch_loss += loss.item() * len(y)
+            epoch_correct += (logits.argmax(1) == y).sum().item()
+            epoch_n += len(y)
+
+        id_metrics = evaluate(model, loaders["id_test"], device)
+        ood_metrics = evaluate(model, loaders["ood_test"], device)
+
+        metrics = {
+            "train/loss": epoch_loss / epoch_n,
+            "train/acc": epoch_correct / epoch_n,
+            **_eval_metrics("eval/id", id_metrics),
+            **_eval_metrics("eval/ood", ood_metrics),
+        }
+        log_metrics(run, metrics, step=epoch)
+
+    return metrics

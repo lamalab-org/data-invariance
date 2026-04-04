@@ -7,7 +7,7 @@ import wandb
 from omegaconf import DictConfig, OmegaConf
 
 from models import MLP, MultiHeadMLP, SplitMLP, make_resnet_backbone
-from train import discover_environments, make_dataloaders, train_adversarial_split, train_adversarial_split_multi, train_discovered_split, train_erm, train_oracle_split, train_random_split, train_resampling
+from train import discover_environments, make_dataloaders, train_adversarial_split, train_adversarial_split_multi, train_discovered_split, train_erm, train_group_dro, train_jtt, train_oracle_split, train_random_split, train_resampling
 from utils import get_device, set_seed
 
 
@@ -115,6 +115,18 @@ def main(cfg: DictConfig) -> None:
         set_seed(cfg.training.seed)
         model = _make_model(cfg, loaders, method, device)
         train_discovered_split(cfg, model, loaders, device, run, assignment, weights, discovery_metrics)
+
+    elif method == "jtt":
+        # JTT uses the same discovery phase as discovered_split but trains
+        # with plain upweighted ERM — no environment split, no V-REx.
+        assignment, weights, discovery_metrics = discover_environments(cfg, loaders, device)
+        set_seed(cfg.training.seed)
+        model = _make_model(cfg, loaders, "erm", device)  # single-head model
+        train_jtt(cfg, model, loaders, device, run, weights, discovery_metrics)
+
+    elif method == "group_dro":
+        model = _make_model(cfg, loaders, "erm", device)  # single-head model
+        train_group_dro(cfg, model, loaders, device, run)
 
     else:
         raise NotImplementedError(f"method '{method}' not yet implemented")

@@ -1,0 +1,4 @@
+# Group DRO — Sagawa et al. 2020.
+# Minimises worst-group loss at each step. Requires group labels (spurious
+# attribute) on every training example — this is the oracle upper bound.
+name: group_dro
