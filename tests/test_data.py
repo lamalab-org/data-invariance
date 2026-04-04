@@ -99,7 +99,7 @@ def test_green_channel_only_when_color_one():
 def test_getitem_keys():
     ds = make_train_dataset()
     sample = ds[0]
-    assert set(sample.keys()) == {"image", "label", "color", "index"}
+    assert set(sample.keys()) == {"image", "label", "color", "spurious", "index"}
 
 
 def test_getitem_index_matches():

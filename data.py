@@ -92,11 +92,22 @@ class ColoredMNIST(Dataset):
         self.labels = labels  # (N,) int64
         self.colors = colors  # (N,) int64
 
+    @property
+    def spurious(self) -> torch.Tensor:
+        """Spurious attribute (color). Generic name so downstream code works for any dataset."""
+        return self.colors
+
+    @property
+    def input_dim(self) -> int:
+        """Flattened input dimensionality for MLP models."""
+        return self.images.shape[1:].numel()  # 3*28*28 = 2352
+
     def __getitem__(self, idx: int) -> dict:
         return {
             "image": self.images[idx],         # (3, 28, 28) float32
             "label": self.labels[idx].item(),  # int ∈ {0, 1}
-            "color": self.colors[idx].item(),  # int ∈ {0, 1}
+            "color": self.colors[idx].item(),  # int ∈ {0, 1} (CMNIST-specific)
+            "spurious": self.colors[idx].item(),  # generic name for spurious attribute
             "index": idx,                      # int — used by adversarial assignment weights
         }
 

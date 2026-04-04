@@ -43,7 +43,7 @@ def main(cfg: DictConfig) -> None:
     loaders = make_dataloaders(cfg)
 
     # input_dim derived from the dataset so the model is not coupled to image shape
-    input_dim = loaders["train"].dataset.images.shape[1:].numel()  # 3*28*28 = 2352
+    input_dim = loaders["train"].dataset.input_dim  # e.g. 3*28*28 = 2352 for CMNIST
 
     if cfg.method.name == "erm":
         model = MLP(input_dim=input_dim, hidden_dim=cfg.model.hidden_dim).to(device)

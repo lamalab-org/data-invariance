@@ -337,7 +337,7 @@ def train_oracle_split(
             x = batch["image"].to(device)    # (B, 3, 28, 28)
             y = batch["label"].to(device)    # (B,) int64
             # color=0 → red → head A (s=1); color=1 → green → head B (s=0)
-            s = (1 - batch["color"]).float().to(device)   # (B,) ∈ {0.0, 1.0}
+            s = (1 - batch["spurious"]).float().to(device)   # (B,) ∈ {0.0, 1.0}
 
             logits_a, logits_b = model(x)    # each (B, 2)
 
@@ -562,7 +562,7 @@ def train_adversarial_split(
         # partition from the start — a sanity check to verify the mechanism works when discovery
         # is not required. If OOD improves over ERM here, the mechanism is sound; the only
         # remaining challenge is the bootstrap/discovery problem.
-        colors = train_ds.colors  # (N,) tensor of 0/1 ground-truth color labels
+        colors = train_ds.spurious  # (N,) tensor of 0/1 ground-truth spurious labels
         init_vals = torch.where(colors == 0, torch.tensor(5.0), torch.tensor(-5.0))
     else:
         g = torch.Generator().manual_seed(cfg.training.seed + 1)
@@ -957,7 +957,7 @@ def discover_environments(
     """
     train_ds  = loaders["train"].dataset
     N         = len(train_ds)
-    input_dim = train_ds.images.shape[1:].numel()
+    input_dim = train_ds.input_dim
 
     # Throw-away ERM model.
     disc = MLP(input_dim=input_dim, hidden_dim=cfg.model.hidden_dim).to(device)
@@ -1055,7 +1055,7 @@ def discover_environments(
         weights = torch.ones(N)
 
     # --- Diagnostics ---
-    colors = train_ds.colors.float()
+    colors = train_ds.spurious.float()
     labels = train_ds.labels.float()
 
     def _corr(mask: torch.Tensor) -> float:
