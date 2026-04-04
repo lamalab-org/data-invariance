@@ -114,6 +114,13 @@ training:
   # where the spurious feature lives.  0.0 → disabled.
   discovery_upweight: 0.0
 
+  # Number of discovered environments for V-REx.
+  # 2 → binary median split (default).
+  # K>2 → split into K environments by loss quantile.
+  # V-REx penalty becomes variance of K per-environment losses.
+  # Useful for continuous spurious features where binary split loses nuance.
+  num_discovery_envs: 2
+
   # Early stopping patience for discovered_split. After the epoch with
   # lowest risk variance, if risk_var does not improve for this many
   # consecutive epochs, stop training and restore the best checkpoint.

@@ -118,6 +118,107 @@ class ColoredMNIST(Dataset):
         return len(self.labels)
 
 
+class ContinuousCMNIST(Dataset):
+    """CMNIST with continuous (graded) spurious colour signal.
+
+    Instead of binary red/green, each example gets a colour strength
+    c_i in [0, 1] that determines the R/G channel blend:
+        R_channel = c_i * grayscale
+        G_channel = (1 - c_i) * grayscale
+
+    c_i is correlated with the label via a Beta distribution:
+        label=1 → c_i ~ Beta(α, β)  with mean ≈ env_correlation
+        label=0 → c_i ~ Beta(β, α)  with mean ≈ 1 - env_correlation
+
+    Higher env_correlation → stronger colour-label link, but it's continuous,
+    not a clean binary split.  A model can't just threshold on "R > G" — it
+    has to handle the full spectrum of colour strengths.
+
+    This models real-world scenarios where the spurious feature has graded
+    strength (scaffold frequency in chemistry, image quality in medical data).
+
+    The ``.spurious`` attribute returns a binarised version (c_i > 0.5) for
+    compatibility with diagnostics, but the underlying signal is continuous.
+    ``.color_strength`` provides the raw continuous values.
+    """
+
+    def __init__(
+        self,
+        env_correlation: float,
+        label_noise: float = 0.25,
+        split: str = "train",
+        data_dir: str = "./data",
+        seed: int = 42,
+        beta_concentration: float = 5.0,
+    ) -> None:
+        g = torch.Generator().manual_seed(seed)
+
+        mnist = torchvision.datasets.MNIST(data_dir, train=(split == "train"), download=True)
+        images = mnist.data.float() / 255.0
+        digits = mnist.targets
+        N = len(digits)
+
+        # Step 1: binarise
+        labels = (digits >= 5).long()
+
+        # Step 2: label noise
+        flip = torch.bernoulli(torch.full((N,), label_noise), generator=g).long()
+        labels = labels ^ flip
+
+        # Step 3: continuous colour strength via Beta distribution.
+        # Beta(a, b) has mean a/(a+b).  We want mean = env_correlation for
+        # label=1 and mean = 1-env_correlation for label=0.
+        # With concentration k: a = k*mean, b = k*(1-mean).
+        k = beta_concentration
+        alpha_pos = k * env_correlation
+        beta_pos = k * (1.0 - env_correlation)
+
+        # Sample colour strength for each example.
+        import numpy as np
+        rng = np.random.RandomState(seed + 1)  # separate from torch generator
+        color_strength = torch.zeros(N)
+        for i in range(N):
+            if labels[i] == 1:
+                color_strength[i] = rng.beta(alpha_pos, beta_pos)
+            else:
+                color_strength[i] = rng.beta(beta_pos, alpha_pos)
+
+        # Step 4: blend R and G channels by colour strength.
+        # c=1 → all red, c=0 → all green, c=0.5 → equal mix.
+        imgs = torch.zeros(N, 3, 28, 28)
+        imgs[:, 0] = images * color_strength.unsqueeze(1).unsqueeze(2)      # R channel
+        imgs[:, 1] = images * (1 - color_strength).unsqueeze(1).unsqueeze(2)  # G channel
+
+        self.images = imgs
+        self.labels = labels
+        self._color_strength = color_strength  # (N,) float ∈ [0, 1]
+
+    @property
+    def spurious(self) -> torch.Tensor:
+        """Binarised colour (c > 0.5) for diagnostic compatibility."""
+        return (self._color_strength > 0.5).long()
+
+    @property
+    def color_strength(self) -> torch.Tensor:
+        """Raw continuous colour strength in [0, 1]."""
+        return self._color_strength
+
+    @property
+    def input_dim(self) -> int:
+        return self.images.shape[1:].numel()
+
+    def __getitem__(self, idx: int) -> dict:
+        return {
+            "image": self.images[idx],
+            "label": self.labels[idx].item(),
+            "spurious": (self._color_strength[idx] > 0.5).long().item(),
+            "index": idx,
+        }
+
+    def __len__(self) -> int:
+        return len(self.labels)
+
+
 class MultiSpuriousCMNIST(Dataset):
     """CMNIST with two independent spurious features: colour AND brightness.
 

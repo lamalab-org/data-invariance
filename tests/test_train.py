@@ -31,6 +31,7 @@ def make_cfg():
             "discovery_reweight": 0.0,
             "discovery_upweight": 0.0,
             "early_stop_patience": 0,
+            "num_discovery_envs": 2,
         },
         "method": {"name": "erm"},
         "wandb": {"enabled": False},

@@ -6,7 +6,7 @@ import torchmetrics
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 
-from data import ColoredMNIST, MultiSpuriousCMNIST, WaterbirdsDataset
+from data import ColoredMNIST, ContinuousCMNIST, MultiSpuriousCMNIST, WaterbirdsDataset
 from evaluate import compute_assignment_correlation, compute_assignment_correlation_multi
 from models import MLP, make_resnet_backbone
 from utils import log_metrics
@@ -26,6 +26,16 @@ def make_dataloaders(cfg: DictConfig) -> dict[str, DataLoader]:
         train_ds = ColoredMNIST(cfg.dataset.train_correlation, label_noise=noise, split="train", data_dir=data_dir, seed=seed)
         id_test_ds = ColoredMNIST(cfg.dataset.train_correlation, label_noise=noise, split="test", data_dir=data_dir, seed=seed)
         ood_test_ds = ColoredMNIST(cfg.dataset.test_correlation, label_noise=noise, split="test", data_dir=data_dir, seed=seed)
+
+    elif cfg.dataset.name == "continuous_cmnist":
+        seed = cfg.training.seed
+        noise = cfg.dataset.label_noise
+        data_dir = cfg.dataset.data_dir
+        beta_c = cfg.dataset.beta_concentration
+
+        train_ds = ContinuousCMNIST(cfg.dataset.env_correlation, label_noise=noise, split="train", data_dir=data_dir, seed=seed, beta_concentration=beta_c)
+        id_test_ds = ContinuousCMNIST(cfg.dataset.env_correlation, label_noise=noise, split="test", data_dir=data_dir, seed=seed, beta_concentration=beta_c)
+        ood_test_ds = ContinuousCMNIST(cfg.dataset.test_correlation, label_noise=noise, split="test", data_dir=data_dir, seed=seed, beta_concentration=beta_c)
 
     elif cfg.dataset.name == "multi_cmnist":
         seed = cfg.training.seed
@@ -1027,22 +1037,25 @@ def discover_environments(
     reweight = cfg.training.discovery_reweight
     q = cfg.training.discovery_quantile
 
+    K = cfg.training.num_discovery_envs
+
     if upweight > 0:
         # Loss-based upweighting (residual rebalancing).
-        # ALL examples assigned via median split; high-loss examples get
-        # higher weight.  This is dataset-agnostic — no assumption about
-        # where the spurious feature lives (channels, textures, etc.).
-        # It just uses what the ERM gets wrong as a signal.
+        # Examples assigned to K environments by loss quantile; high-loss
+        # examples get higher weight.  Dataset-agnostic — no assumption
+        # about where the spurious feature lives.
+        #
+        # K=2: binary median split (default, same as before).
+        # K>2: quantile split for continuous spurious features.
+        # V-REx penalty: variance of K per-environment losses.
         #
         # weight_i = 1 + upweight * (loss_i / max_loss)
-        #   lowest-loss examples:   w ≈ 1
-        #   highest-loss examples:  w = 1 + upweight
-        #
-        # At corr=0.9 the ERM confidently misclassifies colour≠label
-        # examples → they have very high loss → they get upweighted →
-        # the effective colour-label correlation drops.
-        threshold = scores.median()
-        assignment = (scores >= threshold).long()
+        quantiles = torch.linspace(0, 1, K + 1)[1:-1]  # e.g. K=3 → [0.33, 0.67]
+        thresholds = torch.quantile(scores, quantiles) if len(quantiles) > 0 else torch.tensor([])
+        assignment = torch.zeros(N, dtype=torch.long)
+        for t in thresholds:
+            assignment += (scores >= t).long()
+        # assignment ∈ {0, 1, ..., K-1}, roughly equal-sized groups
 
         score_max = scores.max()
         if score_max > 1e-8:
@@ -1189,21 +1202,25 @@ def train_discovered_split(
 
             batch_assign = assignment[idx]
             w = weights[idx]                                        # (B,)
-            env_a_mask = batch_assign == 0
-            env_b_mask = batch_assign == 1
+            K = cfg.training.num_discovery_envs
 
-            if env_a_mask.any() and env_b_mask.any():
-                w_a = w[env_a_mask]
-                w_b = w[env_b_mask]
-                loss_A = (w_a * ce[env_a_mask]).sum() / w_a.sum()
-                loss_B = (w_b * ce[env_b_mask]).sum() / w_b.sum()
-                risk_var = (loss_A - loss_B) ** 2
-                model_loss = (loss_A + loss_B) / 2 + lam * risk_var
-            elif env_a_mask.any():
-                model_loss = ce[env_a_mask].mean()
-                risk_var = torch.tensor(0.0)
-            elif env_b_mask.any():
-                model_loss = ce[env_b_mask].mean()
+            # Compute weighted per-environment losses.
+            env_losses = []
+            for k in range(K):
+                mask = batch_assign == k
+                if mask.any():
+                    wk = w[mask]
+                    env_losses.append((wk * ce[mask]).sum() / wk.sum())
+
+            if len(env_losses) >= 2:
+                env_losses_t = torch.stack(env_losses)
+                # V-REx penalty: variance of per-environment losses.
+                # K=2: this equals (loss_A - loss_B)^2 / 4, but we use
+                # the general form for any K.
+                risk_var = env_losses_t.var()
+                model_loss = env_losses_t.mean() + lam * risk_var
+            elif len(env_losses) == 1:
+                model_loss = env_losses[0]
                 risk_var = torch.tensor(0.0)
             else:
                 continue
