@@ -363,6 +363,24 @@ JTT does not.
 Add brightness assignment in step 3, multiply pixel values by brightness factor
 in step 4.
 
+**Results (colour=0.9, brightness=0.8, OOD: both flipped):**
+
+| Method | Best OOD acc | Best OOD worst-group | ID acc | Notes |
+|--------|:-----------:|:-------------------:|:------:|-------|
+| ERM | 17.8% | 8.5% | 90.2% | Both shortcuts → fails badly |
+| JTT (binary) | 55.3% (ep1) | 27.3% | ~50% | Partially inverts, can't handle both |
+| **Ours** | 56.2% (ep1) | **41.0%** (ep8) | 64.1% | Best worst-group by far |
+
+**Key finding:** ERM fails catastrophically (8.5% worst-group — uses both shortcuts).
+JTT partially helps overall OOD but can't handle the hardest group where BOTH
+shortcuts are broken (27% worst-group).  Our method does significantly better on
+worst-group (41%) because V-REx forces equal risk across environments, which
+captures the combined effect of both shortcuts.
+
+This confirms the multi-spurious failure mode prediction: JTT identifies hard
+examples but can't distinguish which shortcut to fix.  V-REx forces robustness to
+the full environmental split.
+
 ### Continuous spurious features and K>2 environments
 
 Real spurious features are rarely binary.  In chemistry, scaffold frequency is
