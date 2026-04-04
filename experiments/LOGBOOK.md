@@ -172,6 +172,107 @@ To clearly show V-REx's contribution:
 
 ---
 
+## Why V-REx > JTT: Failure Modes of Pure Upweighting
+
+The critical question for the paper: when does the V-REx equal-risk constraint help
+beyond simple upweighting (JTT)?  We need concrete scenarios where JTT fails and
+V-REx succeeds — these become the paper's motivating examples.
+
+### 1. Overfitting to small minority groups
+
+**The problem:** JTT minimises `Σ w_i * CE(model(x_i), y_i)`.  With upweight=50
+and only 56 minority examples (waterbird+land), the model sees these 56 examples
+~50x each.  It can memorise them — learn to recognise those specific 56 birds —
+without learning "what a waterbird looks like on land" in general.
+
+**Why V-REx helps:** V-REx forces `loss_A ≈ loss_B` at the *environment* level.
+The model can't satisfy this by memorising 56 examples; it must find features
+that generalise across the *entire* env B (which includes the 184 landbird+water
+examples too).  The constraint is on average risk, not on individual examples.
+
+**How to test:**
+- Subsample Waterbirds minority group (56 → 20 or 10)
+- Compare JTT vs Ours worst-group accuracy on held-out minority examples
+- Prediction: JTT degrades faster as minority shrinks; V-REx is more robust
+- Also testable on CMNIST with corr=0.99 (1% minority)
+
+### 2. Multiple overlapping spurious features
+
+**The problem:** Real datasets often have multiple shortcuts — background AND
+image quality, scaffold AND molecular weight, colour AND texture.  JTT identifies
+"hard" examples but can't distinguish *which* shortcut makes them hard.  The model
+may fix one shortcut while continuing to exploit the other.
+
+**Why V-REx helps:** The environment split captures the *combined* effect of all
+shortcuts.  High-loss examples are hard because of *any* shortcut failure.  V-REx
+forces equal risk across the split, which means the model must be robust to all
+shortcuts simultaneously — it can't "trade" one for another.
+
+**How to test:**
+- Create CMNIST variant with two spurious features (colour + brightness/contrast)
+- JTT should fix the dominant shortcut but miss the secondary one
+- V-REx should handle both because the environment split captures both
+
+### 3. Continuous/graded spurious features
+
+**The problem:** JTT's discovery is effectively binary: example is "hard" or "easy"
+(above or below a loss threshold).  Real spurious features are often continuous —
+molecular weight, scaffold frequency, image resolution, sensor drift.  A binary
+split loses the graded structure.
+
+**Why V-REx helps (with generalisation):** Our upweighting is already graded
+(`w = 1 + factor * loss/max_loss`), and the V-REx penalty acts on environment-level
+loss differences, which smooths over individual noise.
+
+**Generalisation to K>2 environments:** For continuous spurious features, we could
+split into K environments by loss quantile instead of a binary median split:
+- K=2: median split (current approach)
+- K=3: tercile split (low/medium/high loss)
+- K=5: quintile split
+- V-REx generalises naturally: penalty = variance of per-environment losses
+  `Σ_k (loss_k - mean_loss)^2`
+
+This is particularly relevant for chemistry where the spurious feature (scaffold
+frequency, dataset batch) is naturally multi-valued.  A molecule isn't "spurious
+or not" — it has a *degree* of scaffold prevalence.
+
+**Implementation note:** The K-environment V-REx is a straightforward generalisation:
+```
+losses_per_env = [weighted_ce[env_k].mean() for k in range(K)]
+risk_variance = torch.var(torch.stack(losses_per_env))
+model_loss = mean(losses_per_env) + lambda * risk_variance
+```
+
+### 4. When you need to know what you don't know
+
+**The problem:** JTT gives you a model.  That's it.  In drug discovery, materials
+science, and clinical settings, knowing *which* predictions are trustworthy is
+as important as the predictions themselves.
+
+**What V-REx provides:** Per-example risk variance — "how much does this prediction
+change depending on which environment the model is evaluated against?"  This is a
+new form of epistemic uncertainty:
+- Standard uncertainty: "the model is unsure about this example"
+- Our stability score: "the model's confidence on this example is fragile to
+  dataset composition"
+
+These are different signals.  A model can be confidently wrong (low standard
+uncertainty, high stability score) — and that's exactly the dangerous case.
+
+**How to evaluate stability scores:**
+1. Train discovered_split on CMNIST train (corr=0.9)
+2. For each test example, compute confidence (max softmax probability)
+3. Evaluate same examples on ID test (corr=0.9) and OOD test (corr=0.1)
+4. Binary label: "did this example's prediction flip between ID and OOD?"
+5. ROC curve: does our confidence predict flips better than ERM confidence?
+6. Compare: our model's confidence, ERM confidence, MC dropout variance
+
+**For chemistry:** Stability scores could flag predictions that depend on
+scaffold identity rather than genuine structure-activity relationships.
+This is directly actionable for medicinal chemists.
+
+---
+
 ## Open Questions and TODO
 
 ### For ablations (NeurIPS)
