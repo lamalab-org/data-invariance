@@ -996,12 +996,33 @@ def discover_environments(
                 s = -(p * p.log()).sum(1)
             scores[idx] = s.cpu()
 
-    # Split by score quantile.
+    # --- Build assignment and per-example weights ---
+    reweight = getattr(cfg.training, "discovery_reweight", 0.0)
     q = getattr(cfg.training, "discovery_quantile", 0.5)
-    if q == 0.5:
+
+    if reweight > 0:
+        # Balanced reweighting: ALL examples assigned via median split;
+        # extremes get higher weight in the V-REx loss.
+        #
+        # weight_i = 1 + reweight * (2 * |percentile_rank_i - 0.5|)
+        #   percentile 0 or 1 (most extreme):  w = 1 + reweight
+        #   percentile 0.5 (median):            w = 1
+        #
+        # This keeps all examples in training (shape signal preserved)
+        # while amplifying V-REx's sensitivity to colour-correlation
+        # differences at the extremes.
+        threshold = scores.median()
+        assignment = (scores >= threshold).long()
+
+        # Percentile rank ∈ [0, 1] for each example.
+        ranks = scores.argsort().argsort().float() / (N - 1)
+        extremeness = (2.0 * (ranks - 0.5).abs())  # 0 at median, 1 at tails
+        weights = 1.0 + reweight * extremeness
+    elif q == 0.5:
         # Balanced median split: bottom 50% -> env A, top 50% -> env B.
         threshold = scores.median()
         assignment = (scores >= threshold).long()
+        weights = torch.ones(N)
     else:
         # Extremes split: bottom q% -> env A (0), top q% -> env B (1),
         # middle examples get -1 and are excluded from both environments.
@@ -1010,6 +1031,7 @@ def discover_environments(
         assignment  = torch.full((N,), -1, dtype=torch.long)  # -1 = excluded
         assignment[scores <= low_thresh]  = 0   # env A: lowest score
         assignment[scores >= high_thresh] = 1   # env B: highest score
+        weights = torch.ones(N)
 
     # --- Diagnostics ---
     colors = train_ds.colors.float()
@@ -1041,8 +1063,9 @@ def discover_environments(
         "discovery/n_env_A":                   float(mask_A.sum().item()),
         "discovery/n_env_B":                   float(mask_B.sum().item()),
         "discovery/n_excluded":                float((assignment == -1).sum().item()),
+        "discovery/reweight_max":              float(weights.max().item()),
     }
-    return assignment, diag_metrics
+    return assignment, weights, diag_metrics
 
 
 def train_discovered_split(
@@ -1052,6 +1075,7 @@ def train_discovered_split(
     device: torch.device,
     run: object,
     assignment: torch.Tensor,
+    weights: torch.Tensor,
     discovery_metrics: dict[str, float],
 ) -> dict[str, float]:
     """Phase 2: train a single MLP with V-REx penalty on discovered environments.
@@ -1067,6 +1091,7 @@ def train_discovered_split(
     environment's shortcuts.  A single model avoids this entirely.
 
     assignment        - (N,) long tensor from discover_environments()
+    weights           - (N,) float tensor of per-example importance weights
     discovery_metrics - diagnostics logged at step 0 in wandb
     """
     optimizer = torch.optim.AdamW(
@@ -1075,6 +1100,7 @@ def train_discovered_split(
         weight_decay=cfg.training.weight_decay,
     )
     assignment = assignment.to(device)
+    weights = weights.to(device)
 
     log_metrics(run, discovery_metrics, step=0)
 
@@ -1108,18 +1134,21 @@ def train_discovered_split(
             # assignment == -1 marks excluded examples (middle of score
             # distribution when discovery_quantile < 0.5).
             batch_assign = assignment[idx]
+            w = weights[idx]                                # (B,) importance weights
             env_a_mask = batch_assign == 0
             env_b_mask = batch_assign == 1
 
             n_a = env_a_mask.sum()
             n_b = env_b_mask.sum()
             if n_a > 0 and n_b > 0:
-                loss_A   = ce[env_a_mask].mean()
-                loss_B   = ce[env_b_mask].mean()
+                # Weighted per-environment losses.  When reweight > 0,
+                # extreme examples dominate; with uniform weights this
+                # reduces to a simple mean.
+                w_a = w[env_a_mask]
+                w_b = w[env_b_mask]
+                loss_A = (w_a * ce[env_a_mask]).sum() / w_a.sum()
+                loss_B = (w_b * ce[env_b_mask]).sum() / w_b.sum()
                 risk_var = (loss_A - loss_B) ** 2
-                # Task loss only on environment examples — excluded middle
-                # does not contribute to gradients.  This prevents the dominant
-                # spurious signal from overwhelming the V-REx constraint.
                 model_loss = (loss_A + loss_B) / 2 + lam * risk_var
             elif n_a > 0:
                 model_loss = ce[env_a_mask].mean()

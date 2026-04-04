@@ -102,6 +102,16 @@ training:
   # (0.1–0.2) concentrate the signal.
   discovery_quantile: 0.5
 
+  # Balanced reweighting strength. When > 0, all examples are assigned via
+  # median split (discovery_quantile is ignored) but extreme examples get
+  # higher weight in the V-REx loss.
+  #   weight_i = 1 + reweight * extremeness_i   (extremeness ∈ [0, 1])
+  # 0.0 → uniform weights (default).  10.0 → most extreme examples are
+  # 11x the weight of median examples.
+  # Keeps all data in training (shape signal preserved) while amplifying
+  # the V-REx penalty's sensitivity to colour-correlation differences.
+  discovery_reweight: 0.0
+
   # Adversary mode — controls what the adversary optimises.
   # "task_loss"  → default: maximise per-head task loss; pushes examples toward their
   #                harder head, creating an easy/hard partition.  Does NOT reliably

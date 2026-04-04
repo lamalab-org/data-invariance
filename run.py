@@ -91,10 +91,10 @@ def main(cfg: DictConfig) -> None:
         train_resampling(cfg, model, loaders, device, run)
 
     elif cfg.method.name == "discovered_split":
-        assignment, discovery_metrics = discover_environments(cfg, loaders, device)
+        assignment, weights, discovery_metrics = discover_environments(cfg, loaders, device)
         set_seed(cfg.training.seed)  # re-seed so model init is reproducible after discovery
         model = MLP(input_dim=input_dim, hidden_dim=cfg.model.hidden_dim).to(device)
-        train_discovered_split(cfg, model, loaders, device, run, assignment, discovery_metrics)
+        train_discovered_split(cfg, model, loaders, device, run, assignment, weights, discovery_metrics)
 
     else:
         raise NotImplementedError(f"method '{cfg.method.name}' not yet implemented")

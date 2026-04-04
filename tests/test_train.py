@@ -28,6 +28,7 @@ def make_cfg():
             "lambda_anneal_factor": 1.0,
             "discovery_quantile": 0.5,
             "discovery_criterion": "entropy",
+            "discovery_reweight": 0.0,
         },
         "method": {"name": "erm"},
         "wandb": {"enabled": False},
@@ -872,7 +873,7 @@ def test_discover_environments_shapes():
     loaders = make_dataloaders(cfg)
     N = len(loaders["train"].dataset)
 
-    assignment, diag = discover_environments(cfg, loaders, device)
+    assignment, weights, diag = discover_environments(cfg, loaders, device)
 
     assert assignment.shape == (N,), f"expected ({N},), got {assignment.shape}"
     assert assignment.dtype == torch.long
@@ -894,7 +895,7 @@ def test_discover_environments_binary():
     device = torch.device("cpu")
     loaders = make_dataloaders(cfg)
 
-    assignment, _ = discover_environments(cfg, loaders, device)
+    assignment, _, _ = discover_environments(cfg, loaders, device)
 
     unique = assignment.unique().tolist()
     assert set(unique).issubset({0, 1}), f"unexpected values: {unique}"
@@ -907,7 +908,7 @@ def test_discover_environments_balanced():
     loaders = make_dataloaders(cfg)
     N = len(loaders["train"].dataset)
 
-    assignment, diag = discover_environments(cfg, loaders, device)
+    assignment, _, diag = discover_environments(cfg, loaders, device)
 
     frac_A = (assignment == 0).float().mean().item()
     assert abs(frac_A - 0.5) < 0.1, f"severe imbalance: {frac_A:.3f} in env A"
@@ -924,11 +925,11 @@ def test_train_discovered_split_metric_keys():
     device = torch.device("cpu")
     loaders = make_dataloaders(cfg)
 
-    assignment, diag = discover_environments(cfg, loaders, device)
+    assignment, weights, diag = discover_environments(cfg, loaders, device)
 
     model = MLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
     run = wandb.init(mode="disabled")
-    metrics = train_discovered_split(cfg, model, loaders, device, run, assignment, diag)
+    metrics = train_discovered_split(cfg, model, loaders, device, run, assignment, weights, diag)
     run.finish()
 
     expected = {
@@ -947,11 +948,11 @@ def test_train_discovered_split_risk_variance_nonnegative():
     device = torch.device("cpu")
     loaders = make_dataloaders(cfg)
 
-    assignment, diag = discover_environments(cfg, loaders, device)
+    assignment, weights, diag = discover_environments(cfg, loaders, device)
 
     model = MLP(input_dim=3 * 28 * 28, hidden_dim=64).to(device)
     run = wandb.init(mode="disabled")
-    metrics = train_discovered_split(cfg, model, loaders, device, run, assignment, diag)
+    metrics = train_discovered_split(cfg, model, loaders, device, run, assignment, weights, diag)
     run.finish()
 
     assert metrics["train/risk_variance"] >= 0.0, (
