@@ -1014,7 +1014,8 @@ def discover_environments(
     loaders: dict[str, DataLoader],
     device: torch.device,
     existing_model: torch.nn.Module | None = None,
-) -> tuple[torch.Tensor, torch.Tensor, dict[str, float]]:
+    return_model: bool = False,
+) -> tuple[torch.Tensor, torch.Tensor, dict[str, float]] | tuple[torch.Tensor, torch.Tensor, dict[str, float], torch.nn.Module]:
     """Score training examples and split into environments.
 
     When ``existing_model`` is None (default), trains a throw-away ERM for
@@ -1201,6 +1202,8 @@ def discover_environments(
         "discovery/n_excluded":                float((assignment == -1).sum().item()),
         "discovery/reweight_max":              float(weights.max().item()),
     }
+    if return_model:
+        return assignment, weights, diag_metrics, disc
     return assignment, weights, diag_metrics
 
 

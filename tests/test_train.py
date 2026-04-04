@@ -33,6 +33,7 @@ def make_cfg():
             "early_stop_patience": 0,
             "num_discovery_envs": 2,
             "discovery_rounds": 1,
+            "freeze_backbone": False,
         },
         "method": {"name": "erm"},
         "wandb": {"enabled": False},

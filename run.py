@@ -111,16 +111,32 @@ def main(cfg: DictConfig) -> None:
         train_resampling(cfg, model, loaders, device, run)
 
     elif method == "discovered_split":
+        freeze_backbone = getattr(cfg.training, "freeze_backbone", False)
         n_rounds = getattr(cfg.training, "discovery_rounds", 1)
         model = None
         for round_i in range(n_rounds):
-            # Round 0: discover from fresh ERM.
-            # Round 1+: discover from previous round's trained model.
-            assignment, weights, discovery_metrics = discover_environments(
-                cfg, loaders, device, existing_model=model,
+            result = discover_environments(
+                cfg, loaders, device,
+                existing_model=model,
+                return_model=freeze_backbone and round_i == n_rounds - 1,
             )
-            set_seed(cfg.training.seed + round_i)
-            model = _make_model(cfg, loaders, method, device)
+            if freeze_backbone and round_i == n_rounds - 1:
+                assignment, weights, discovery_metrics, disc_model = result
+                # Freeze the discovery model's backbone, create a new head.
+                # The backbone has learned both spurious and invariant features;
+                # V-REx on just the head forces it to select the invariant ones.
+                import copy
+                frozen_backbone = copy.deepcopy(disc_model.backbone)
+                for param in frozen_backbone.parameters():
+                    param.requires_grad = False
+                # Detect backbone output dim from the head's input features.
+                backbone_out_dim = disc_model.head.in_features
+                set_seed(cfg.training.seed + round_i)
+                model = MLP(backbone=frozen_backbone, backbone_out_dim=backbone_out_dim).to(device)
+            else:
+                assignment, weights, discovery_metrics = result
+                set_seed(cfg.training.seed + round_i)
+                model = _make_model(cfg, loaders, method, device)
             train_discovered_split(cfg, model, loaders, device, run, assignment, weights, discovery_metrics)
 
     elif method == "jtt":
