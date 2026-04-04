@@ -118,6 +118,103 @@ class ColoredMNIST(Dataset):
         return len(self.labels)
 
 
+class MultiSpuriousCMNIST(Dataset):
+    """CMNIST with two independent spurious features: colour AND brightness.
+
+    Extends ColoredMNIST with a second shortcut.  A model that relies on
+    *either* colour or brightness fails OOD when both are flipped.
+
+    Feature 1 — Colour: digit placed in red (color=0) or green (color=1) channel.
+        Correlated with label at ``color_correlation``.
+    Feature 2 — Brightness: pixel intensities scaled by 0.3 (dim=0) or 1.0 (bright=1).
+        Correlated with label at ``brightness_correlation``.
+
+    Both features are sampled independently per example.  This creates 4 spurious
+    groups per label (colour x brightness), 8 groups total.  The hardest group has
+    both features misaligned with the label.
+
+    At test time, set both correlations low (e.g. 0.1) to flip both shortcuts.
+    A model relying on either shortcut fails.
+
+    The ``.spurious`` attribute returns colour (the primary spurious feature)
+    for compatibility with diagnostics.  ``.brightness`` provides the second
+    feature separately.  ``.group`` returns the full (label, colour, brightness)
+    group index (0-7) for worst-group evaluation.
+    """
+
+    def __init__(
+        self,
+        color_correlation: float,
+        brightness_correlation: float,
+        label_noise: float = 0.25,
+        split: str = "train",
+        data_dir: str = "./data",
+        seed: int = 42,
+    ) -> None:
+        g = torch.Generator().manual_seed(seed)
+
+        mnist = torchvision.datasets.MNIST(data_dir, train=(split == "train"), download=True)
+        images = mnist.data.float() / 255.0  # (N, 28, 28)
+        digits = mnist.targets
+
+        N = len(digits)
+
+        # Step 1: binarise
+        labels = (digits >= 5).long()
+
+        # Step 2: label noise
+        flip = torch.bernoulli(torch.full((N,), label_noise), generator=g).long()
+        labels = labels ^ flip
+
+        # Step 3a: colour assignment (same as standard CMNIST)
+        color_matches = torch.bernoulli(torch.full((N,), color_correlation), generator=g).bool()
+        colors = torch.where(color_matches, labels, 1 - labels)
+
+        # Step 3b: brightness assignment (independent second spurious feature)
+        # bright=1 correlates with label=1; dim=0 correlates with label=0
+        bright_matches = torch.bernoulli(torch.full((N,), brightness_correlation), generator=g).bool()
+        brightness = torch.where(bright_matches, labels, 1 - labels)  # (N,) ∈ {0, 1}
+
+        # Step 4: build images — colour determines channel, brightness scales intensity
+        dim_factor = 0.3
+        scale = torch.where(brightness == 1, torch.tensor(1.0), torch.tensor(dim_factor))  # (N,)
+
+        imgs = torch.zeros(N, 3, 28, 28)
+        for i in range(N):
+            channel = colors[i].item()
+            imgs[i, channel] = images[i] * scale[i]
+
+        self.images = imgs          # (N, 3, 28, 28)
+        self.labels = labels        # (N,) int64
+        self.colors = colors        # (N,) int64 — spurious feature 1
+        self._brightness = brightness  # (N,) int64 — spurious feature 2
+
+    @property
+    def spurious(self) -> torch.Tensor:
+        """Primary spurious attribute (colour) for diagnostic compatibility."""
+        return self.colors
+
+    @property
+    def brightness(self) -> torch.Tensor:
+        """Second spurious attribute (brightness)."""
+        return self._brightness
+
+    @property
+    def input_dim(self) -> int:
+        return self.images.shape[1:].numel()
+
+    def __getitem__(self, idx: int) -> dict:
+        return {
+            "image": self.images[idx],
+            "label": self.labels[idx].item(),
+            "spurious": self.colors[idx].item(),
+            "index": idx,
+        }
+
+    def __len__(self) -> int:
+        return len(self.labels)
+
+
 # ImageNet statistics used to normalise inputs for pretrained ResNet.
 _IMAGENET_MEAN = [0.485, 0.456, 0.406]
 _IMAGENET_STD = [0.229, 0.224, 0.225]

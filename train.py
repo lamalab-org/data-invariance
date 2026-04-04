@@ -6,7 +6,7 @@ import torchmetrics
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 
-from data import ColoredMNIST, WaterbirdsDataset
+from data import ColoredMNIST, MultiSpuriousCMNIST, WaterbirdsDataset
 from evaluate import compute_assignment_correlation, compute_assignment_correlation_multi
 from models import MLP, make_resnet_backbone
 from utils import log_metrics
@@ -27,11 +27,31 @@ def make_dataloaders(cfg: DictConfig) -> dict[str, DataLoader]:
         id_test_ds = ColoredMNIST(cfg.dataset.train_correlation, label_noise=noise, split="test", data_dir=data_dir, seed=seed)
         ood_test_ds = ColoredMNIST(cfg.dataset.test_correlation, label_noise=noise, split="test", data_dir=data_dir, seed=seed)
 
+    elif cfg.dataset.name == "multi_cmnist":
+        seed = cfg.training.seed
+        noise = cfg.dataset.label_noise
+        data_dir = cfg.dataset.data_dir
+
+        train_ds = MultiSpuriousCMNIST(
+            color_correlation=cfg.dataset.color_correlation,
+            brightness_correlation=cfg.dataset.brightness_correlation,
+            label_noise=noise, split="train", data_dir=data_dir, seed=seed,
+        )
+        id_test_ds = MultiSpuriousCMNIST(
+            color_correlation=cfg.dataset.color_correlation,
+            brightness_correlation=cfg.dataset.brightness_correlation,
+            label_noise=noise, split="test", data_dir=data_dir, seed=seed,
+        )
+        # OOD: both correlations flipped
+        ood_test_ds = MultiSpuriousCMNIST(
+            color_correlation=cfg.dataset.test_color_correlation,
+            brightness_correlation=cfg.dataset.test_brightness_correlation,
+            label_noise=noise, split="test", data_dir=data_dir, seed=seed,
+        )
+
     elif cfg.dataset.name == "waterbirds":
         data_dir = cfg.dataset.data_dir
         train_ds = WaterbirdsDataset(split="train", data_dir=data_dir)
-        # Waterbirds has fixed val/test splits (both balanced across groups).
-        # "id_test" = validation set, "ood_test" = test set.
         id_test_ds = WaterbirdsDataset(split="val", data_dir=data_dir)
         ood_test_ds = WaterbirdsDataset(split="test", data_dir=data_dir)
 
