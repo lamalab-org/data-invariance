@@ -34,6 +34,7 @@ def make_cfg():
             "num_discovery_envs": 2,
             "discovery_rounds": 1,
             "freeze_backbone": False,
+            "balanced_sampling": False,
         },
         "method": {"name": "erm"},
         "wandb": {"enabled": False},

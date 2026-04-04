@@ -1247,6 +1247,32 @@ def train_discovered_split(
     assignment = assignment.to(device)
     weights = weights.to(device)
 
+    # Build environment-balanced sampler: each batch has equal representation
+    # from each environment.  This replaces loss-based upweighting with
+    # structural balance — no tuning of upweight factor needed.
+    K = cfg.training.num_discovery_envs
+    env_indices = {k: (assignment.cpu() == k).nonzero(as_tuple=True)[0] for k in range(K)}
+    balanced = getattr(cfg.training, "balanced_sampling", False)
+    if balanced:
+        from torch.utils.data import WeightedRandomSampler
+        # Inverse-frequency weights: examples in smaller environments get higher sampling probability.
+        sample_weights = torch.zeros(len(assignment))
+        for k in range(K):
+            mask = assignment.cpu() == k
+            n_k = mask.sum().item()
+            if n_k > 0:
+                sample_weights[mask] = 1.0 / n_k
+        sample_weights = sample_weights / sample_weights.sum()
+        balanced_sampler = WeightedRandomSampler(sample_weights, num_samples=len(assignment), replacement=True)
+        train_loader = torch.utils.data.DataLoader(
+            loaders["train"].dataset,
+            batch_size=cfg.training.batch_size,
+            sampler=balanced_sampler,
+            num_workers=0,
+        )
+    else:
+        train_loader = loaders["train"]
+
     log_metrics(run, discovery_metrics, step=0)
 
     anneal_factor = cfg.training.lambda_anneal_factor
@@ -1269,7 +1295,7 @@ def train_discovered_split(
         epoch_n = 0
         epoch_risk_var = 0.0
 
-        for batch in loaders["train"]:
+        for batch in train_loader:
             x = batch["image"].to(device)
             y = batch["label"].to(device)
             idx = batch["index"].to(device)
@@ -1278,8 +1304,7 @@ def train_discovered_split(
             ce = F.cross_entropy(logits, y, reduction="none")       # (B,)
 
             batch_assign = assignment[idx]
-            w = weights[idx]                                        # (B,)
-            K = cfg.training.num_discovery_envs
+            w = weights[idx]
 
             # Compute weighted per-environment losses.
             env_losses = []
