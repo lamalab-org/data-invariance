@@ -604,6 +604,7 @@ Each component is necessary — removing any one degrades performance:
 | Upweighting only (JTT) | ~22% | 65.7% | No V-REx → model accommodates minorities without changing strategy |
 | V-REx + balanced sampling (no upweight) | 16.1% | pending | No upweighting → minority signal too diluted in env B |
 | V-REx + upweighting (our method) | 74.3%* | 75.7% | Full method |
+| V-REx + upweight + freeze backbone | 58%* | 20-73% | Frozen features: too biased (fine-tuned) or too generic (ImageNet) |
 | Group DRO (oracle) | — | 77.7% | Requires group labels |
 
 *CMNIST number from old code; needs re-run with consistent V-REx.
