@@ -1034,13 +1034,19 @@ def discover_environments(
     train_ds = loaders["train"].dataset
     N = len(train_ds)
 
+    freeze_bb = getattr(cfg.training, "freeze_backbone", False)
+
     if existing_model is not None:
         # Iterative refinement: reuse the model from the previous round.
         disc = existing_model
     else:
         # Train a throw-away ERM for scoring.
+        # When freeze_backbone is requested, the discovery ERM must fine-tune
+        # fully so its backbone learns dataset-specific features.  These
+        # features are then frozen for V-REx training.
         if cfg.dataset.arch == "resnet":
-            backbone, out_dim = make_resnet_backbone(freeze=True)
+            freeze_disc = not freeze_bb  # freeze during discovery UNLESS we need features for later
+            backbone, out_dim = make_resnet_backbone(freeze=freeze_disc)
             disc = MLP(backbone=backbone, backbone_out_dim=out_dim).to(device)
         else:
             disc = MLP(input_dim=train_ds.input_dim, hidden_dim=cfg.model.hidden_dim).to(device)
