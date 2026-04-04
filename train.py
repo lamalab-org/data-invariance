@@ -69,15 +69,15 @@ def make_dataloaders(cfg: DictConfig) -> dict[str, DataLoader]:
             parquet_path=ppath, split="train", seed=seed,
             spurious_property=spur_prop, spurious_correlation=spur_corr,
         )
-        # ID test: random held-out 20%, same subsampling as train
+        # ID test: full test set (model selection)
         id_test_ds = TADFDataset(
             parquet_path=ppath, split="test", seed=seed,
-            spurious_property=spur_prop, spurious_correlation=spur_corr,
         )
-        # OOD test: same held-out 20% but UNBIASED (no subsampling)
+        # OOD test: only misaligned test examples (spurious ≠ label)
+        # These are the counterexamples the model hasn't seen during biased training.
         ood_test_ds = TADFDataset(
-            parquet_path=ppath, split="test", seed=seed,
-            spurious_property=None,  # no subsampling
+            parquet_path=ppath, split="test_misaligned", seed=seed,
+            spurious_property=spur_prop,
         )
 
     elif cfg.dataset.name == "waterbirds":

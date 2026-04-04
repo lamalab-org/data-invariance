@@ -520,19 +520,25 @@ class TADFDataset(Dataset):
                 spur_train = spurious[idx].numpy()
                 aligned = spur_train == labels_train
                 keep = np.zeros(len(idx), dtype=bool)
-                # Keep almost all aligned examples.
                 aligned_idx = np.where(aligned)[0]
                 n_keep_aligned = int(len(aligned_idx) * spurious_correlation)
                 keep[rng.choice(aligned_idx, n_keep_aligned, replace=False)] = True
-                # Keep a few misaligned examples.
                 misaligned_idx = np.where(~aligned)[0]
                 n_keep_mis = int(len(misaligned_idx) * (1 - spurious_correlation))
                 if n_keep_mis > 0 and len(misaligned_idx) > 0:
                     keep[rng.choice(misaligned_idx, n_keep_mis, replace=False)] = True
                 idx = idx[keep]
         elif split == "test":
-            # Test uses all held-out data — no subsampling, unbiased.
             idx = test_idx
+        elif split == "test_misaligned":
+            # Only counterexamples: spurious attribute disagrees with label.
+            # This is the hardest subset — the examples the shortcut gets wrong.
+            idx = test_idx
+            if spurious_property and spurious_property in df.columns:
+                labels_test = df["_label"].iloc[idx].values
+                spur_test = spurious[idx].numpy()
+                misaligned = spur_test != labels_test
+                idx = idx[misaligned]
         else:
             raise ValueError(f"Unknown split: {split}")
 
