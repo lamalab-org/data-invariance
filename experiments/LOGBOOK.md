@@ -317,11 +317,46 @@ is modest.
 confident → most losses near zero → multiple quantiles at the same value).
 Fix needed: use rank-based assignment instead of threshold-based.
 
-**Implication for chemistry:** Continuous confounders (MW, logP, scaffold frequency)
-will need a different discovery signal than raw loss.  Options:
-- Cluster in feature space (like GEORGE) instead of thresholding loss
-- Use the loss *residual* after accounting for the feature (partial regression)
-- Multiple rounds of discovery (iterative environment refinement)
+### Iterative refinement and counterfactual scoring
+
+To improve on continuous features, we tested two ideas:
+
+**Counterfactual scoring** (measure prediction sensitivity to input perturbations):
+Failed.  17.0% worst-group (worse than loss-based 27.1%).  Input perturbation
+doesn't discriminate "sensitive because of colour" from "sensitive because of
+shape" — all examples are somewhat sensitive with continuous features.
+
+**Iterative refinement** (re-discover environments using the previous V-REx model):
+Works!  The environment contrast improves progressively:
+
+| Round | corr_A | corr_B | Gap | assignment-colour corr |
+|-------|--------|--------|:---:|:---------------------:|
+| 1 (from ERM) | 1.000 | 0.938 | 0.062 | 0.15 |
+| 2 | 1.000 | 0.930 | 0.070 | 0.36 |
+| 3 | 0.999 | 0.893 | **0.106** | **0.67** |
+
+The assignment-colour correlation jumps from 0.15 → 0.67 across 3 rounds.
+Each round, the V-REx model relies less on colour → its loss distribution
+has different structure → re-discovery finds sharper environments.
+
+| Scoring | K | Rounds | Best OOD WGA |
+|---------|---|--------|:---:|
+| loss | 2 | 1 | 27.1% |
+| **loss** | **2** | **3** | **28.0%** |
+| counterfactual | 2 | 1 | 17.0% |
+| counterfactual | 5 | 1 | 18.5% |
+
+**Key insight:** Iterative refinement is the right approach for continuous
+features.  Loss-based scoring is initially weak (gap=0.06) but improves
+because each V-REx round partially breaks the colour dependence, creating
+a new loss landscape where the remaining colour signal is more visible.
+
+5-round experiment pending — does the trend continue?
+
+**Implication for chemistry:** Iterative discovery is promising for continuous
+confounders.  The first round finds rough environments; subsequent rounds
+refine them as the model becomes less confounder-reliant.  No need for
+prior knowledge of what the confounder is.
 
 ### 4. When you need to know what you don't know
 
