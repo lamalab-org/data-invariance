@@ -578,6 +578,22 @@ Target datasets where scaffold or property splits are known to cause OOD gaps:
 
 ## Architecture and Hyperparameter Notes
 
+### Reproduction commands (Waterbirds, consistent code, val-based selection)
+
+```bash
+# ERM baseline
+python run.py dataset=waterbirds method=erm training.epochs=15 training.batch_size=64 training.lr=1e-4 wandb.enabled=false
+
+# JTT (binary, faithful to Liu et al. 2021)
+python run.py dataset=waterbirds method=jtt training.epochs=15 training.discovery_epochs=1 training.batch_size=64 training.lr=1e-4 training.discovery_criterion=loss training.discovery_upweight=50.0 wandb.enabled=false
+
+# Group DRO (oracle)
+python run.py dataset=waterbirds method=group_dro training.epochs=15 training.batch_size=64 training.lr=1e-4 wandb.enabled=false
+
+# Ours (discovered split + V-REx)
+python run.py dataset=waterbirds method=discovered_split training.epochs=15 training.discovery_epochs=5 training.batch_size=64 training.lr=1e-4 training.lambda_disagree=10.0 training.discovery_criterion=loss training.discovery_upweight=50.0 training.early_stop_patience=5 wandb.enabled=false
+```
+
 ### CMNIST
 - Model: 2-layer MLP, hidden_dim=256
 - Optimizer: AdamW, lr=1e-3, weight_decay=1e-4
