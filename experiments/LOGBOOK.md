@@ -310,6 +310,90 @@ This is directly actionable for medicinal chemists.
 
 ---
 
+## Planned Experiments: Beyond Binary Spurious Features
+
+### Multi-spurious CMNIST
+
+Standard CMNIST has one spurious feature (colour).  Real datasets often have
+multiple overlapping shortcuts.  We want to show our method handles this while
+JTT does not.
+
+**Design: CMNIST with colour + brightness.**
+- Feature 1: colour (red/green channel), correlated with label at p1=0.8
+- Feature 2: brightness (scale pixel intensities by 0.3 vs 1.0), correlated at p2=0.7
+- Construction: independently sample colour and brightness correlations
+- OOD test: both correlations flipped (colour p=0.2, brightness p=0.3)
+- A model using either shortcut fails OOD
+
+**Predictions:**
+- ERM: relies on both shortcuts → fails OOD
+- JTT: identifies "hard" examples (those where both shortcuts fail) → fixes the
+  easier shortcut but may miss the other
+- Ours: V-REx forces equal risk across environments discovered from ERM loss →
+  environments capture the combined effect of both shortcuts → model must be
+  robust to both simultaneously
+
+**Implementation:** Extend ColoredMNIST with a `brightness_correlation` parameter.
+Add brightness assignment in step 3, multiply pixel values by brightness factor
+in step 4.
+
+### Continuous spurious features and K>2 environments
+
+Real spurious features are rarely binary.  In chemistry, scaffold frequency is
+continuous; in medical imaging, scanner calibration drifts continuously.
+
+**Design: CMNIST with continuous colour.**
+Instead of binary red/green, use a continuous hue correlated with label:
+- label=0 → hue sampled from N(0, σ) (reddish)
+- label=1 → hue sampled from N(120, σ) (greenish)
+- σ controls how "clean" the spurious signal is
+- OOD test: hue is uniformly random (no colour-label correlation)
+
+Or simpler: keep binary labels but make the spurious feature a continuous
+intensity value `c_i ~ Beta(α, β)` where α, β depend on the label.
+
+**K-environment generalisation:**
+With continuous spurious features, binary median split loses nuance.  Instead:
+- Score examples by ERM loss as before
+- Split into K environments by loss quantile (tercile, quintile, etc.)
+- V-REx penalty = variance of per-environment losses: `Var(loss_1, ..., loss_K)`
+
+This is a natural generalisation.  The question is what K to use.  Options:
+- Fixed K (hyperparameter, e.g. K=5)
+- Data-driven K via gap statistics on the loss distribution
+- Continuous: weight each example's contribution to V-REx by its loss rank
+  (this is what our current upweighting already approximates)
+
+**For chemistry:** K-environment splitting maps naturally to:
+- K scaffold clusters (common, medium, rare scaffolds)
+- K dataset batches (different labs, different measurement campaigns)
+- K property ranges (low, medium, high molecular weight)
+
+### Chemistry datasets
+
+Target datasets where scaffold or property splits are known to cause OOD gaps:
+
+1. **MoleculeNet benchmarks** (BBBP, BACE, HIV, Tox21): standard splits vs
+   scaffold splits show 10-20% accuracy gaps. Our method should discover the
+   scaffold dependence from ERM residuals.
+
+2. **ADME datasets** (solubility, permeability, clearance): proprietary data
+   often has batch effects (different labs, different assay conditions). Our
+   method could discover these without explicit batch labels.
+
+3. **MatBench** (materials property prediction): crystal structure features
+   often correlate with composition, which correlates with property. Similar
+   confounding structure to CMNIST colour.
+
+**What makes chemistry interesting for this paper:**
+- Group labels are expensive or unknown (what is the "spurious feature"?)
+- Multiple overlapping confounders (scaffold, molecular weight, logP, dataset source)
+- Continuous features (no natural binary split)
+- High practical value (drug discovery, materials design)
+- Untouched by the existing spurious correlation literature
+
+---
+
 ## Open Questions and TODO
 
 ### For ablations (NeurIPS)
