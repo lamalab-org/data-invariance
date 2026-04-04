@@ -1247,11 +1247,15 @@ def train_discovered_split(
 
             if len(env_losses) >= 2:
                 env_losses_t = torch.stack(env_losses)
-                # V-REx penalty: variance of per-environment losses.
-                # K=2: this equals (loss_A - loss_B)^2 / 4, but we use
-                # the general form for any K.
-                risk_var = env_losses_t.var()
-                model_loss = env_losses_t.mean() + lam * risk_var
+                # V-REx penalty = sum of squared deviations from mean.
+                # For K=2: equals (loss_A - loss_B)^2 / 2.
+                # For K>2: generalises naturally.
+                # We use sum-of-squares (not variance) so the penalty scale
+                # is independent of K — adding more environments doesn't
+                # dilute the penalty.
+                mean_loss = env_losses_t.mean()
+                risk_var = ((env_losses_t - mean_loss) ** 2).sum()
+                model_loss = mean_loss + lam * risk_var
             elif len(env_losses) == 1:
                 model_loss = env_losses[0]
                 risk_var = torch.tensor(0.0)

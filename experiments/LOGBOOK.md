@@ -501,6 +501,53 @@ Target datasets where scaffold or property splits are known to cause OOD gaps:
 
 ---
 
+## Known Issues and Caveats
+
+### Must fix before paper submission
+
+1. **V-REx penalty scale changed mid-development.** Early experiments (CMNIST,
+   Waterbirds) used `(loss_A - loss_B)^2`. Later experiments (ContinuousCMNIST)
+   use `sum((loss_k - mean)^2)` which for K=2 equals `(loss_A - loss_B)^2 / 2` —
+   half the old penalty.  **All experiments must be re-run with the same code.**
+   Current code uses sum-of-squared-deviations; effective lambda is 2x lower
+   than the old code for the same config value.
+
+2. **Model selection on test set.** We report "best worst-group across all epochs"
+   which selects on the test metric.  Proper protocol: select model via
+   validation set (risk variance or val worst-group), report test performance of
+   that checkpoint.  The Waterbirds "85.4% at epoch 1" is particularly suspect.
+
+3. **Single-seed comparisons.** Worst-group oscillates by 20+pp between epochs.
+   "85.4% vs 80.7%" is within noise.  Need 5+ seeds with mean ± std.
+
+4. **JTT comparison is unfair.** Published JTT = 87% on Waterbirds.  Our
+   reimplementation = 80.5%.  Different optimizer (AdamW vs SGD), LR, discovery
+   epochs.  Cannot claim "JTT doesn't work" based on our implementation.
+
+### Should investigate
+
+5. **Iterative refinement: data leakage.** Rounds 2+ score training examples
+   with a model trained on those same examples.  The model's loss reflects
+   memorisation, not just spurious feature reliance.  Improved contrast might
+   partly reflect memorisation patterns.  Fix: hold out a separate scoring set.
+
+6. **Iterative refinement: seed confound.** Each round uses `seed + round_i`,
+   changing model initialisation.  Need control: single-round with same seeds.
+
+7. **ContinuousCMNIST beta_concentration=5 is nearly binary.** The colour
+   distribution is extremely peaked near 0 and 1.  Lower concentration (2.0)
+   would test truly continuous features, but that's tuning the dataset.
+
+8. **`.spurious` binarisation for ContinuousCMNIST.** Worst-group uses
+   `(color_strength > 0.5).long()`.  This threshold is arbitrary and affects
+   the metric.
+
+9. **Waterbirds ERM baseline (80.7%) is higher than published (~70%).**  Our
+   setup might favour all methods equally, or our evaluation differs.  Possibly
+   due to pretrained weights, LR, or evaluation protocol differences.
+
+---
+
 ## Open Questions and TODO
 
 ### For ablations (NeurIPS)
