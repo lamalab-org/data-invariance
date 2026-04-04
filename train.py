@@ -108,6 +108,40 @@ def symmetric_kl(logits_a: torch.Tensor, logits_b: torch.Tensor) -> torch.Tensor
     return 0.5 * (kl_ab + kl_ba)
 
 
+def _val_score(id_metrics: dict[str, float]) -> float:
+    """Validation score for model selection (higher = better).
+
+    Uses worst-group accuracy when available (Waterbirds, multi-spurious);
+    falls back to negative loss for standard CMNIST.
+    """
+    if "worst_group_acc" in id_metrics:
+        return id_metrics["worst_group_acc"]
+    return -id_metrics["loss"]
+
+
+class _ModelSelector:
+    """Track the best model checkpoint by validation score."""
+
+    def __init__(self):
+        import copy as _copy
+        self._copy = _copy
+        self.best_score = float("-inf")
+        self.best_state = None
+        self.best_metrics: dict[str, float] = {}
+
+    def update(self, val_score: float, model: torch.nn.Module, metrics: dict[str, float]) -> None:
+        if val_score > self.best_score:
+            self.best_score = val_score
+            self.best_state = self._copy.deepcopy(model.state_dict())
+            self.best_metrics = dict(metrics)
+
+    def restore(self, model: torch.nn.Module) -> dict[str, float]:
+        """Restore best checkpoint and return its metrics."""
+        if self.best_state is not None:
+            model.load_state_dict(self.best_state)
+        return self.best_metrics if self.best_metrics else {}
+
+
 def _eval_metrics(prefix: str, m: dict[str, float]) -> dict[str, float]:
     """Build prefixed metric dict from evaluate() output, including worst_group_acc if present."""
     d = {
@@ -211,7 +245,7 @@ def train_erm(
     incorrect (it decays the adapted parameters rather than the weights
     directly). AdamW fixes this, giving cleaner regularisation at no extra cost.
 
-    Returns the final epoch's metrics dict.
+    Returns metrics of the best validation checkpoint.
     """
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -219,7 +253,7 @@ def train_erm(
         weight_decay=cfg.training.weight_decay,
     )
 
-    metrics: dict[str, float] = {}
+    selector = _ModelSelector()
     for epoch in range(cfg.training.epochs):
         model.train()
         epoch_loss = 0.0
@@ -227,18 +261,16 @@ def train_erm(
         epoch_n = 0
 
         for batch in loaders["train"]:
-            x = batch["image"].to(device)   # (B, 3, 28, 28)
-            y = batch["label"].to(device)   # (B,) int64
+            x = batch["image"].to(device)
+            y = batch["label"].to(device)
 
-            logits = model(x)               # (B, 2)
+            logits = model(x)
             loss = F.cross_entropy(logits, y)
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            # Multiply by batch size to undo the mean reduction, so we can
-            # accumulate a properly weighted sum across variable-size batches.
             epoch_loss += loss.item() * len(y)
             epoch_correct += (logits.argmax(1) == y).sum().item()
             epoch_n += len(y)
@@ -253,8 +285,9 @@ def train_erm(
             **_eval_metrics("eval/ood", ood_metrics),
         }
         log_metrics(run, metrics, step=epoch)
+        selector.update(_val_score(id_metrics), model, metrics)
 
-    return metrics
+    return selector.restore(model)
 
 
 def train_random_split(
@@ -296,6 +329,7 @@ def train_random_split(
     )
 
     metrics: dict[str, float] = {}
+    selector = _ModelSelector()
     for epoch in range(cfg.training.epochs):
         model.train()
         epoch_loss = 0.0
@@ -349,8 +383,9 @@ def train_random_split(
             **_eval_metrics("eval/ood", ood_metrics),
         }
         log_metrics(run, metrics, step=epoch)
+        selector.update(_val_score(id_metrics), model, metrics)
 
-    return metrics
+    return selector.restore(model)
 
 
 def train_oracle_split(
@@ -383,6 +418,7 @@ def train_oracle_split(
     )
 
     metrics: dict[str, float] = {}
+    selector = _ModelSelector()
     for epoch in range(cfg.training.epochs):
         model.train()
         epoch_loss = 0.0
@@ -433,8 +469,9 @@ def train_oracle_split(
             **_eval_metrics("eval/ood", ood_metrics),
         }
         log_metrics(run, metrics, step=epoch)
+        selector.update(_val_score(id_metrics), model, metrics)
 
-    return metrics
+    return selector.restore(model)
 
 
 def train_resampling(
@@ -475,6 +512,7 @@ def train_resampling(
     split_rng.manual_seed(cfg.training.seed + 99)
 
     metrics: dict[str, float] = {}
+    selector = _ModelSelector()
     for epoch in range(cfg.training.epochs):
         model.train()
         epoch_loss = 0.0
@@ -538,8 +576,9 @@ def train_resampling(
             **_eval_metrics("eval/ood", ood_metrics),
         }
         log_metrics(run, metrics, step=epoch)
+        selector.update(_val_score(id_metrics), model, metrics)
 
-    return metrics
+    return selector.restore(model)
 
 
 def train_adversarial_split(
@@ -625,6 +664,7 @@ def train_adversarial_split(
 
     metrics: dict[str, float] = {}
     prev_disagree = 0.0   # previous epoch's mean disagreement — used for threshold gating
+    selector = _ModelSelector()
     for epoch in range(cfg.training.epochs):
         # --- Effective lambda for this epoch ---
         # Two independent schedules; the effective lambda is their minimum so that
@@ -852,6 +892,7 @@ def train_adversarial_split_multi(
 
     metrics: dict[str, float] = {}
     prev_disagree = 0.0
+    selector = _ModelSelector()
     for epoch in range(cfg.training.epochs):
         # Lambda schedules — identical logic to binary case
         warmup_e = cfg.training.lambda_warmup_epochs
@@ -1179,17 +1220,14 @@ def train_discovered_split(
     has higher spurious-label correlation than env B, minimising the risk
     difference pushes the model toward invariant features.
 
-    Early stopping: when risk variance rises above its running minimum for
-    ``early_stop_patience`` consecutive epochs, training stops and the
-    best-risk-variance checkpoint is restored.
+    Model selection uses the validation set (id_test).  Early stopping:
+    if validation metric doesn't improve for ``patience`` epochs, stop.
 
     Args:
         assignment:        (N,) long tensor; 0 = env A, 1 = env B, -1 = excluded.
         weights:           (N,) float tensor of per-example importance weights.
         discovery_metrics: diagnostics logged at step 0 in wandb.
     """
-    import copy
-
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=cfg.training.lr,
@@ -1203,13 +1241,8 @@ def train_discovered_split(
     anneal_factor = cfg.training.lambda_anneal_factor
     patience = cfg.training.early_stop_patience
 
-    # Early-stopping state.
-    best_risk_var = float("inf")
-    best_state = None
-    best_metrics: dict[str, float] = {}
+    selector = _ModelSelector()
     epochs_without_improvement = 0
-
-    metrics: dict[str, float] = {}
     for epoch in range(cfg.training.epochs):
         # Lambda annealing: linearly scale from lambda_disagree to
         # lambda_disagree * anneal_factor over training.
@@ -1287,25 +1320,22 @@ def train_discovered_split(
         }
         log_metrics(run, metrics, step=epoch)
 
-        # --- Early stopping on risk variance ---
-        # Only activate after a warmup period (half the total epochs or 5,
-        # whichever is smaller) so the model has time to learn before we
-        # start watching for overfitting.
+        # Track best validation checkpoint.
+        prev_best = selector.best_score
+        selector.update(_val_score(id_metrics), model, metrics)
+        improved = selector.best_score > prev_best
+
+        # Early stopping: after warmup, stop if no improvement for `patience` epochs.
         min_epochs = min(cfg.training.epochs // 2, 5)
         if patience > 0 and epoch >= min_epochs:
-            if avg_risk_var < best_risk_var:
-                best_risk_var = avg_risk_var
-                best_state = copy.deepcopy(model.state_dict())
-                best_metrics = dict(metrics)
+            if improved:
                 epochs_without_improvement = 0
             else:
                 epochs_without_improvement += 1
                 if epochs_without_improvement >= patience:
-                    model.load_state_dict(best_state)
-                    metrics = best_metrics
                     break
 
-    return metrics
+    return selector.restore(model)
 
 
 def discover_jtt_weights(
@@ -1416,7 +1446,7 @@ def train_jtt(
 
     log_metrics(run, discovery_metrics, step=0)
 
-    metrics: dict[str, float] = {}
+    selector = _ModelSelector()
     for epoch in range(cfg.training.epochs):
         model.train()
         epoch_loss = 0.0
@@ -1429,10 +1459,8 @@ def train_jtt(
             idx = batch["index"].to(device)
 
             logits = model(x)
-            ce = F.cross_entropy(logits, y, reduction="none")  # (B,)
+            ce = F.cross_entropy(logits, y, reduction="none")
 
-            # Weighted ERM loss — high-loss examples from discovery get higher weight.
-            # This is the JTT objective: no environment split, no V-REx.
             w = weights[idx]
             loss = (w * ce).sum() / w.sum()
 
@@ -1455,8 +1483,9 @@ def train_jtt(
             **_eval_metrics("eval/ood", ood_metrics),
         }
         log_metrics(run, metrics, step=epoch)
+        selector.update(_val_score(id_metrics), model, metrics)
 
-    return metrics
+    return selector.restore(model)
 
 
 def train_group_dro(
@@ -1500,7 +1529,7 @@ def train_group_dro(
     group_weights = torch.ones(n_groups, device=device) / n_groups
     dro_step_size = 0.01  # eta from Sagawa et al.
 
-    metrics: dict[str, float] = {}
+    selector = _ModelSelector()
     for epoch in range(cfg.training.epochs):
         model.train()
         epoch_loss = 0.0
@@ -1556,5 +1585,6 @@ def train_group_dro(
             **_eval_metrics("eval/ood", ood_metrics),
         }
         log_metrics(run, metrics, step=epoch)
+        selector.update(_val_score(id_metrics), model, metrics)
 
-    return metrics
+    return selector.restore(model)
