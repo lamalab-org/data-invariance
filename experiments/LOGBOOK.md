@@ -205,7 +205,33 @@ equal risk. The environment structure gives the continuous weights *meaning*:
   forces the model to perform equally on both groups, it can't just memorise
 
 We implemented proper binary JTT (identify misclassified, fixed upweight) to fairly
-compare. Results pending.
+compare.
+
+**Binary JTT result: 80.6% worst-group — still ≈ ERM.**
+
+JTT diagnostics reveal why: after 1 epoch, 664 examples are misclassified (13.8%
+of training set), but only 9.8% of those errors come from the minority group.
+The identification is imprecise — mostly majority-group examples the model hasn't
+learned yet.  Upweighting this noisy error set doesn't help.
+
+**Final comparison on Waterbirds (all single-seed):**
+
+| Method | Group labels? | Weighting | Best WGA | At epoch |
+|--------|:------------:|-----------|:--------:|:--------:|
+| ERM | No | — | 80.7% | 5 |
+| JTT (continuous, disc=5) | No | Continuous loss | 80.5% | 9 |
+| JTT (binary, disc=1) | No | Binary misclassified | 80.6% | 13 |
+| **Group DRO** | **Yes** | Per-group adaptive | **85.5%** | 7 |
+| **Ours** (disc=5, upw=50) | No | Continuous + V-REx | **85.4%** | 1 |
+
+**Takeaway:** Neither JTT variant helps on Waterbirds in our setup.  The V-REx
+equal-risk constraint is the critical ingredient — it matches Group DRO without
+group labels.
+
+**Caveat:** Our single-seed JTT result differs from the published ~87%.  Possible
+reasons: (1) different optimizer (we use AdamW, paper uses SGD+momentum),
+(2) different LR schedule, (3) different weight decay, (4) different discovery
+epochs.  Multi-seed runs with original hyperparameters are needed for a fair claim.
 
 ---
 
