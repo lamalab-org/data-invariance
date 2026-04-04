@@ -112,30 +112,91 @@
 
 ---
 
+## Prior Work: Baselines and Positioning
+
+### Landscape of methods
+
+| Method | Core idea | Group labels? | Waterbirds WGA | Reference |
+|--------|-----------|:------------:|:--------------:|-----------|
+| ERM | Standard training | No | ~70-80% | — |
+| **Group DRO** | Minimise worst-group loss directly | **Yes** (oracle) | ~90-91% | Sagawa et al. 2020 |
+| **DFR** | ERM features are fine; retrain last layer on balanced data | No* | ~93% | Kirichenko et al. 2023 |
+| **JTT** | Train twice — upweight ERM's mistakes in 2nd round | No | ~87% | Liu et al. 2021 |
+| **CnC** | Contrastive learning on pairs identified by ERM | No | ~90% | Zhang et al. 2022 |
+| **GEORGE** | Cluster ERM features → pseudo-groups → Group DRO | No | ~85-87% | Sohoni et al. 2020 |
+| **Ours** | ERM loss → env discovery + upweighting → V-REx | No | 85.4% | — |
+
+*DFR requires a group-balanced validation set for last-layer refit.
+
+### What each method does (and doesn't do)
+
+**Group DRO** (oracle upper bound): Directly minimises worst-group loss at each training step. Requires full group annotations on every training example. Clean and effective but impractical when group labels are expensive (chemistry, medical imaging). Implementation: modify loss aggregation to per-group losses, reweight toward highest-loss group.
+
+**DFR** (strongest no-label method): Key insight — ERM already learns good features, it just misweights them in the final layer. Fix: freeze ERM backbone, retrain last layer on group-balanced validation data via L1-regularised logistic regression. Extremely simple, shockingly effective (93% WGA). But needs a balanced validation set with group labels. Implementation: trivial — just logistic regression on frozen features.
+
+**JTT** (closest to our discovery phase): Train ERM, identify misclassified examples, upweight them in a second round of training. Our discovery + upweighting is essentially JTT. The question we must answer: **what does V-REx add over plain upweighting?** Implementation: very simple — two training phases, second with upweighted loss.
+
+**CnC** (contrastive variant): Uses ERM to find pairs of examples with same label but different spurious features, then trains with contrastive loss. Harder to implement (contrastive framework, pair mining). Medium-high complexity.
+
+**GEORGE** (clustering variant): Clusters ERM representations to infer pseudo-groups, then runs Group DRO on those groups. Similar in spirit to our environment discovery but uses feature clustering instead of loss thresholding. Medium complexity (clustering, dimensionality reduction).
+
+### Positioning: why our method is NOT incremental over JTT
+
+The danger: "this is JTT with V-REx." To avoid this, we need to show:
+
+1. **Training-time invariance vs post-hoc correction.** JTT/DFR/CnC all produce a model and then fix it. We train a model that is *inherently stable to data composition*. This is a different guarantee — the model doesn't just happen to work on the minority group, it's trained to be insensitive to which partition of the data it sees.
+
+2. **Instance-level stability scores.** V-REx disagreement between environments gives a per-example signal: "how much does this prediction depend on which data the model trained on?" None of the baselines provide this. This is a new form of epistemic uncertainty — not "the model is uncertain" but "the model's confidence is fragile."
+
+3. **The chemistry application.** None of these methods have been applied to molecular property prediction where "groups" are scaffold clusters or dataset sources. In chemistry, you often don't know what the spurious correlation is (scaffold? functional group? dataset batch?). Our method discovers it from the ERM's residuals.
+
+4. **Formal connection to algorithmic stability.** Bousquet & Elisseeff (2002) study stability as a property to *analyse*. We turn it into a training *objective*. This is theoretically novel even if the empirical gains are modest on Waterbirds.
+
+**Paper framing: "Algorithmic stability has been studied as a property to analyse. We turn it into a training objective."**
+
+### Baselines to implement (priority order)
+
+1. **JTT** — essential. Most direct comparison. Shows what V-REx adds over pure upweighting.
+2. **Group DRO** — essential. Oracle upper bound with full group labels.
+3. **DFR** — essential. Strongest published baseline. Shows the gap we need to close.
+4. **GEORGE** — nice-to-have. Closest in spirit (also discovers groups from ERM).
+
+CnC is lower priority (complex to implement, contrastive framework).
+
+### Critical ablation: JTT vs Ours
+
+To clearly show V-REx's contribution:
+- **JTT:** train ERM → identify high-loss examples → retrain with upweighted loss (no V-REx)
+- **Ours:** train ERM → score by loss → split into envs → retrain with upweighted V-REx
+- If ours > JTT: the environment structure + equal-risk constraint adds value beyond upweighting
+
+---
+
 ## Open Questions and TODO
 
 ### For ablations (NeurIPS)
 - [ ] Run all experiments with 5+ random seeds and report mean +/- std
-- [ ] Ablate discovery_epochs systematically: {1, 3, 5, 10, 20}
-- [ ] Ablate upweight systematically: {0, 5, 10, 20, 50, 100}
+- [ ] Ablate discovery_epochs: {1, 3, 5, 10, 20}
+- [ ] Ablate upweight: {0, 5, 10, 20, 50, 100}
 - [ ] Ablate lambda_disagree: {1, 5, 10, 50, 100}
 - [ ] Ablate early_stop_patience: {3, 5, 10, none}
-- [ ] Compare to published baselines: Group DRO, JTT, GEORGE, CnC, DFR
-- [ ] CelebA dataset (hair colour with gender as spurious feature)
+- [ ] **JTT vs Ours ablation** — isolate V-REx's contribution
+- [ ] CelebA dataset
 - [ ] Chemistry datasets (scaffold splits, property-based splits)
 
 ### Methodological questions
-- [ ] Why does upweighting work better than quantile exclusion? Formal analysis of effective environment correlation under upweighting
-- [ ] Can we use the discovery ERM's *features* (not just loss) for better environment construction? e.g., cluster in feature space
-- [ ] Is there an optimal upweight that can be estimated from the data? (e.g., based on the loss distribution's shape)
-- [ ] Connection to JTT (Liu et al. 2021): our method is JTT + V-REx. What does V-REx add over simple upweighting?
+- [ ] Why does upweighting work better than quantile exclusion?
+- [ ] Can we use the ERM's *features* (not just loss) for better environment construction?
+- [ ] Is there an optimal upweight estimable from the loss distribution?
+- [ ] What does V-REx add over JTT? Formalise the difference.
+- [ ] Stability scores: do they predict OOD failures better than softmax entropy?
 
 ### For the paper
-- [ ] Frame as "environment discovery via ERM residuals + V-REx"
-- [ ] Position relative to JTT, GEORGE, CnC, DFR (all post-hoc correction methods)
-- [ ] Our contribution: V-REx on discovered environments with loss-based upweighting
-- [ ] Theoretical angle: connection to algorithmic stability (Bousquet & Elisseeff 2002)
-- [ ] Stability scores as a byproduct: KL(head_A || head_B) as epistemic uncertainty
+- [ ] Frame: "algorithmic stability as a training objective, not just an analysis tool"
+- [ ] Contributions: (1) loss-based environment discovery, (2) V-REx on discovered envs with upweighting, (3) instance-level stability scores, (4) chemistry application
+- [ ] Position clearly against JTT (upweighting alone) and DFR (last-layer refit)
+- [ ] Theoretical: connect to uniform stability bounds (Bousquet & Elisseeff 2002)
+- [ ] Don't compete on Waterbirds WGA alone — compete on the stability/uncertainty angle
 
 ---
 
