@@ -1,11 +1,11 @@
-# TADF emission wavelength — real chemistry dataset with author-group confounding.
+# TADF emission wavelength — real chemistry dataset with property-based confounding.
 # Binary classification: short-wavelength (< 492 nm) vs long-wavelength (>= 492 nm).
-# Spurious correlation: certain author groups publish predominantly on one class.
-# Features: 2265 precomputed molecular descriptors (RDKit + Morgan fingerprints).
+# Spurious correlation injected by subsampling: NumHeteroatoms is made to correlate
+# with the label. A model using the shortcut fails on the unbiased test set.
 name: tadf
 arch: mlp
 parquet_path: /Users/kevinmaikjablonka/git/lamalab/clever-materials-hans/src/tex/output/tadf_preprocess.parquet
-# Leave-one-author-group-out for OOD evaluation.
-# Set to an author name to hold them out, or "none" for random split.
-ood_author: "Chuluo Yang"
+# Property-based spurious correlation.
+spurious_property: feat_mol_NumHeteroatoms
+spurious_correlation: 0.9
 data_dir: ./data

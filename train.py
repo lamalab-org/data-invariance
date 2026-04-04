@@ -62,12 +62,23 @@ def make_dataloaders(cfg: DictConfig) -> dict[str, DataLoader]:
     elif cfg.dataset.name == "tadf":
         seed = cfg.training.seed
         ppath = cfg.dataset.parquet_path
-        train_ds = TADFDataset(parquet_path=ppath, split="train", seed=seed)
-        # ID test: random held-out 20%
-        id_test_ds = TADFDataset(parquet_path=ppath, split="test", seed=seed)
-        # OOD test: leave-one-author-group-out
-        ood_author = cfg.dataset.ood_author
-        ood_test_ds = TADFDataset(parquet_path=ppath, split=f"ood_{ood_author}", seed=seed)
+        spur_prop = getattr(cfg.dataset, "spurious_property", None)
+        spur_corr = getattr(cfg.dataset, "spurious_correlation", 0.9)
+
+        train_ds = TADFDataset(
+            parquet_path=ppath, split="train", seed=seed,
+            spurious_property=spur_prop, spurious_correlation=spur_corr,
+        )
+        # ID test: random held-out 20%, same subsampling as train
+        id_test_ds = TADFDataset(
+            parquet_path=ppath, split="test", seed=seed,
+            spurious_property=spur_prop, spurious_correlation=spur_corr,
+        )
+        # OOD test: same held-out 20% but UNBIASED (no subsampling)
+        ood_test_ds = TADFDataset(
+            parquet_path=ppath, split="test", seed=seed,
+            spurious_property=None,  # no subsampling
+        )
 
     elif cfg.dataset.name == "waterbirds":
         data_dir = cfg.dataset.data_dir

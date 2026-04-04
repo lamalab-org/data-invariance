@@ -427,30 +427,31 @@ class WaterbirdsDataset(Dataset):
 
 
 class TADFDataset(Dataset):
-    """TADF emission wavelength classification with author-group confounding.
+    """TADF emission wavelength classification with controlled spurious correlations.
 
-    Binary classification: short-wavelength emitters (< median) vs
+    Binary classification: short-wavelength emitters (< median ~492 nm) vs
     long-wavelength emitters (>= median).
 
-    Spurious correlation: certain author groups publish predominantly on
-    one class (e.g., Chuluo Yang → 76% long-wavelength).  A model that
-    learns author-correlated features (e.g., specific scaffold preferences
-    of a research group) rather than genuine electronic structure will
-    fail on leave-one-author-group-out evaluation.
+    Features: precomputed molecular descriptors (RDKit + Morgan FP)
+    from the clever-materials-hans pipeline.  Tabular input to an MLP.
 
-    Features: 2265 precomputed molecular descriptors (RDKit + Morgan FP)
-    from the clever-materials-hans pipeline.  These are tabular features,
-    not images — the model is a standard MLP on the feature vector.
+    Spurious correlations can be injected via property-based subsampling:
+    a molecular property (e.g., NumHeteroatoms) is made to correlate with
+    the label by keeping aligned examples and dropping most counterexamples
+    from the training set.  The test set is unbiased.
 
-    Splits:
-        "train": 80% random split (or all data minus held-out author)
-        "test":  20% random split
-        "ood_<author>": all examples from a specific author group
+    This models real-world confounding: a property (e.g., molecular weight)
+    correlates with the target in the training data due to sampling bias,
+    but the correlation breaks on new data.
 
     Args:
-        parquet_path: Path to tadf_preprocess.parquet.
-        split:        "train", "test", or "ood_<AuthorName>".
-        seed:         Random seed for train/test split.
+        parquet_path:        Path to tadf_preprocess.parquet.
+        split:               "train" or "test".
+        seed:                Random seed for splits.
+        spurious_property:   Feature column to use as spurious signal
+                             (e.g., "feat_mol_NumHeteroatoms").  None = no injection.
+        spurious_correlation: Fraction of aligned (property→label) examples
+                             to keep in training.  0.9 = strong shortcut.
     """
 
     def __init__(
@@ -458,6 +459,8 @@ class TADFDataset(Dataset):
         parquet_path: str,
         split: str = "train",
         seed: int = 42,
+        spurious_property: str | None = None,
+        spurious_correlation: float = 0.9,
     ) -> None:
         import pandas as pd
         import numpy as np
@@ -481,58 +484,61 @@ class TADFDataset(Dataset):
         feat_cols = [c for c in df.columns if c.startswith("feat_")]
         feats = df[feat_cols].copy()
         feats = feats.fillna(0.0)
-        # Drop constant columns.
         non_const = feats.columns[feats.std() > 1e-10]
         feats = feats[non_const]
         feat_cols = list(non_const)
 
-        # Standardise features (zero mean, unit variance).
-        self._feat_mean = feats.mean()
-        self._feat_std = feats.std().clip(lower=1e-8)
-        feats = (feats - self._feat_mean) / self._feat_std
+        # Standardise features.
+        feat_mean = feats.mean()
+        feat_std = feats.std().clip(lower=1e-8)
+        feats = (feats - feat_mean) / feat_std
 
-        # Author group as spurious attribute.
-        # Binarise: top author (most biased toward class 1) vs rest.
-        author_col = df["author_last_name"].fillna("unknown")
-
-        # Find the author with highest class-1 fraction (among those with >= 20 papers).
-        author_counts = author_col.value_counts()
-        big_authors = author_counts[author_counts >= 20].index
-        author_class1_frac = {
-            a: df.loc[author_col == a, "_label"].mean() for a in big_authors
-        }
-        # Spurious = 1 if from a high-class1-fraction author group.
-        # Use median author-class1-fraction as threshold.
-        if author_class1_frac:
-            author_median_frac = np.median(list(author_class1_frac.values()))
-            high_frac_authors = {a for a, f in author_class1_frac.items() if f > author_median_frac}
-            spurious = torch.tensor(
-                [1 if a in high_frac_authors else 0 for a in author_col], dtype=torch.long
-            )
+        # Spurious attribute: binarise the chosen property at its median.
+        if spurious_property and spurious_property in df.columns:
+            prop_vals = df[spurious_property].values.astype(float)
+            prop_median = np.median(prop_vals)
+            spurious = torch.tensor((prop_vals >= prop_median).astype(int), dtype=torch.long)
         else:
             spurious = torch.zeros(len(df), dtype=torch.long)
 
-        # Train/test split.
+        # Train/test split (80/20).
         rng = np.random.RandomState(seed)
         n = len(df)
-        indices = rng.permutation(n)
+        perm = rng.permutation(n)
         n_train = int(0.8 * n)
+        train_idx = perm[:n_train]
+        test_idx = perm[n_train:]
 
         if split == "train":
-            idx = indices[:n_train]
+            idx = train_idx
+            # Inject spurious correlation by subsampling.
+            # "aligned" = spurious attribute matches label (high prop → class 1).
+            # Keep `spurious_correlation` fraction of aligned, and
+            # `1 - spurious_correlation` of misaligned.
+            if spurious_property and spurious_property in df.columns:
+                labels_train = df["_label"].iloc[idx].values
+                spur_train = spurious[idx].numpy()
+                aligned = spur_train == labels_train
+                keep = np.zeros(len(idx), dtype=bool)
+                # Keep almost all aligned examples.
+                aligned_idx = np.where(aligned)[0]
+                n_keep_aligned = int(len(aligned_idx) * spurious_correlation)
+                keep[rng.choice(aligned_idx, n_keep_aligned, replace=False)] = True
+                # Keep a few misaligned examples.
+                misaligned_idx = np.where(~aligned)[0]
+                n_keep_mis = int(len(misaligned_idx) * (1 - spurious_correlation))
+                if n_keep_mis > 0 and len(misaligned_idx) > 0:
+                    keep[rng.choice(misaligned_idx, n_keep_mis, replace=False)] = True
+                idx = idx[keep]
         elif split == "test":
-            idx = indices[n_train:]
-        elif split.startswith("ood_"):
-            # Leave-one-author-group-out: hold out all examples from this author.
-            author_name = split[4:]
-            idx = np.where(author_col == author_name)[0]
+            # Test uses all held-out data — no subsampling, unbiased.
+            idx = test_idx
         else:
             raise ValueError(f"Unknown split: {split}")
 
         self.images = torch.tensor(feats.iloc[idx].values, dtype=torch.float32)
         self.labels = torch.tensor(df["_label"].iloc[idx].values, dtype=torch.long)
         self._spurious = spurious[idx]
-        self._author_names = author_col.iloc[idx].values
         self._feat_cols = feat_cols
         self._median_nm = median_nm
 
