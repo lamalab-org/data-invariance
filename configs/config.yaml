@@ -127,6 +127,13 @@ training:
   # 0 → disabled (train for all epochs).
   early_stop_patience: 0
 
+  # Iterative discovery rounds. Each round: score examples with the current
+  # model, re-discover environments, train a fresh model with V-REx.
+  # 1 → standard single-round discovery (default).
+  # N>1 → N rounds of refinement. Each round uses the previous model's loss
+  # to find better environments.
+  discovery_rounds: 1
+
   # Adversary mode — controls what the adversary optimises.
   # "task_loss"  → default: maximise per-head task loss; pushes examples toward their
   #                harder head, creating an easy/hard partition.  Does NOT reliably

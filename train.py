@@ -972,65 +972,100 @@ def discover_environments(
     cfg: DictConfig,
     loaders: dict[str, DataLoader],
     device: torch.device,
+    existing_model: torch.nn.Module | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, dict[str, float]]:
-    """Score training examples with a throw-away ERM, then split into two environments.
+    """Score training examples and split into environments.
+
+    When ``existing_model`` is None (default), trains a throw-away ERM for
+    scoring.  When provided (iterative refinement), uses that model directly.
 
     Pipeline:
-        1. Train a small MLP for ``discovery_epochs`` epochs (then discard it).
-        2. Score each example by cross-entropy loss or prediction entropy.
-        3. Split into env A (low score) and env B (high score) via median or
-           quantile threshold.
-        4. Optionally upweight high-score examples so the minority group
-           dominates the V-REx penalty.
+        1. Score each example (loss, entropy, or counterfactual sensitivity).
+        2. Split into K environments by score rank.
+        3. Optionally upweight high-score examples.
 
     Returns:
-        assignment  - (N,) long: 0 = env A, 1 = env B, -1 = excluded.
+        assignment  - (N,) long: environment index per example.
         weights     - (N,) float: per-example importance weights.
-        diag_metrics - discovery diagnostics (colour correlation per env, sizes).
+        diag_metrics - discovery diagnostics.
     """
     train_ds = loaders["train"].dataset
     N = len(train_ds)
 
-    # Throw-away ERM model — must match the dataset's architecture.
-    # For ResNet: freeze the pretrained backbone, only train the linear head.
-    # This is much faster and 5 discovery epochs suffice to learn the shortcut.
-    if cfg.dataset.arch == "resnet":
-        backbone, out_dim = make_resnet_backbone(freeze=True)
-        disc = MLP(backbone=backbone, backbone_out_dim=out_dim).to(device)
+    if existing_model is not None:
+        # Iterative refinement: reuse the model from the previous round.
+        disc = existing_model
     else:
-        disc = MLP(input_dim=train_ds.input_dim, hidden_dim=cfg.model.hidden_dim).to(device)
-    opt = torch.optim.AdamW(disc.parameters(), lr=cfg.training.lr, weight_decay=cfg.training.weight_decay)
+        # Train a throw-away ERM for scoring.
+        if cfg.dataset.arch == "resnet":
+            backbone, out_dim = make_resnet_backbone(freeze=True)
+            disc = MLP(backbone=backbone, backbone_out_dim=out_dim).to(device)
+        else:
+            disc = MLP(input_dim=train_ds.input_dim, hidden_dim=cfg.model.hidden_dim).to(device)
+        opt = torch.optim.AdamW(disc.parameters(), lr=cfg.training.lr, weight_decay=cfg.training.weight_decay)
 
-    for _ in range(cfg.training.discovery_epochs):
-        disc.train()
-        for batch in loaders["train"]:
-            x = batch["image"].to(device)
-            y = batch["label"].to(device)
-            loss = F.cross_entropy(disc(x), y)
-            opt.zero_grad()
-            loss.backward()
-            opt.step()
+        for _ in range(cfg.training.discovery_epochs):
+            disc.train()
+            for batch in loaders["train"]:
+                x = batch["image"].to(device)
+                y = batch["label"].to(device)
+                loss = F.cross_entropy(disc(x), y)
+                opt.zero_grad()
+                loss.backward()
+                opt.step()
 
     # Score every training example.
     criterion = cfg.training.discovery_criterion
     disc.eval()
     scores = torch.zeros(N)
-    with torch.no_grad():
-        for batch in loaders["train"]:
-            x   = batch["image"].to(device)
-            y   = batch["label"].to(device)
-            idx = batch["index"]
-            logits = disc(x)
-            if criterion == "loss":
-                # Per-example cross-entropy loss.  colour≠label examples score
-                # high (model confidently predicts wrong class based on colour).
-                s = F.cross_entropy(logits, y, reduction="none")
-            else:
-                # Prediction entropy H(p).  Works at low correlation where
-                # colour≠label examples are genuinely uncertain.
-                p = logits.softmax(1).clamp(min=1e-7)
-                s = -(p * p.log()).sum(1)
-            scores[idx] = s.cpu()
+
+    if criterion == "counterfactual":
+        # Counterfactual scoring: for each example, measure how much the
+        # prediction changes under random input perturbations.
+        #
+        # score_i = Var_k[ model(x_i + noise_k) ]  (variance of predictions)
+        #
+        # High variance → model relies on fragile features (likely spurious).
+        # Low variance → prediction is robust to perturbation (invariant features).
+        #
+        # Unlike loss (which concentrates near 0 for confident models), this
+        # score is well-distributed — every example gets a meaningful sensitivity
+        # measure.  This matters for continuous spurious features where loss-based
+        # splitting fails.
+        n_perturbations = 10
+        noise_std = 0.1
+        g_noise = torch.Generator(device=device).manual_seed(cfg.training.seed + 99)
+
+        with torch.no_grad():
+            for batch in loaders["train"]:
+                x = batch["image"].to(device)   # (B, C, H, W)
+                idx = batch["index"]
+
+                # Collect predictions under perturbation.
+                pred_samples = []
+                for _ in range(n_perturbations):
+                    noise = torch.randn_like(x, generator=g_noise) * noise_std
+                    perturbed_logits = disc(x + noise)
+                    pred_samples.append(perturbed_logits.softmax(1)[:, 1])  # P(class=1)
+
+                # Variance of P(class=1) across perturbations.
+                preds_stack = torch.stack(pred_samples, dim=0)  # (K, B)
+                var_per_example = preds_stack.var(dim=0)        # (B,)
+                scores[idx] = var_per_example.cpu()
+    else:
+        with torch.no_grad():
+            for batch in loaders["train"]:
+                x   = batch["image"].to(device)
+                y   = batch["label"].to(device)
+                idx = batch["index"]
+                logits = disc(x)
+                if criterion == "loss":
+                    s = F.cross_entropy(logits, y, reduction="none")
+                else:
+                    # entropy
+                    p = logits.softmax(1).clamp(min=1e-7)
+                    s = -(p * p.log()).sum(1)
+                scores[idx] = s.cpu()
 
     # --- Build assignment and per-example weights ---
     upweight = cfg.training.discovery_upweight
@@ -1050,12 +1085,10 @@ def discover_environments(
         # V-REx penalty: variance of K per-environment losses.
         #
         # weight_i = 1 + upweight * (loss_i / max_loss)
-        quantiles = torch.linspace(0, 1, K + 1)[1:-1]  # e.g. K=3 → [0.33, 0.67]
-        thresholds = torch.quantile(scores, quantiles) if len(quantiles) > 0 else torch.tensor([])
-        assignment = torch.zeros(N, dtype=torch.long)
-        for t in thresholds:
-            assignment += (scores >= t).long()
-        # assignment ∈ {0, 1, ..., K-1}, roughly equal-sized groups
+        # Rank-based assignment: sort by score, divide into K equal groups.
+        # Avoids quantile-tie collapse that breaks threshold-based splitting.
+        ranks = scores.argsort().argsort()  # rank of each example (0 to N-1)
+        assignment = (ranks.float() / N * K).long().clamp(max=K - 1)
 
         score_max = scores.max()
         if score_max > 1e-8:

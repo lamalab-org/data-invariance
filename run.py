@@ -111,10 +111,17 @@ def main(cfg: DictConfig) -> None:
         train_resampling(cfg, model, loaders, device, run)
 
     elif method == "discovered_split":
-        assignment, weights, discovery_metrics = discover_environments(cfg, loaders, device)
-        set_seed(cfg.training.seed)
-        model = _make_model(cfg, loaders, method, device)
-        train_discovered_split(cfg, model, loaders, device, run, assignment, weights, discovery_metrics)
+        n_rounds = getattr(cfg.training, "discovery_rounds", 1)
+        model = None
+        for round_i in range(n_rounds):
+            # Round 0: discover from fresh ERM.
+            # Round 1+: discover from previous round's trained model.
+            assignment, weights, discovery_metrics = discover_environments(
+                cfg, loaders, device, existing_model=model,
+            )
+            set_seed(cfg.training.seed + round_i)
+            model = _make_model(cfg, loaders, method, device)
+            train_discovered_split(cfg, model, loaders, device, run, assignment, weights, discovery_metrics)
 
     elif method == "jtt":
         # JTT (Just Train Twice): train discovery ERM, identify misclassified
