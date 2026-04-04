@@ -997,10 +997,33 @@ def discover_environments(
             scores[idx] = s.cpu()
 
     # --- Build assignment and per-example weights ---
+    upweight = getattr(cfg.training, "discovery_upweight", 0.0)
     reweight = getattr(cfg.training, "discovery_reweight", 0.0)
     q = getattr(cfg.training, "discovery_quantile", 0.5)
 
-    if reweight > 0:
+    if upweight > 0:
+        # Loss-based upweighting (residual rebalancing).
+        # ALL examples assigned via median split; high-loss examples get
+        # higher weight.  This is dataset-agnostic — no assumption about
+        # where the spurious feature lives (channels, textures, etc.).
+        # It just uses what the ERM gets wrong as a signal.
+        #
+        # weight_i = 1 + upweight * (loss_i / max_loss)
+        #   lowest-loss examples:   w ≈ 1
+        #   highest-loss examples:  w = 1 + upweight
+        #
+        # At corr=0.9 the ERM confidently misclassifies colour≠label
+        # examples → they have very high loss → they get upweighted →
+        # the effective colour-label correlation drops.
+        threshold = scores.median()
+        assignment = (scores >= threshold).long()
+
+        score_max = scores.max()
+        if score_max > 1e-8:
+            weights = 1.0 + upweight * (scores / score_max)
+        else:
+            weights = torch.ones(N)
+    elif reweight > 0:
         # Balanced reweighting: ALL examples assigned via median split;
         # extremes get higher weight in the V-REx loss.
         #

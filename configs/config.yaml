@@ -112,6 +112,13 @@ training:
   # the V-REx penalty's sensitivity to colour-correlation differences.
   discovery_reweight: 0.0
 
+  # Loss-based upweighting (residual rebalancing). After the discovery ERM,
+  # each training example gets weight = 1 + upweight * (loss_i / max_loss).
+  # High-loss examples (the ERM's mistakes — likely the minority group) get
+  # upweighted in V-REx training.  Dataset-agnostic: no assumption about
+  # where the spurious feature lives.  0.0 → disabled.
+  discovery_upweight: 0.0
+
   # Adversary mode — controls what the adversary optimises.
   # "task_loss"  → default: maximise per-head task loss; pushes examples toward their
   #                harder head, creating an easy/hard partition.  Does NOT reliably

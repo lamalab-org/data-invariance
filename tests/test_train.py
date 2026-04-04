@@ -29,6 +29,7 @@ def make_cfg():
             "discovery_quantile": 0.5,
             "discovery_criterion": "entropy",
             "discovery_reweight": 0.0,
+            "discovery_upweight": 0.0,
         },
         "method": {"name": "erm"},
         "wandb": {"enabled": False},
