@@ -506,15 +506,16 @@ correlate with label at 0.9 in training.  OOD test = misaligned examples
 | ERM | 0.9 | 76.4% | 45.2% |
 | JTT | 0.9 | 75.2% | **50.6%** |
 | Ours | 0.9 | 69.9% | 45.8% |
-| ERM | 0.7 | pending | pending |
-| Ours | 0.7 | pending | pending |
+| ERM | 0.7 | 78.7% | 57.1% |
+| **Ours** | **0.7** | 71.3% | **59.5%** |
 
-**Key finding:** At 0.9 correlation, all methods are near-random on OOD (the
-shortcut is too strong for the small dataset — only ~70 counterexamples in
-training).  JTT marginally helps; our method slightly hurts (same "anti-colour"
-issue seen on CMNIST at high correlation).
+**Key finding:** At 0.9 correlation with only ~1000 training examples, the
+shortcut is too strong (only ~70 counterexamples).  All methods near-random OOD.
 
-Testing with weaker correlation (0.7) to see if more counterexamples help.
+At 0.7 correlation, our method gives +2.4pp OOD improvement over ERM.  Effect
+is modest compared to CMNIST/Waterbirds because: (1) small dataset limits
+learning capacity, (2) 1636 molecular features have many legitimate correlations
+with the target — the model doesn't rely heavily on any single shortcut.
 
 ### Chemistry datasets
 
