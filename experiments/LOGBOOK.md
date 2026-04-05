@@ -517,6 +517,16 @@ is modest compared to CMNIST/Waterbirds because: (1) small dataset limits
 learning capacity, (2) 1636 molecular features have many legitimate correlations
 with the target — the model doesn't rely heavily on any single shortcut.
 
+**Environment-aware mixup** (interpolate features between envs, same label):
+- TADF (tabular): improved worst-group from 35.4% → 44.4% at corr=0.9.
+  Feature-space interpolation is reasonable for molecular descriptors.
+- CMNIST (images): degraded from ~70% → 52%.  Pixel-space interpolation
+  creates unrealistic images — mixup should be in representation space, not
+  input space, for image data.
+
+Mixup is promising for chemistry/tabular data specifically.  For images, it
+would need to operate on backbone features rather than raw pixels.
+
 ### Chemistry datasets
 
 Target datasets where scaffold or property splits are known to cause OOD gaps:
