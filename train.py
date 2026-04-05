@@ -1370,7 +1370,10 @@ def train_discovered_split(
                                 n_mix = min(n1, n2).item()
                                 x1 = x[mask1][:n_mix]
                                 x2 = x[mask2][:n_mix]
-                                lam_mix = torch.rand(n_mix, 1, device=device)
+                                # Shape lambda to broadcast: (n_mix, 1) for tabular,
+                                # (n_mix, 1, 1, 1) for images.
+                                lam_shape = (n_mix,) + (1,) * (x1.dim() - 1)
+                                lam_mix = torch.rand(lam_shape, device=device)
                                 x_mixed = lam_mix * x1 + (1 - lam_mix) * x2
                                 logits_mix = model(x_mixed)
                                 y_mix = torch.full((n_mix,), label_val, device=device, dtype=torch.long)
