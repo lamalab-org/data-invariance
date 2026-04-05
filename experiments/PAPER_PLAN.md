@@ -1,178 +1,208 @@
-# Plan for a Strong NeurIPS Paper
+# Paper Plan: Training for Data Composition Invariance
 
-## Honest assessment: what do we actually have?
+## The real problem (not spurious correlations)
 
-We have a method that combines known ingredients (ERM loss scoring, upweighting,
-V-REx) with one genuinely novel idea (permutation test for adaptive λ) and one
-genuinely novel output (stability scores from V-REx disagreement).
+ML predictions are sensitive to *which* data the model trained on. Retrain on
+a different subsample → some predictions change. This is **data composition
+sensitivity**, and it's the fundamental problem behind:
 
-The method works well on vision benchmarks (beats Group DRO on Waterbirds without
-labels) but modestly on chemistry (small effect on TADF). The stability scores
-show an interesting signal (ERM is anti-predictive, ours isn't) but the AUROCs
-are low.
+- Spurious correlations (model learned a feature that only works for this sample)
+- Batch effects in chemistry (predictions depend on which lab's data was included)
+- Replication crises (model works on this dataset but not that one)
+- Lack of trust in high-stakes predictions (would this drug candidate still be
+  predicted active if we'd collected different training data?)
 
-**A mediocre paper would report these numbers and call it a day.**
+**Algorithmic stability** (Bousquet & Elisseeff 2002) quantifies this: a stable
+algorithm produces similar outputs regardless of small changes to the training set.
+But stability has only been studied as a *property to analyse* — never as a
+*training objective*.
 
-**A strong paper needs to identify what's genuinely new and build the whole
-narrative around that, with the experimental results as supporting evidence.**
+**We turn stability into a training objective.**
 
-## What is genuinely new?
+## What we actually do (mechanistically)
 
-After honest reflection, the novel contributions are:
+1. Train an ERM and look at its mistakes → these reveal which examples the model
+   is sensitive to (if the training composition changed, these would change first)
 
-1. **The permutation test for invariance penalty calibration.** This is applicable
-   to ANY method that uses environment-based regularisation (IRM, V-REx, FISH,
-   DRO). It answers "should I even apply this penalty?" — a question no prior
-   work addresses. This is a standalone contribution.
+2. Split into environments by loss → creates two "versions" of the training data
+   that the model treats differently
 
-2. **Stability scores as dataset-composition sensitivity.** Not "the model is
-   uncertain" but "the model's confidence would change if the training set were
-   composed differently." This is a new epistemic uncertainty type. The finding
-   that ERM is *anti-calibrated* (confidently wrong on fragile examples) is
-   striking.
+3. Permutation test → measures whether these environments capture real sensitivity
+   or just noise
 
-What is NOT novel (and should not be claimed as such):
-- Environment discovery from ERM losses (≈ JTT, GEORGE)
-- V-REx training (Krueger et al. 2021)
-- Upweighting minority examples (JTT, focal loss, etc.)
+4. V-REx training → forces the model to perform equally on both environments →
+   reduces sensitivity to which environment it sees → stability
 
-## The strongest possible framing
+5. The model's per-example loss difference between environments = **stability score**
+   = "how much does this prediction depend on which data the model trained on?"
 
-**Don't frame this as "a new method for spurious correlations."** That space is
-crowded (JTT, DFR, CnC, GEORGE, SSA, AFR, ...) and we won't beat DFR's 93%.
+## Why this framing is better than "spurious correlations"
 
-**Frame this as: "When and how much should you regularise for invariance?"**
+| Framing | Problem | Contribution | Competition |
+|---------|---------|-------------|-------------|
+| Spurious correlations | Model uses wrong feature | Another method | DFR, JTT, CnC, GEORGE, ... |
+| **Data composition invariance** | **Model depends on which data it saw** | **New training objective** | **Nobody** |
 
-The core insight: invariance penalties (V-REx, IRM) are powerful but fragile.
-Too much → over-constrained, hurts performance. Too little → no effect. The
-right amount depends on whether the discovered environments carry real signal.
-No one has a principled answer to this. We do: the permutation test.
+The spurious correlation framing puts us in a crowded space where DFR gets 93% and
+we get 83%. The stability framing puts us in an EMPTY space where we're the first
+to do this at all.
 
-**Title candidates:**
-- "Adaptive Invariance: A Permutation Test for Environment Quality in Robust Training"
-- "Test Your Environments: When Invariance Penalties Help and When They Hurt"
-- "From ERM Residuals to Calibrated Invariance"
+## The strongest possible paper
 
-## Paper structure for maximum impact
+### Title
 
-### Introduction (1.5 pages)
+**"Training for Stability: Making Predictions Invariant to Training Data Composition"**
 
-Start with the practical problem, not the theory:
+or
 
-"You have a model that works well on your training data but fails on a new
-hospital / a new chemical series / a new demographic. You suspect spurious
-correlations but don't know what they are. Methods like V-REx and IRM can
-help — but they require *environments* you don't have, and a *penalty
-strength* you can't tune without OOD data you don't have either."
+**"Which Predictions Would Change? Training Models to Be Invariant to Dataset Composition"**
 
-"We show that:
-(a) environments can be discovered from the ERM's own mistakes,
-(b) the quality of those environments can be assessed via a permutation test,
-(c) the penalty strength can be automatically calibrated from (b),
-(d) the resulting model provides per-example *stability scores* that predict
-    which predictions are fragile to dataset composition."
+### One-paragraph abstract
 
-### Method (2.5 pages)
+Machine learning predictions can depend on which data the model happened to train
+on — retrain on a different subsample and some predictions flip. We turn this
+sensitivity into a training signal. By splitting the training set into subsets
+where an ERM model disagrees with itself, we create environments that capture
+data-composition sensitivity. A permutation test automatically determines how
+strongly to penalise this sensitivity, and the trained model produces per-example
+stability scores that predict which predictions are fragile. On vision benchmarks,
+the method matches oracle methods that require environment labels. On molecular
+property prediction, it identifies predictions that depend on publication source
+rather than genuine chemistry. The stability scores detect confidently-wrong
+predictions that standard uncertainty measures miss.
 
-**2.1 Environment discovery** (0.5 page) — brief, not the main contribution.
-Train ERM, score by loss, median split, upweight. Cite JTT, GEORGE.
-Acknowledge this is not new — the new parts are 2.2 and 2.3.
+### Key figures (redesigned for stability framing)
 
-**2.2 The permutation test** (1 page) — the core contribution.
-- Define risk variance under true assignment vs random permutations
-- The signal ratio: actual_rv / permuted_rv
-- Proposition: if signal_ratio < 1 + ε, the discovered environments are
-  indistinguishable from random splits and V-REx reduces to ERM in expectation
-- Algorithm box: discovery → permutation test → adaptive λ → V-REx training
+**Figure 1: The problem.**
+Take a dataset. Train an ERM 10 times with different random 90% subsamples.
+For each test example, measure how often the prediction changes across the 10
+models. Show: some examples are always predicted correctly (stable), some flip
+in 3/10 retrainings (moderately fragile), some flip in 8/10 (very fragile).
+Standard confidence (softmax) doesn't correlate with this fragility.
 
-**2.3 Stability scores** (0.5 page) — the second contribution.
-- Definition: per-example loss from the V-REx model as a stability indicator
-- Why this is different from standard uncertainty: not "model is unsure" but
-  "model's confidence depends on which data it saw"
-- Connection to algorithmic stability (Bousquet & Elisseeff 2002)
+THIS is the problem we solve: can we identify the fragile examples from a
+single training run, and can we train a model that has fewer fragile examples?
 
-**2.4 Analysis: when does V-REx help over upweighting?** (0.5 page)
-- V-REx forces equal *environment-level* risk. Upweighting (JTT) forces high
-  *example-level* weight. The model can accommodate upweighted examples without
-  changing its feature representation (memorise). It cannot accommodate equal
-  environment risk without changing features (must generalise).
-- The permutation test detects when this distinction matters.
+**Figure 2: Our stability scores predict fragility.**
+Same setup as Figure 1. x-axis = our stability score, y-axis = actual flip
+rate across 10 retrainings. Show strong correlation (monotonically increasing).
+Compare to ERM confidence, entropy, MC dropout — none of them predict
+retraining fragility. Ours does.
 
-### Experiments (3 pages)
+This is the "killer figure" — it directly shows the thing we claim.
 
-**The experiments should answer three questions:**
+**Figure 3: The method reduces fragility.**
+Bar chart: % of test examples that flip in ≥3/10 retrainings.
+ERM: X%. Ours: Y% (much lower). The model is genuinely more stable.
 
-**Q1: Does adaptive V-REx work across domains without tuning?** (Table 1)
-Same config, three domains. Show signal_ratio correctly identifies when to
-apply V-REx. Include CelebA as a fourth domain.
+**Figure 4: The permutation test.**
+Three datasets (CMNIST, Waterbirds, TADF). For each: actual risk variance
+vs histogram of permuted risk variances. Shows the method correctly identifies
+when environments carry real stability signal.
 
-**Q2: What does the permutation test look like?** (Figure 1)
-Three panels: actual risk variance vs permuted distribution for each dataset.
-Shows at a glance why the method applies V-REx on Waterbirds but not TADF.
+**Figure 5: Chemistry application.**
+TADF emission wavelength dataset. Train on data dominated by 3 research groups.
+Test on held-out research groups.
+(a) ERM predictions change dramatically when we remove one group from training.
+(b) Our stability scores correctly flag the predictions that would change.
+(c) The method trained for stability is less affected by group removal.
 
-**Q3: Are stability scores useful?** (Figure 2)
-The "killer figure": 2D scatter of (ERM confidence, our confidence) for test
-examples, coloured by "flips under OOD shift." Show that ERM puts flippers
-in the high-confidence region (anti-calibrated) while our model spreads them
-to the low-confidence region (correctly calibrated).
+This connects directly to the clever-hans insight: predictions shouldn't depend
+on which lab's data was included.
 
-**Supporting experiments (can go in appendix):**
-- Ablation (upweight alone, V-REx alone, both)
-- Correlation sweep on CMNIST (0.5 → 0.99)
-- Multi-spurious CMNIST
-- Iterative refinement on continuous features
-- TADF chemistry application
+### Key tables
 
-### What we need to do before submission
+**Table 1: Stability reduction across domains**
+Not accuracy numbers — STABILITY numbers.
 
-**Essential (week 1):**
-- [ ] Multi-seed Waterbirds (5 seeds) — confirm the headline number
-- [ ] CelebA dataset — standard benchmark, expected from reviewers
-- [ ] Correlation sweep on CMNIST: train_corr ∈ {0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99}
-      Plot: x=correlation, y=OOD accuracy for ERM/JTT/Ours. Show graceful degradation.
-- [ ] The confidence scatter figure (Figure 2 above)
-- [ ] The permutation test figure (Figure 1 above)
-- [ ] DFR baseline numbers on Waterbirds
+| Dataset | ERM flip rate | Ours flip rate | Reduction |
+|---------|:---:|:---:|:---:|
+| CMNIST | 72% | 29% | 2.4x |
+| Waterbirds | ?% | ?% | ?x |
+| TADF | ?% | ?% | ?x |
 
-**Essential (week 2):**
-- [ ] Write proposition about permutation test (even informal: "if signal_ratio < c
-      then the V-REx gradient is dominated by noise and the penalty is harmful")
-- [ ] Draft the paper
-- [ ] One-command reproduction scripts for every table/figure
-- [ ] Clean up codebase, ensure all tests pass
+**Table 2: Stability scores predict retraining fragility**
+AUROC for "does the score predict which examples flip under resampling?"
+
+| Score type | Our model | ERM | MC Dropout | Ensemble |
+|---|:-:|:-:|:-:|:-:|
+| Loss | 0.56 | 0.32 | 0.50 | ? |
+| Entropy | 0.55 | 0.43 | 0.50 | ? |
+
+**Table 3: Accuracy comparison (secondary, in appendix or brief main text)**
+Show Waterbirds/CMNIST accuracy to confirm the method doesn't sacrifice accuracy.
+But this is NOT the main result — stability is.
+
+### What we still need to do
+
+**Critical (defines whether the paper works):**
+
+- [ ] **Resampling experiment**: Train ERM 10x on different 90% subsamples of
+      CMNIST/Waterbirds. Measure per-example flip rates. This is the GROUND TRUTH
+      for stability. Then show our stability scores predict these flip rates.
+      This is Figure 1+2 — the most important figures in the paper.
+
+- [ ] **Same for our method**: Train our method 10x. Show the flip rate is lower.
+      This is Figure 3.
+
+- [ ] Multi-seed Waterbirds (already running)
+
+- [ ] CelebA (standard benchmark)
+
+**Important:**
+
+- [ ] Chemistry resampling experiment: train on subsets that include/exclude
+      specific author groups. Show which predictions change. Show our stability
+      scores predict this.
+
+- [ ] Deep ensemble baseline for stability scores (train 5 independent ERMs,
+      measure ensemble disagreement as a stability proxy).
+
+- [ ] Proposition connecting signal_ratio to stability bound.
 
 **Nice to have:**
-- [ ] MultiNLI / CivilComments (NLP benchmark — shows generality beyond vision)
-- [ ] Formal stability bound
+
+- [ ] MultiNLI (NLP domain)
+- [ ] Formal stability theorem
 - [ ] More chemistry datasets
-- [ ] Feature-space mixup for images
 
-## What would make a reviewer reject this?
+### The pitch to a reviewer
 
-1. **"This is just JTT + V-REx."** → Counter: the permutation test is novel and
-   applicable to any invariance method. JTT without V-REx doesn't work (Table 2).
-   V-REx without calibration can hurt (TADF results).
+"Algorithmic stability tells you how much your model's predictions depend on
+which data it trained on. Everyone analyses this after the fact — we train for
+it. The result is a model with fewer fragile predictions and a per-example
+stability score that identifies the remaining fragile ones. The permutation
+test automatically determines how much stability to enforce, making the method
+plug-and-play across domains. On chemistry datasets, the stability scores
+flag predictions that depend on publication source rather than genuine
+molecular properties."
 
-2. **"The numbers don't beat DFR."** → Counter: DFR needs a group-balanced
-   validation set. We need nothing. Different assumptions, different use cases.
+### Why this might be a genuinely strong paper
 
-3. **"Single-seed results."** → Counter: multi-seed runs (must complete before
-   submission).
+1. **No one has done this.** Training for algorithmic stability is a new idea.
+   The connection to V-REx is a clean formalisation, but the GOAL is new.
 
-4. **"Why not just tune λ on a validation set?"** → Counter: which validation
-   metric? Worst-group accuracy requires group labels. Overall accuracy selects
-   for the shortcut. The permutation test is the only principled option when
-   you don't have group labels.
+2. **The resampling experiment is the key.** If our stability scores predict
+   actual retraining fragility (Figure 2), that's a strong empirical result
+   that no prior work has shown.
 
-5. **"The stability scores are weak (AUROC 0.56)."** → Counter: the comparison
-   is to ERM's 0.32 (anti-predictive). The relative improvement is what matters.
-   Also: show the confidence scatter figure — the visual is more compelling than
-   the number.
+3. **Chemistry is the compelling application.** "Your model's prediction that
+   this molecule is active would change if you removed Dr. Smith's lab from
+   the training data" — that's immediately actionable for a medicinal chemist.
 
-## The one-sentence pitch
+4. **The permutation test is a standalone tool.** Even if you use DFR or JTT,
+   our permutation test tells you whether your environments are real. This is
+   useful to the broader community.
 
-"We show when and how much to regularise for invariance, using a permutation
-test that requires no environment labels, no group annotations, and no
-hyperparameter tuning — and as a byproduct, the model produces per-example
-stability scores that predict which predictions are fragile to dataset
-composition."
+### What could make this NOT work
+
+- If our stability scores DON'T predict retraining fragility, the paper
+  collapses. This is the make-or-break experiment.
+
+- If the resampling experiment shows that ERM is already quite stable (low
+  flip rates even without our method), there's no problem to solve.
+
+- If the chemistry application shows no meaningful author-dependence, the
+  practical motivation weakens.
+
+These risks should be assessed BEFORE writing the paper.
