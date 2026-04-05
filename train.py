@@ -1296,34 +1296,66 @@ def train_discovered_split(
 
     log_metrics(run, discovery_metrics, step=0)
 
-    # Adaptive V-REx: scale lambda by how different the environments are.
-    # If spurious-label correlation is similar in env A and env B, V-REx
-    # has no useful signal → scale lambda down toward JTT.
-    # Contrast = |corr_A - corr_B|.  Max possible = 2.0.
-    # reliability = min(1, contrast / min_contrast).
+    # Adaptive V-REx via permutation test.
+    # Measures whether the discovered environments carry real signal by
+    # comparing the actual risk variance to the risk variance under random
+    # permutations of the assignment.  If actual >> permuted, the environments
+    # capture genuine structure → full V-REx.  If actual ≈ permuted, the
+    # environments are noise → scale lambda toward 0 (≈ JTT).
+    #
+    # This is principled: no dataset-size heuristics, no correlation thresholds.
+    # Directly tests "is the environment structure useful for V-REx?"
     train_ds = loaders["train"].dataset
-    spur = train_ds.spurious.float()
-    labs = train_ds.labels.float()
     assign_cpu = assignment.cpu()
 
-    def _env_corr(mask):
-        s, l = spur[mask], labs[mask]
-        if len(s) < 2 or s.std() < 1e-8 or l.std() < 1e-8:
-            return 0.0
-        return torch.corrcoef(torch.stack([s, l]))[0, 1].item()
+    def _compute_risk_var(assign, loader, model_eval):
+        """One-pass risk variance estimate for a given assignment."""
+        model_eval.eval()
+        env_losses_sum = torch.zeros(K)
+        env_counts = torch.zeros(K)
+        weights_cpu = weights.cpu()
+        with torch.no_grad():
+            for batch in loader:
+                x_b = batch["image"].to(device)
+                y_b = batch["label"].to(device)
+                idx_b = batch["index"]
+                ce_b = F.cross_entropy(model_eval(x_b), y_b, reduction="none").cpu()
+                w_b = weights_cpu[idx_b]
+                a_b = assign[idx_b]
+                for k in range(K):
+                    mask = a_b == k
+                    if mask.any():
+                        env_losses_sum[k] += (w_b[mask] * ce_b[mask]).sum()
+                        env_counts[k] += w_b[mask].sum()
+        env_losses = env_losses_sum / env_counts.clamp(min=1)
+        mean_l = env_losses.mean()
+        return ((env_losses - mean_l) ** 2).sum().item()
 
-    env_corrs = [_env_corr(assign_cpu == k) for k in range(K)]
-    contrast = max(env_corrs) - min(env_corrs) if len(env_corrs) >= 2 else 0.0
-    # Scale threshold by dataset size: small datasets need more contrast.
-    # At N=60000 (CMNIST), min_contrast ≈ 0.1 (easy to get enough signal).
-    # At N=1000 (TADF), min_contrast ≈ 0.6 (need strong contrast to overcome noise).
-    N_train = len(train_ds)
-    min_contrast = max(0.1, 0.6 * (1000 / max(N_train, 100)) ** 0.5)
-    reliability = min(1.0, contrast / min_contrast)
+    # Actual risk variance with discovered environments.
+    actual_rv = _compute_risk_var(assign_cpu, loaders["train"], model)
+
+    # Risk variance under random permutations (null distribution).
+    n_perms = 5
+    perm_rvs = []
+    g_perm = torch.Generator().manual_seed(cfg.training.seed + 777)
+    for _ in range(n_perms):
+        perm_assign = assign_cpu[torch.randperm(len(assign_cpu), generator=g_perm)]
+        perm_rvs.append(_compute_risk_var(perm_assign, loaders["train"], model))
+    mean_perm_rv = sum(perm_rvs) / n_perms
+
+    # Signal-to-noise: how much more risk variance do real environments produce?
+    if mean_perm_rv > 1e-10:
+        signal_ratio = actual_rv / mean_perm_rv
+    else:
+        signal_ratio = 10.0  # permuted RV is zero → real signal is infinitely stronger
+
+    # Reliability: signal_ratio >= 3 → full V-REx.  < 1 → pure JTT.
+    reliability = min(1.0, max(0.0, (signal_ratio - 1.0) / 2.0))
     log_metrics(run, {
-        "adaptive/env_contrast": contrast,
+        "adaptive/actual_risk_var": actual_rv,
+        "adaptive/mean_perm_risk_var": mean_perm_rv,
+        "adaptive/signal_ratio": signal_ratio,
         "adaptive/reliability": reliability,
-        "adaptive/env_corrs": env_corrs[0] if env_corrs else 0.0,
     }, step=0)
 
     anneal_factor = cfg.training.lambda_anneal_factor
