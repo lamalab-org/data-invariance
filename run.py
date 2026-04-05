@@ -7,7 +7,7 @@ import wandb
 from omegaconf import DictConfig, OmegaConf
 
 from models import MLP, MultiHeadMLP, SplitMLP, make_resnet_backbone
-from train import discover_environments, make_dataloaders, train_adversarial_split, train_adversarial_split_multi, train_discovered_split, train_erm, train_group_dro, train_jtt, train_oracle_split, train_random_split, train_resampling
+from train import discover_environments, make_dataloaders, train_adversarial_split, train_adversarial_split_multi, train_dfr, train_discovered_split, train_erm, train_group_dro, train_jtt, train_oracle_split, train_random_split, train_resampling
 from utils import get_device, set_seed
 
 
@@ -150,8 +150,12 @@ def main(cfg: DictConfig) -> None:
         train_jtt(cfg, model, loaders, device, run, weights, discovery_metrics)
 
     elif method == "group_dro":
-        model = _make_model(cfg, loaders, "erm", device)  # single-head model
+        model = _make_model(cfg, loaders, "erm", device)
         train_group_dro(cfg, model, loaders, device, run)
+
+    elif method == "dfr":
+        model = _make_model(cfg, loaders, "erm", device)
+        train_dfr(cfg, model, loaders, device, run)
 
     else:
         raise NotImplementedError(f"method '{method}' not yet implemented")
