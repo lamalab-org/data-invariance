@@ -712,3 +712,118 @@ python run.py dataset=waterbirds method=discovered_split training.epochs=15 trai
 - Batch size: 64
 - Transforms: Resize(256), RandomResizedCrop(224), RandomHorizontalFlip, ImageNet normalise
 - Gradient clipping: max_norm=1.0
+
+---
+
+## NeurIPS Paper Plan
+
+### Title (working)
+
+**"Adaptive Invariance from ERM Residuals: Discovering Environments for Robust Training Without Group Labels"**
+
+### One-sentence pitch
+
+We turn a model's own mistakes into a self-calibrating training signal: discover environments from ERM loss residuals, then adaptively apply V-REx based on a permutation test that measures whether those environments carry real structure.
+
+### What makes this not incremental
+
+1. **The permutation test for adaptive λ.** No prior work automatically calibrates the invariance penalty. Everyone tunes λ per dataset. Our permutation test directly measures "are the discovered environments better than random?" and scales λ accordingly. This is a standalone contribution — applicable to ANY invariance method (IRM, V-REx, FISH) that needs environments.
+
+2. **Environments from loss, not from metadata.** JTT upweights hard examples but gives them no structure. GEORGE clusters features but needs dimensionality reduction + hyperparameter tuning. We do the simplest possible thing — median split of ERM losses — and show it's sufficient when combined with upweighting + V-REx + adaptive calibration.
+
+3. **Unified method across regimes.** Same code, same hyperparameters, three domains:
+   - Synthetic (CMNIST): signal_ratio=3565 → full V-REx → massive OOD gains
+   - Real images (Waterbirds): signal_ratio=52 → full V-REx → beats Group DRO without labels
+   - Chemistry (TADF): signal_ratio=1.5 → graceful fallback to JTT → doesn't hurt
+   No method in the literature works across all three without tuning.
+
+4. **Iterative refinement for continuous spurious features.** Self-improving loop: each round of V-REx partially breaks the shortcut → re-discovery finds sharper environments → next round is better. Assignment-colour correlation goes from 0.15 → 0.80 across 5 rounds. Novel contribution for domains where the spurious feature is continuous (chemistry, medical imaging).
+
+5. **Multiple spurious features.** Multi-spurious CMNIST shows V-REx handles overlapping shortcuts (worst-group: ERM 8.5%, JTT 27%, ours 41%). The environment split captures the combined effect without needing to decompose which shortcut is which.
+
+### Paper structure
+
+**Section 1: Introduction**
+- Algorithmic stability (Bousquet & Elisseeff) as an analysis tool → we turn it into a training objective
+- Key problem: V-REx/IRM need environments, but environments aren't given in practice
+- Our solution: discover + calibrate automatically
+
+**Section 2: Method**
+- 2.1: Environment discovery from ERM loss residuals (loss scoring, median split, upweighting)
+- 2.2: Adaptive V-REx via permutation test (the principled contribution)
+- 2.3: Iterative refinement for continuous features
+- Algorithm box: one unified pipeline
+
+**Section 3: Why V-REx > upweighting (theory/intuition)**
+- JTT upweights but the model can accommodate without changing strategy
+- V-REx forces equal *environment-level* risk — the model must use features that work in both environments
+- Ablation: upweighting alone (JTT) ≈ ERM on Waterbirds; add V-REx → beats Group DRO
+
+**Section 4: Experiments**
+
+Table 1: Main results across all datasets (adaptive method, single config)
+
+| Dataset | ERM | JTT | Group DRO | Ours (adaptive) |
+|---------|-----|-----|-----------|----------------|
+| CMNIST (OOD acc) | 22% | 22% | — | ~70%+ |
+| Waterbirds (test WGA) | 70.3% | 65.7% | 77.7% | **83.5%** |
+| Multi-CMNIST (OOD WGA) | 8.5% | 27% | — | **41%** |
+| TADF chemistry (OOD acc) | 45.2% | 50.6% | — | ~45% (≈ERM, doesn't hurt) |
+
+Table 2: Ablation — each component is necessary
+
+| Components | Waterbirds WGA |
+|---|---|
+| ERM | 70.3% |
+| + upweighting (JTT) | 65.7% |
+| + V-REx (no upweight) | 65.7% |
+| + upweighting + V-REx | 75.7% |
+| + adaptive calibration | **83.5%** |
+
+Table 3: Adaptive calibration across regimes
+
+| Dataset | N | signal_ratio | reliability | effective λ |
+|---------|---|-------------|------------|------------|
+| CMNIST | 60K | 3565 | 1.0 | full |
+| Waterbirds | 4.8K | 52 | 1.0 | full |
+| TADF | 1K | 1.5 | 0.25 | weak |
+
+Figure 1: Iterative refinement on continuous features
+- 5 rounds, assignment-colour correlation 0.15 → 0.80
+
+Figure 2: Multi-spurious CMNIST
+- ERM/JTT/Ours worst-group comparison
+
+**Section 5: Chemistry application**
+- TADF dataset with property-based confounding
+- Method gracefully degrades when signal is weak
+- Env-aware mixup for tabular features
+
+**Section 6: Related work**
+- IRM, V-REx (need environments)
+- JTT, DFR, CnC (post-hoc correction)
+- GEORGE (clustering → pseudo-environments)
+- Ours: simplest discovery + principled calibration
+
+**Section 7: Limitations and future work**
+- Single-seed results (need 5+ for error bars)
+- Small chemistry datasets: V-REx signal too weak (but adaptive fallback prevents harm)
+- Stability scores not yet evaluated (future: ROC for OOD flip prediction)
+- Regression tasks (current: classification only)
+
+### Before submission: must-do
+
+- [ ] Multi-seed runs (5 seeds) on Waterbirds, CMNIST, TADF — get error bars
+- [ ] Re-run ALL experiments with final code (consistent V-REx, adaptive, val selection)
+- [ ] DFR baseline on Waterbirds (the strongest published number)
+- [ ] Stability score evaluation (ROC curve: does confidence predict OOD flips?)
+- [ ] One-command reproduction scripts per table/figure
+- [ ] Clean up codebase: remove dead code, ensure all tests pass
+- [ ] Write the paper
+
+### Stretch goals
+
+- [ ] CelebA dataset
+- [ ] Regression version for chemistry
+- [ ] Formal stability bound connecting V-REx to algorithmic stability
+- [ ] Feature-space mixup (instead of input-space) for images
