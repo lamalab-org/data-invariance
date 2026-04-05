@@ -1321,6 +1321,11 @@ def train_discovered_split(
             y = batch["label"].to(device)
             idx = batch["index"].to(device)
 
+            # Training noise: diversifies oversampled minority examples.
+            noise_std = getattr(cfg.training, "training_noise", 0.0)
+            if noise_std > 0 and model.training:
+                x = x + torch.randn_like(x) * noise_std
+
             logits = model(x)                                       # (B, 2)
             ce = F.cross_entropy(logits, y, reduction="none")       # (B,)
 
