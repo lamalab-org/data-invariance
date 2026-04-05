@@ -1296,19 +1296,33 @@ def train_discovered_split(
 
     log_metrics(run, discovery_metrics, step=0)
 
+    # Adaptive V-REx: scale lambda by the reliability of environment estimates.
+    # Small minority environments → noisy per-env losses → weak V-REx (≈ JTT).
+    # Large environments → reliable losses → full V-REx.
+    min_reliable = 500  # environments smaller than this get downscaled lambda
+    env_sizes = [(assignment.cpu() == k).sum().item() for k in range(K)]
+    min_env = min(s for s in env_sizes if s > 0)
+    reliability = min(1.0, min_env / min_reliable)
+    if reliability < 1.0:
+        log_metrics(run, {
+            "adaptive/min_env_size": float(min_env),
+            "adaptive/reliability": reliability,
+            "adaptive/lambda_scale": reliability,
+        }, step=0)
+
     anneal_factor = cfg.training.lambda_anneal_factor
     patience = cfg.training.early_stop_patience
 
     selector = _ModelSelector()
     epochs_without_improvement = 0
     for epoch in range(cfg.training.epochs):
-        # Lambda annealing: linearly scale from lambda_disagree to
-        # lambda_disagree * anneal_factor over training.
+        # Lambda: base value × anneal factor × reliability.
         if cfg.training.epochs > 1 and anneal_factor != 1.0:
             progress = epoch / (cfg.training.epochs - 1)
             lam = cfg.training.lambda_disagree * (1.0 + (anneal_factor - 1.0) * progress)
         else:
             lam = cfg.training.lambda_disagree
+        lam = lam * reliability  # adaptive scaling
 
         model.train()
         epoch_loss = 0.0
