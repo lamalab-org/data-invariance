@@ -147,6 +147,13 @@ training:
   # hyperparameter needed.
   balanced_sampling: false
 
+  # Environment-aware mixup: interpolate features between env A and env B
+  # examples with the same label.  Creates synthetic counterexamples that
+  # blend out the spurious signal.  Especially useful for small datasets
+  # where real counterexamples are scarce.
+  # 0.0 → disabled.  1.0 → mixup loss weighted equally with V-REx loss.
+  env_mixup: 0.0
+
   # Adversary mode — controls what the adversary optimises.
   # "task_loss"  → default: maximise per-head task loss; pushes examples toward their
   #                harder head, creating an easy/hard partition.  Does NOT reliably

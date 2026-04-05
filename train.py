@@ -1352,6 +1352,31 @@ def train_discovered_split(
             else:
                 continue
 
+            # Environment-aware mixup: create synthetic counterexamples
+            # by interpolating between env A and env B features with the
+            # same label.  Blends out spurious signal, preserves invariant.
+            mixup_weight = getattr(cfg.training, "env_mixup", 0.0)
+            if mixup_weight > 0 and len(env_losses) >= 2:
+                mixup_loss = torch.tensor(0.0, device=device)
+                for label_val in y.unique():
+                    # Find examples from different envs with the same label.
+                    for k1 in range(K):
+                        for k2 in range(k1 + 1, K):
+                            mask1 = (batch_assign == k1) & (y == label_val)
+                            mask2 = (batch_assign == k2) & (y == label_val)
+                            n1, n2 = mask1.sum(), mask2.sum()
+                            if n1 > 0 and n2 > 0:
+                                # Sample pairs and interpolate.
+                                n_mix = min(n1, n2).item()
+                                x1 = x[mask1][:n_mix]
+                                x2 = x[mask2][:n_mix]
+                                lam_mix = torch.rand(n_mix, 1, device=device)
+                                x_mixed = lam_mix * x1 + (1 - lam_mix) * x2
+                                logits_mix = model(x_mixed)
+                                y_mix = torch.full((n_mix,), label_val, device=device, dtype=torch.long)
+                                mixup_loss = mixup_loss + F.cross_entropy(logits_mix, y_mix)
+                model_loss = model_loss + mixup_weight * mixup_loss
+
             optimizer.zero_grad()
             model_loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
