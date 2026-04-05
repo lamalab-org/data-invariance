@@ -547,10 +547,21 @@ would need to operate on backbone features rather than raw pixels.
 is too strong for the available signal.  JTT (simple upweighting) is more
 robust in this regime because it doesn't over-constrain the model.
 
-**When V-REx helps vs JTT:**
-- Large datasets with moderate confounding (CMNIST, Waterbirds): V-REx >> JTT
-- Small datasets with strong confounding (TADF corr=0.9): JTT > V-REx
-- The boundary is roughly: V-REx needs ~500+ counterexamples to work
+**Adaptive V-REx via permutation test:**
+Principled solution: compare actual risk variance to risk variance under
+random permutations.  signal_ratio = actual / permuted.  If environments
+are no better than random (ratio ≈ 1), lambda → 0 (JTT).
+
+| Dataset | signal_ratio | reliability | effective λ | OOD WGA |
+|---------|:-----------:|:-----------:|:----------:|:-------:|
+| CMNIST | 3565 | 1.0 | 10.0 | ~64%* |
+| Waterbirds | 52 | 1.0 | 10.0 | pending |
+| TADF (corr=0.9) | 1.5 | 0.25 | 2.5 | 40.6% |
+
+*CMNIST needs re-run with consistent code + val-based selection.
+
+The adaptive method is plug-and-play: no dataset-specific tuning,
+automatically falls back to JTT when environments are noisy.
 
 ### Chemistry datasets
 
