@@ -527,6 +527,31 @@ with the target — the model doesn't rely heavily on any single shortcut.
 Mixup is promising for chemistry/tabular data specifically.  For images, it
 would need to operate on backbone features rather than raw pixels.
 
+**Oversampling + noise** (balanced sampling + Gaussian noise on features):
+- Balanced + noise, no upweight: 44.6% OOD — same as ERM
+- Upweight + noise: 46.4% OOD — marginal improvement
+
+**Full TADF comparison at corr=0.9:**
+
+| Method | OOD acc | OOD WGA |
+|--------|:-------:|:-------:|
+| ERM | 45.2% | 44.8% |
+| JTT | **50.6%** | **50.0%** |
+| Ours (upweight) | 45.8% | 35.4% |
+| Ours + mixup | 47.0% | 44.4% |
+| Ours + balanced + noise | 44.6% | 44.4% |
+| Ours + upweight + noise | 46.4% | 36.5% |
+
+**Conclusion:** At corr=0.9 on small chemistry datasets (~1000 examples,
+~70 counterexamples), V-REx consistently hurts.  The equal-risk constraint
+is too strong for the available signal.  JTT (simple upweighting) is more
+robust in this regime because it doesn't over-constrain the model.
+
+**When V-REx helps vs JTT:**
+- Large datasets with moderate confounding (CMNIST, Waterbirds): V-REx >> JTT
+- Small datasets with strong confounding (TADF corr=0.9): JTT > V-REx
+- The boundary is roughly: V-REx needs ~500+ counterexamples to work
+
 ### Chemistry datasets
 
 Target datasets where scaffold or property splits are known to cause OOD gaps:
