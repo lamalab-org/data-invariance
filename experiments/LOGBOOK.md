@@ -138,7 +138,19 @@ All experiments re-run with:
 
 **Key finding 4:** Old cherry-picked numbers were inflated (ERM was 80.7%, now 70.3%). Proper model selection is critical.
 
-**Note:** Still single-seed. Multi-seed needed for error bars.
+### Multi-seed results (partial — 2 of 5 seeds)
+
+| Method | Seed 42 | Seed 123 | Notes |
+|--------|:-------:|:--------:|-------|
+| ERM | 70.3% | 79.8% | High variance across seeds |
+| JTT | 65.7% | 58.1% | Consistently worse than ERM |
+| Group DRO | 77.7% | 81.5% | Requires group labels |
+| DFR | 85.4% | 89.6% | Consistently best (needs balanced val) |
+| Ours (adaptive) | 80.8% | pending | Between Group DRO and DFR |
+
+**Emerging picture:** DFR > Ours > Group DRO > ERM > JTT.  Our method is the
+best option when you have NO group labels at all.  DFR is better when you
+have group labels on a validation set.  This is a fair positioning.
 
 ---
 
