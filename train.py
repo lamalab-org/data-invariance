@@ -1740,3 +1740,110 @@ def train_group_dro(
         selector.update(_val_score(id_metrics), model, metrics)
 
     return selector.restore(model)
+
+
+def train_dfr(
+    cfg: DictConfig,
+    model: torch.nn.Module,
+    loaders: dict[str, DataLoader],
+    device: torch.device,
+    run: object,
+) -> dict[str, float]:
+    """DFR (Deep Feature Reweighting) — Kirichenko et al. 2023.
+
+    Phase 1: train ERM (full model, standard training).
+    Phase 2: freeze the backbone, retrain only the last layer (head) on
+    group-balanced data from the validation set.
+
+    The insight: ERM learns good features but misweights them in the final
+    layer toward spurious features.  A balanced last-layer refit corrects this.
+
+    Requires group labels (spurious attribute) on the validation set for
+    balanced sampling.  This is a stronger assumption than our method
+    (which needs no group labels at all).
+    """
+    # Phase 1: train ERM normally.
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=cfg.training.lr,
+        weight_decay=cfg.training.weight_decay,
+    )
+
+    selector = _ModelSelector()
+    for epoch in range(cfg.training.epochs):
+        model.train()
+        for batch in loaders["train"]:
+            x = batch["image"].to(device)
+            y = batch["label"].to(device)
+            loss = F.cross_entropy(model(x), y)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        id_metrics = evaluate(model, loaders["id_test"], device)
+        ood_metrics = evaluate(model, loaders["ood_test"], device)
+        metrics = {
+            "train/loss": loss.item(),
+            "train/acc": 0.0,  # not tracked per-epoch for simplicity
+            **_eval_metrics("eval/id", id_metrics),
+            **_eval_metrics("eval/ood", ood_metrics),
+        }
+        log_metrics(run, metrics, step=epoch)
+        selector.update(_val_score(id_metrics), model, metrics)
+
+    # Restore best ERM checkpoint.
+    selector.restore(model)
+
+    # Phase 2: freeze backbone, retrain head on group-balanced validation data.
+    for param in model.backbone.parameters():
+        param.requires_grad = False
+
+    # Reset the head weights.
+    for param in model.head.parameters():
+        torch.nn.init.zeros_(param)
+
+    # Group-balanced sampling from validation set.
+    val_ds = loaders["id_test"].dataset
+    val_labels = val_ds.labels if hasattr(val_ds, "labels") else torch.tensor([val_ds[i]["label"] for i in range(len(val_ds))])
+    val_spurious = val_ds.spurious if hasattr(val_ds, "spurious") else torch.zeros(len(val_ds))
+    groups = val_labels * 2 + val_spurious
+    group_weights = torch.zeros(len(val_ds))
+    for g in groups.unique():
+        mask = groups == g
+        group_weights[mask] = 1.0 / mask.sum().float()
+    group_weights = group_weights / group_weights.sum()
+
+    from torch.utils.data import WeightedRandomSampler
+    balanced_sampler = WeightedRandomSampler(group_weights, num_samples=len(val_ds), replacement=True)
+    balanced_loader = torch.utils.data.DataLoader(
+        val_ds, batch_size=cfg.training.batch_size, sampler=balanced_sampler, num_workers=0,
+    )
+
+    # Train head with higher lr (it's a linear probe now).
+    head_optimizer = torch.optim.AdamW(
+        model.head.parameters(), lr=cfg.training.lr * 10, weight_decay=1e-2,
+    )
+
+    dfr_epochs = 10
+    for epoch in range(dfr_epochs):
+        model.train()
+        for batch in balanced_loader:
+            x = batch["image"].to(device)
+            y = batch["label"].to(device)
+            loss = F.cross_entropy(model(x), y)
+            head_optimizer.zero_grad()
+            loss.backward()
+            head_optimizer.step()
+
+    # Final evaluation.
+    id_metrics = evaluate(model, loaders["id_test"], device)
+    ood_metrics = evaluate(model, loaders["ood_test"], device)
+    metrics = {
+        "train/loss": 0.0,
+        "train/acc": 0.0,
+        **_eval_metrics("eval/id", id_metrics),
+        **_eval_metrics("eval/ood", ood_metrics),
+    }
+    log_metrics(run, metrics, step=cfg.training.epochs + dfr_epochs)
+
+    return metrics

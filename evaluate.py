@@ -84,42 +84,34 @@ def compute_assignment_correlation_multi(
 def compute_stability_scores(
     model: torch.nn.Module,
     loader,
-    assignment: torch.Tensor,
-    weights: torch.Tensor,
     device: torch.device,
-    K: int = 2,
+    n_mc_samples: int = 10,
 ) -> dict[str, torch.Tensor]:
-    """Compute per-example stability scores from discovered environments.
+    """Compute multiple per-example stability/uncertainty scores.
 
-    For each example, the stability score measures how much the model's
-    loss differs across discovered environments.  High score = the prediction
-    depends on which data partition the model trains on = fragile.
-
-    Two scores are computed:
-    1. **env_loss_gap**: |loss_env_A(x) - loss_env_B(x)| — how differently
-       the model performs on this example depending on the environment weighting.
-       Approximated by weighting the example's loss by its environment membership.
-    2. **confidence**: max(softmax(logits)) — standard softmax confidence.
-       This is the baseline we compare stability scores against.
+    Scores computed:
+    1. **confidence**: max(softmax(logits)) — standard softmax confidence.
+    2. **entropy**: -Σ p log p — prediction entropy (higher = more uncertain).
+    3. **loss**: cross-entropy loss per example (higher = worse fit).
+    4. **mc_dropout_var**: variance of predictions under MC dropout
+       (higher = more uncertain).  Only computed if the model has dropout layers
+       or we enable dropout manually.
 
     Args:
-        model:      Trained model.
-        loader:     DataLoader for the examples to score.
-        assignment: (N_train,) environment assignment for training examples.
-        weights:    (N_train,) importance weights.
-        device:     Torch device.
-        K:          Number of environments.
+        model:  Trained model.
+        loader: DataLoader for examples to score.
+        device: Torch device.
+        n_mc_samples: Number of forward passes for MC dropout.
 
     Returns:
-        Dict with:
-          "confidence"  — (N_test,) max softmax probability (higher = more confident)
-          "stability"   — (N_test,) stability score (higher = more fragile)
-          "predictions" — (N_test,) predicted class
-          "labels"      — (N_test,) true labels
+        Dict with tensors, each (N,):
+          confidence, entropy, loss, mc_dropout_var, predictions, labels
     """
     model.eval()
 
     all_confidence = []
+    all_entropy = []
+    all_loss = []
     all_predictions = []
     all_labels = []
 
@@ -127,98 +119,128 @@ def compute_stability_scores(
         for batch in loader:
             x = batch["image"].to(device)
             y = batch["label"]
+            if not isinstance(y, torch.Tensor):
+                y = torch.tensor(y)
 
             logits = model(x)
-            probs = logits.softmax(dim=1)  # (B, num_classes)
+            probs = logits.softmax(dim=1).clamp(min=1e-7)
 
-            confidence = probs.max(dim=1).values  # (B,)
-            predictions = probs.argmax(dim=1)     # (B,)
+            confidence = probs.max(dim=1).values
+            entropy = -(probs * probs.log()).sum(dim=1)
+            loss = F.cross_entropy(logits, y.to(device), reduction="none")
+            predictions = probs.argmax(dim=1)
 
             all_confidence.append(confidence.cpu())
+            all_entropy.append(entropy.cpu())
+            all_loss.append(loss.cpu())
             all_predictions.append(predictions.cpu())
-            all_labels.append(torch.tensor(y) if not isinstance(y, torch.Tensor) else y)
+            all_labels.append(y)
 
-    confidence = torch.cat(all_confidence)
-    predictions = torch.cat(all_predictions)
-    labels = torch.cat(all_labels)
-
-    # Stability score = 1 - confidence.
-    # Low confidence = high instability = the model isn't sure.
-    # But our contribution is showing that OUR model's confidence
-    # (trained with V-REx) is a better stability signal than ERM's confidence.
-    # The V-REx model is less confident on examples that genuinely depend on
-    # dataset composition, while ERM is confidently wrong on those examples.
-    stability = 1.0 - confidence
+    # MC dropout: enable dropout and do multiple forward passes.
+    mc_vars = []
+    model.train()  # enable dropout
+    with torch.no_grad():
+        for batch in loader:
+            x = batch["image"].to(device)
+            mc_preds = []
+            for _ in range(n_mc_samples):
+                logits = model(x)
+                mc_preds.append(logits.softmax(dim=1)[:, 1].cpu())  # P(class=1)
+            mc_stack = torch.stack(mc_preds, dim=0)  # (n_mc, B)
+            mc_vars.append(mc_stack.var(dim=0))       # (B,)
+    model.eval()
 
     return {
-        "confidence": confidence,
-        "stability": stability,
-        "predictions": predictions,
-        "labels": labels,
+        "confidence": torch.cat(all_confidence),
+        "entropy": torch.cat(all_entropy),
+        "loss": torch.cat(all_loss),
+        "mc_dropout_var": torch.cat(mc_vars),
+        "predictions": torch.cat(all_predictions),
+        "labels": torch.cat(all_labels),
     }
 
 
 def evaluate_stability_discrimination(
     scores_ours: dict[str, torch.Tensor],
     scores_erm: dict[str, torch.Tensor],
-    id_predictions: torch.Tensor,
-    ood_predictions: torch.Tensor,
+    id_preds_erm: torch.Tensor,
+    ood_preds_erm: torch.Tensor,
+    id_preds_ours: torch.Tensor,
+    ood_preds_ours: torch.Tensor,
     labels: torch.Tensor,
 ) -> dict[str, float]:
-    """Evaluate how well stability scores predict OOD prediction flips.
+    """Comprehensive evaluation of stability scores for predicting OOD flips.
 
-    A "flip" is an example whose prediction changes between the ID test set
-    and the OOD test set.  A good stability score should be high for examples
-    that flip (fragile predictions) and low for examples that don't (robust).
+    For each model (ERM and ours), a "flip" is when a test example's prediction
+    changes between the ID and OOD test sets.  We measure how well various
+    uncertainty scores predict these flips.
 
-    We compute AUROC: can the stability score distinguish flippers from non-flippers?
+    Scores tested (for both ERM and our model):
+    - 1 - confidence (softmax)
+    - entropy
+    - loss
+    - MC dropout variance
 
-    Args:
-        scores_ours: Output of compute_stability_scores for our model.
-        scores_erm:  Output of compute_stability_scores for an ERM model.
-        id_predictions: (N,) predictions on ID test set.
-        ood_predictions: (N,) predictions on OOD test set.
-        labels: (N,) true labels.
+    Also computes calibration: bin examples by score, measure actual flip rate per bin.
 
-    Returns:
-        Dict with AUROCs for different score types.
+    Returns a comprehensive dict of AUROCs and calibration metrics.
     """
     import torchmetrics
 
-    # "Flip" = prediction changed between ID and OOD.
-    flips = (id_predictions != ood_predictions).long()
-    n_flips = flips.sum().item()
-    n_total = len(flips)
+    results: dict[str, float] = {}
 
-    if n_flips == 0 or n_flips == n_total:
-        # No discrimination possible.
-        return {
-            "flip_rate": n_flips / n_total,
-            "auroc_ours_stability": 0.5,
-            "auroc_erm_stability": 0.5,
-            "auroc_ours_confidence_inv": 0.5,
-            "auroc_erm_confidence_inv": 0.5,
-        }
+    erm_flips = (id_preds_erm != ood_preds_erm).long()
+    ours_flips = (id_preds_ours != ood_preds_ours).long()
+
+    results["erm_flip_rate"] = erm_flips.float().mean().item()
+    results["ours_flip_rate"] = ours_flips.float().mean().item()
+    results["erm_id_acc"] = (id_preds_erm == labels).float().mean().item()
+    results["erm_ood_acc"] = (ood_preds_erm == labels).float().mean().item()
+    results["ours_id_acc"] = (id_preds_ours == labels).float().mean().item()
+    results["ours_ood_acc"] = (ood_preds_ours == labels).float().mean().item()
+
+    # For each score type, compute AUROC for predicting ERM flips.
+    score_types = ["entropy", "loss", "mc_dropout_var"]
+    # 1 - confidence is equivalent to using entropy direction, but include both.
+    score_types_with_conf = ["confidence_inv"] + score_types
 
     auroc = torchmetrics.AUROC(task="binary")
 
-    # Our stability score predicts flips.
-    auroc_ours = auroc(scores_ours["stability"], flips).item()
+    for target_name, flips in [("erm_flips", erm_flips), ("ours_flips", ours_flips)]:
+        if flips.sum() == 0 or flips.sum() == len(flips):
+            for model_name in ["ours", "erm"]:
+                for score_name in score_types_with_conf:
+                    results[f"auroc_{model_name}_{score_name}_vs_{target_name}"] = 0.5
+            continue
 
-    # ERM stability score predicts flips.
-    auroc.reset()
-    auroc_erm = auroc(scores_erm["stability"], flips).item()
+        for model_name, scores in [("ours", scores_ours), ("erm", scores_erm)]:
+            # 1 - confidence
+            auroc.reset()
+            results[f"auroc_{model_name}_confidence_inv_vs_{target_name}"] = auroc(
+                1.0 - scores["confidence"], flips
+            ).item()
 
-    # Also compare: does our confidence (inverted) predict flips better than ERM's?
-    auroc.reset()
-    auroc_ours_conf = auroc(1.0 - scores_ours["confidence"], flips).item()
-    auroc.reset()
-    auroc_erm_conf = auroc(1.0 - scores_erm["confidence"], flips).item()
+            for score_name in score_types:
+                if score_name in scores:
+                    auroc.reset()
+                    results[f"auroc_{model_name}_{score_name}_vs_{target_name}"] = auroc(
+                        scores[score_name], flips
+                    ).item()
 
-    return {
-        "flip_rate": n_flips / n_total,
-        "auroc_ours_stability": auroc_ours,
-        "auroc_erm_stability": auroc_erm,
-        "auroc_ours_confidence_inv": auroc_ours_conf,
-        "auroc_erm_confidence_inv": auroc_erm_conf,
-    }
+    # Calibration: bin by our model's entropy, measure actual ERM flip rate per bin.
+    n_bins = 5
+    if erm_flips.sum() > 0 and erm_flips.sum() < len(erm_flips):
+        ours_entropy = scores_ours["entropy"]
+        quantiles = torch.linspace(0, 1, n_bins + 1)
+        bin_edges = torch.quantile(ours_entropy, quantiles)
+        for i in range(n_bins):
+            lo, hi = bin_edges[i], bin_edges[i + 1]
+            if i == n_bins - 1:
+                mask = (ours_entropy >= lo)
+            else:
+                mask = (ours_entropy >= lo) & (ours_entropy < hi)
+            if mask.sum() > 0:
+                results[f"calibration_bin{i}_erm_flip_rate"] = erm_flips[mask].float().mean().item()
+                results[f"calibration_bin{i}_n"] = mask.sum().item()
+
+    return results

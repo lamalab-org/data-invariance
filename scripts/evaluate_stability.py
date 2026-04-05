@@ -1,15 +1,12 @@
-"""Evaluate stability scores: does our model's confidence predict OOD flips
-better than ERM's confidence?
+"""Evaluate stability scores: does our model's uncertainty predict OOD flips
+better than ERM's uncertainty?
+
+Trains ERM and our method on CMNIST (corr=0.9), then compares multiple
+uncertainty scores (confidence, entropy, loss, MC dropout) for predicting
+which examples flip between ID and OOD test sets.
 
 Usage:
     uv run python scripts/evaluate_stability.py
-
-Trains ERM and our method on CMNIST (corr=0.9), then measures how well
-each model's confidence predicts which examples flip between ID (corr=0.9)
-and OOD (corr=0.1) test sets.
-
-AUROC > 0.5 means the score has discriminative power.
-Our AUROC > ERM AUROC means our model provides better uncertainty estimates.
 """
 from __future__ import annotations
 
@@ -17,9 +14,9 @@ import sys
 sys.path.insert(0, ".")
 
 import torch
+import wandb
 from omegaconf import OmegaConf
 
-from data import ColoredMNIST
 from evaluate import compute_stability_scores, evaluate_stability_discrimination
 from models import MLP
 from train import discover_environments, make_dataloaders, train_discovered_split, train_erm
@@ -45,7 +42,6 @@ def main():
             "num_discovery_envs": 2, "freeze_backbone": False,
             "balanced_sampling": False, "env_mixup": 0.0,
             "training_noise": 0.0,
-            # Adversarial split params (not used but needed for config)
             "adv_init": "zeros", "adv_init_scale": 1.0,
             "head_noise": 0.0, "adv_warmup_epochs": 0,
             "adv_steps_per_model_step": 1, "lambda_warmup_epochs": 0,
@@ -59,21 +55,20 @@ def main():
     device = torch.device("cpu")
     set_seed(42)
     loaders = make_dataloaders(cfg)
-
     input_dim = loaders["train"].dataset.input_dim
 
     # ---- Train ERM ----
+    print("=" * 60)
     print("Training ERM...")
     set_seed(42)
     erm_model = MLP(input_dim=input_dim, hidden_dim=256).to(device)
-
-    import wandb
     run = wandb.init(mode="disabled")
     train_erm(cfg, erm_model, loaders, device, run)
     run.finish()
 
     # ---- Train our method ----
-    print("Training discovered split...")
+    print("=" * 60)
+    print("Training discovered split + V-REx...")
     set_seed(42)
     assignment, weights, disc_metrics = discover_environments(cfg, loaders, device)
     set_seed(42)
@@ -82,74 +77,66 @@ def main():
     train_discovered_split(cfg, our_model, loaders, device, run, assignment, weights, disc_metrics)
     run.finish()
 
-    # ---- Score both models on ID and OOD test sets ----
-    print("\nComputing stability scores...")
-    scores_erm_id = compute_stability_scores(erm_model, loaders["id_test"], assignment, weights, device)
-    scores_erm_ood = compute_stability_scores(erm_model, loaders["ood_test"], assignment, weights, device)
-    scores_ours_id = compute_stability_scores(our_model, loaders["id_test"], assignment, weights, device)
-    scores_ours_ood = compute_stability_scores(our_model, loaders["ood_test"], assignment, weights, device)
+    # ---- Compute scores on ID and OOD test sets ----
+    print("=" * 60)
+    print("Computing stability scores (including MC dropout)...")
+    scores_erm_id = compute_stability_scores(erm_model, loaders["id_test"], device)
+    scores_erm_ood = compute_stability_scores(erm_model, loaders["ood_test"], device)
+    scores_ours_id = compute_stability_scores(our_model, loaders["id_test"], device)
+    scores_ours_ood = compute_stability_scores(our_model, loaders["ood_test"], device)
 
-    # ---- Evaluate: does confidence predict flips? ----
-    # For ERM: predictions on ID vs OOD
-    erm_id_preds = scores_erm_id["predictions"]
-    erm_ood_preds = scores_erm_ood["predictions"]
-
-    # For our model: same
-    ours_id_preds = scores_ours_id["predictions"]
-    ours_ood_preds = scores_ours_ood["predictions"]
-
-    labels = scores_erm_id["labels"]
-
-    print("\n=== ERM flip analysis ===")
-    erm_flips = (erm_id_preds != erm_ood_preds).float()
-    print(f"ERM flip rate: {erm_flips.mean():.3f} ({erm_flips.sum().long()}/{len(erm_flips)} examples flip)")
-    print(f"ERM ID accuracy: {(erm_id_preds == labels).float().mean():.3f}")
-    print(f"ERM OOD accuracy: {(erm_ood_preds == labels).float().mean():.3f}")
-
-    print("\n=== Our model flip analysis ===")
-    ours_flips = (ours_id_preds != ours_ood_preds).float()
-    print(f"Ours flip rate: {ours_flips.mean():.3f} ({ours_flips.sum().long()}/{len(ours_flips)} examples flip)")
-    print(f"Ours ID accuracy: {(ours_id_preds == labels).float().mean():.3f}")
-    print(f"Ours OOD accuracy: {(ours_ood_preds == labels).float().mean():.3f}")
-
-    # Cross-evaluate: use OUR model's confidence to predict ERM's flips.
-    # This is the key test: can our model flag examples that ANY model would
-    # find fragile under distribution shift?
-    print("\n=== Stability discrimination (AUROC for predicting flips) ===")
-    print("Higher AUROC = better at predicting which examples flip under OOD shift")
-
-    # ERM flips predicted by each model's confidence
-    result = evaluate_stability_discrimination(
+    # ---- Evaluate ----
+    print("=" * 60)
+    results = evaluate_stability_discrimination(
         scores_ours=scores_ours_id,
         scores_erm=scores_erm_id,
-        id_predictions=erm_id_preds,
-        ood_predictions=erm_ood_preds,
-        labels=labels,
+        id_preds_erm=scores_erm_id["predictions"],
+        ood_preds_erm=scores_erm_ood["predictions"],
+        id_preds_ours=scores_ours_id["predictions"],
+        ood_preds_ours=scores_ours_ood["predictions"],
+        labels=scores_erm_id["labels"],
     )
 
-    print(f"\nPredicting ERM flips:")
-    print(f"  Our stability score AUROC:  {result['auroc_ours_stability']:.3f}")
-    print(f"  ERM stability score AUROC:  {result['auroc_erm_stability']:.3f}")
-    print(f"  Δ (ours - ERM):             {result['auroc_ours_stability'] - result['auroc_erm_stability']:+.3f}")
+    # ---- Print results ----
+    print("\n" + "=" * 60)
+    print("STABILITY SCORE EVALUATION — CMNIST (corr=0.9 → 0.1)")
+    print("=" * 60)
 
-    # Also: predict our own flips
-    result2 = evaluate_stability_discrimination(
-        scores_ours=scores_ours_id,
-        scores_erm=scores_erm_id,
-        id_predictions=ours_id_preds,
-        ood_predictions=ours_ood_preds,
-        labels=labels,
-    )
+    print(f"\n--- Accuracy ---")
+    print(f"ERM:  ID={results['erm_id_acc']:.1%}  OOD={results['erm_ood_acc']:.1%}  flip_rate={results['erm_flip_rate']:.1%}")
+    print(f"Ours: ID={results['ours_id_acc']:.1%}  OOD={results['ours_ood_acc']:.1%}  flip_rate={results['ours_flip_rate']:.1%}")
 
-    print(f"\nPredicting our model's flips:")
-    print(f"  Our stability score AUROC:  {result2['auroc_ours_stability']:.3f}")
-    print(f"  ERM stability score AUROC:  {result2['auroc_erm_stability']:.3f}")
+    print(f"\n--- AUROC: predicting ERM's flips (higher = better) ---")
+    print(f"{'Score type':<25} {'Our model':>10} {'ERM':>10} {'Δ':>10}")
+    print("-" * 57)
+    for score_name in ["confidence_inv", "entropy", "loss", "mc_dropout_var"]:
+        key_ours = f"auroc_ours_{score_name}_vs_erm_flips"
+        key_erm = f"auroc_erm_{score_name}_vs_erm_flips"
+        if key_ours in results and key_erm in results:
+            v_ours = results[key_ours]
+            v_erm = results[key_erm]
+            delta = v_ours - v_erm
+            print(f"{score_name:<25} {v_ours:>10.3f} {v_erm:>10.3f} {delta:>+10.3f}")
 
-    # Summary
-    print("\n=== Summary ===")
-    print(f"ERM: ID={( erm_id_preds == labels).float().mean():.1%}, OOD={(erm_ood_preds == labels).float().mean():.1%}, flip rate={erm_flips.mean():.1%}")
-    print(f"Ours: ID={(ours_id_preds == labels).float().mean():.1%}, OOD={(ours_ood_preds == labels).float().mean():.1%}, flip rate={ours_flips.mean():.1%}")
-    print(f"Stability AUROC for predicting ERM flips: Ours={result['auroc_ours_stability']:.3f}, ERM={result['auroc_erm_stability']:.3f}")
+    print(f"\n--- AUROC: predicting our model's flips ---")
+    print(f"{'Score type':<25} {'Our model':>10} {'ERM':>10} {'Δ':>10}")
+    print("-" * 57)
+    for score_name in ["confidence_inv", "entropy", "loss", "mc_dropout_var"]:
+        key_ours = f"auroc_ours_{score_name}_vs_ours_flips"
+        key_erm = f"auroc_erm_{score_name}_vs_ours_flips"
+        if key_ours in results and key_erm in results:
+            v_ours = results[key_ours]
+            v_erm = results[key_erm]
+            delta = v_ours - v_erm
+            print(f"{score_name:<25} {v_ours:>10.3f} {v_erm:>10.3f} {delta:>+10.3f}")
+
+    print(f"\n--- Calibration: ERM flip rate by our model's entropy quintile ---")
+    print(f"(Higher entropy bins should have higher flip rates if well-calibrated)")
+    for i in range(5):
+        key_rate = f"calibration_bin{i}_erm_flip_rate"
+        key_n = f"calibration_bin{i}_n"
+        if key_rate in results:
+            print(f"  Bin {i} (n={results[key_n]:.0f}): flip_rate={results[key_rate]:.3f}")
 
 
 if __name__ == "__main__":
