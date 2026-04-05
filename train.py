@@ -1090,7 +1090,75 @@ def discover_environments(
     disc.eval()
     scores = torch.zeros(N)
 
-    if criterion == "counterfactual":
+    if criterion == "permutation":
+        # Permutation-based discovery: find which features the ERM relies on
+        # most (global importance), then score each example by how much it
+        # depends on those features (per-example sensitivity).
+        #
+        # Step 1: Global feature importance — which features matter most?
+        # Permute each feature, measure average loss change.
+        # For efficiency, sample a random subset of features.
+        input_dim = train_ds.input_dim
+        n_features_to_test = min(200, input_dim)
+        g_feat = torch.Generator().manual_seed(cfg.training.seed + 555)
+        test_features = torch.randperm(input_dim, generator=g_feat)[:n_features_to_test]
+
+        # Compute baseline losses.
+        baseline_losses = torch.zeros(N)
+        all_x = []
+        all_y = []
+        all_idx = []
+        with torch.no_grad():
+            for batch in loaders["train"]:
+                x = batch["image"].to(device)
+                y = batch["label"].to(device)
+                idx = batch["index"]
+                baseline_losses[idx] = F.cross_entropy(disc(x), y, reduction="none").cpu()
+                all_x.append(x.cpu())
+                all_y.append(y.cpu())
+                all_idx.append(idx)
+
+        all_x = torch.cat(all_x)
+        all_y = torch.cat(all_y)
+        # For tabular data, all_x is (N, D). For images, (N, C, H, W).
+        is_tabular = all_x.dim() == 2
+
+        if is_tabular:
+            # Step 1: Global importance per feature.
+            feat_importance = torch.zeros(n_features_to_test)
+            with torch.no_grad():
+                for fi, feat_idx in enumerate(test_features):
+                    x_perm = all_x.clone()
+                    perm = torch.randperm(N, generator=g_feat)
+                    x_perm[:, feat_idx] = x_perm[perm, feat_idx]
+                    perm_loss = F.cross_entropy(
+                        disc(x_perm.to(device)), all_y.to(device), reduction="none"
+                    ).cpu()
+                    feat_importance[fi] = (perm_loss - baseline_losses).mean()
+
+            # Top-K most important features = likely shortcuts.
+            K_top = min(10, n_features_to_test)
+            top_feat_indices = test_features[feat_importance.argsort(descending=True)[:K_top]]
+
+            # Step 2: Per-example sensitivity to the top features.
+            # For each example, permute the top features and measure loss change.
+            per_example_sensitivity = torch.zeros(N)
+            with torch.no_grad():
+                for feat_idx in top_feat_indices:
+                    x_perm = all_x.clone()
+                    perm = torch.randperm(N, generator=g_feat)
+                    x_perm[:, feat_idx] = x_perm[perm, feat_idx]
+                    perm_loss = F.cross_entropy(
+                        disc(x_perm.to(device)), all_y.to(device), reduction="none"
+                    ).cpu()
+                    per_example_sensitivity += (perm_loss - baseline_losses).abs()
+
+            scores = per_example_sensitivity
+        else:
+            # For images, fall back to loss-based scoring.
+            scores = baseline_losses
+
+    elif criterion == "counterfactual":
         # Counterfactual scoring: for each example, measure how much the
         # prediction changes under random input perturbations.
         #
