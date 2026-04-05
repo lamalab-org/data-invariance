@@ -555,7 +555,7 @@ are no better than random (ratio ≈ 1), lambda → 0 (JTT).
 | Dataset | signal_ratio | reliability | effective λ | OOD WGA |
 |---------|:-----------:|:-----------:|:----------:|:-------:|
 | CMNIST | 3565 | 1.0 | 10.0 | ~64%* |
-| Waterbirds | 52 | 1.0 | 10.0 | pending |
+| Waterbirds | 52 | 1.0 | 10.0 | **83.5%** |
 | TADF (corr=0.9) | 1.5 | 0.25 | 2.5 | 40.6% |
 
 *CMNIST needs re-run with consistent code + val-based selection.
