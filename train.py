@@ -1158,6 +1158,41 @@ def discover_environments(
             # For images, fall back to loss-based scoring.
             scores = baseline_losses
 
+    elif criterion == "activation":
+        # Activation-based discovery (similar to GEORGE): cluster examples
+        # by their ERM penultimate-layer features.  Examples with similar
+        # activations rely on similar features — clustering separates
+        # shortcut-users from genuine-feature-users.
+        #
+        # Unlike other criteria that produce scores for median-splitting,
+        # this directly assigns environments via K-means clustering.
+        # We set scores to cluster distances so the upweighting still works
+        # (examples far from centroids = boundary cases = higher weight).
+        all_features = []
+        all_idx = []
+        with torch.no_grad():
+            for batch in loaders["train"]:
+                x = batch["image"].to(device)
+                idx = batch["index"]
+                feat = disc.backbone(x)  # (B, hidden_dim)
+                all_features.append(feat.cpu())
+                all_idx.append(idx)
+
+        features = torch.cat(all_features)  # (N, D)
+        idx_order = torch.cat(all_idx)
+        ordered_features = torch.zeros_like(features)
+        ordered_features[idx_order] = features
+
+        # K-means clustering directly gives environment assignments.
+        from sklearn.cluster import KMeans
+        km = KMeans(n_clusters=K, random_state=cfg.training.seed, n_init=10)
+        cluster_labels = km.fit_predict(ordered_features.numpy())
+
+        # Use cluster label as the score: 0.0 for cluster 0, 1.0 for cluster 1.
+        # The median split will then produce the same assignment as K-means.
+        # For K>2, use the cluster label directly (rank-based assignment handles it).
+        scores = torch.tensor(cluster_labels, dtype=torch.float32)
+
     elif criterion == "counterfactual":
         # Counterfactual scoring: for each example, measure how much the
         # prediction changes under random input perturbations.

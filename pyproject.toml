@@ -20,6 +20,7 @@ dependencies = [
     "datasets>=2.18",
     "Pillow>=10.0",
     "rdkit>=2025.9.6",
+    "scikit-learn>=1.8.0",
 ]
 
 [dependency-groups]
