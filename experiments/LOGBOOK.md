@@ -77,12 +77,24 @@
 | **Loss** | **1.000** | **0.600** | **0.400** | **3565** | **67.3%** |
 | Entropy | 0.945 | 0.655 | 0.290 | 254 | 13.3% |
 | Counterfactual | 0.933 | 0.665 | 0.268 | 231 | 13.1% |
-| Activation (K-means) | pending | | | | |
+| Activation (K-means) | 0.234 | 3.3% | — | — |
+
+Same pattern on Waterbirds:
+
+| Discovery | corr gap | Waterbirds WGA |
+|-----------|:--------:|:--------------:|
+| Loss | 0.185 | **80.8%** |
+| Entropy | 0.150 | 69.8% |
+| Counterfactual | 0.090 | 61.2% |
 
 **Why loss wins:** High loss = the ERM's learned shortcut fails for this
 example. Entropy/counterfactual measure uncertainty/sensitivity, which
 is a weaker proxy — a model can be certain AND wrong (colour≠label
 examples where it confidently predicts by colour).
+
+Activation-based (K-means on features) finds clusters correlated with
+colour (0.99) but the clusters don't separate spurious-reliant from
+invariant examples — they separate by some other feature dimension.
 
 **Limitation:** OOD peaks early then degrades. Early stopping on risk variance (patience=5, warmup=5 epochs) auto-selects epoch 5 with 70.4% OOD.
 
