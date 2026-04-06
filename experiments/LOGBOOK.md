@@ -188,11 +188,21 @@ All experiments re-run with:
 variance (±9.9).  The permutation test is unstable: seed 789 gives λ=0
 (kills V-REx entirely); other seeds give λ=10.  DFR is consistently best.
 
-**The variance problem:** The permutation test uses only 5 permutations to
-estimate the null distribution.  With 5 samples, the mean is noisy.  When
-the actual risk variance happens to be low (by chance), the signal_ratio
-drops below the threshold → λ=0.  More permutations or a different
-calibration strategy might stabilise this.
+**Fix: permutation test now uses discovery ERM (not untrained model).**
+The old test evaluated a randomly initialised model → near-uniform loss →
+noisy signal_ratio → sometimes λ=0 by chance.  Using the discovery ERM
+(which has learned the shortcut) gives stable, meaningful risk variance.
+
+3-seed check after fix:
+
+| Seed | Old λ | Old WGA | Fixed λ | Fixed WGA |
+|------|:-----:|:-------:|:-------:|:---------:|
+| 42 | 10.0 | 80.8% | 10.0 | 75.7% |
+| 789 | **0.0** | 63.7% | **10.0** | **77.6%** |
+| 1337 | 10.0 | 72.9% | 10.0 | 76.8% |
+
+**Ours (fixed): 76.7 ± 1.0.** Much more stable than before (±9.9).
+Reliably beats ERM (71.0 ± 8.9) with lower variance.
 
 ---
 
