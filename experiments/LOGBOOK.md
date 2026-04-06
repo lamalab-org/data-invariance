@@ -70,6 +70,20 @@
 
 **Key finding:** Upweighting makes the minority group dominate the *weighted* env B loss, even though the *unweighted* env B has corr=0.60. The effective contrast is in the loss contributions, not the environment labels. +52pp over ERM (74.3% vs 22%).
 
+### Discovery method ablation (CMNIST corr=0.9, all with upweight=50, λ=10)
+
+| Discovery | corr_A | corr_B | Gap | signal_ratio | OOD acc |
+|-----------|:------:|:------:|:---:|:------------:|:-------:|
+| **Loss** | **1.000** | **0.600** | **0.400** | **3565** | **67.3%** |
+| Entropy | 0.945 | 0.655 | 0.290 | 254 | 13.3% |
+| Counterfactual | 0.933 | 0.665 | 0.268 | 231 | 13.1% |
+| Activation (K-means) | pending | | | | |
+
+**Why loss wins:** High loss = the ERM's learned shortcut fails for this
+example. Entropy/counterfactual measure uncertainty/sensitivity, which
+is a weaker proxy — a model can be certain AND wrong (colour≠label
+examples where it confidently predicts by colour).
+
 **Limitation:** OOD peaks early then degrades. Early stopping on risk variance (patience=5, warmup=5 epochs) auto-selects epoch 5 with 70.4% OOD.
 
 ---
