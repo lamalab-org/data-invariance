@@ -1236,6 +1236,14 @@ def discover_environments(
                 logits = disc(x)
                 if criterion == "loss":
                     s = F.cross_entropy(logits, y, reduction="none")
+                elif criterion == "confident_wrong":
+                    # Data cartography-inspired: probability assigned to the
+                    # WRONG class.  High = the model confidently predicts
+                    # incorrectly = minority group (shortcut fails).
+                    # Directly identifies "confidently wrong" examples.
+                    probs = logits.softmax(1)
+                    correct_class_prob = probs.gather(1, y.unsqueeze(1)).squeeze(1)
+                    s = 1.0 - correct_class_prob  # P(wrong class)
                 else:
                     # entropy
                     p = logits.softmax(1).clamp(min=1e-7)
