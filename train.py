@@ -1087,6 +1087,7 @@ def discover_environments(
 
     # Score every training example.
     criterion = cfg.training.discovery_criterion
+    K = cfg.training.num_discovery_envs
     disc.eval()
     scores = torch.zeros(N)
 
@@ -1325,6 +1326,47 @@ def discover_environments(
         else 0.0
     )
 
+    # --- Permutation test using the discovery ERM ---
+    # Compare risk variance under real assignment vs random permutations.
+    # Uses the DISCOVERY ERM (which has learned the shortcut), not the
+    # untrained V-REx model.  This gives a meaningful signal — the ERM's
+    # loss landscape has structure that the permutation test can detect.
+    def _rv_for_assignment(assign_t):
+        disc.eval()
+        env_sums = torch.zeros(K)
+        env_counts = torch.zeros(K)
+        with torch.no_grad():
+            for batch in loaders["train"]:
+                x_b = batch["image"].to(device)
+                y_b = batch["label"].to(device)
+                idx_b = batch["index"]
+                ce_b = F.cross_entropy(disc(x_b), y_b, reduction="none").cpu()
+                w_b = weights[idx_b]
+                a_b = assign_t[idx_b]
+                for kk in range(K):
+                    m = a_b == kk
+                    if m.any():
+                        env_sums[kk] += (w_b[m] * ce_b[m]).sum()
+                        env_counts[kk] += w_b[m].sum()
+        env_l = env_sums / env_counts.clamp(min=1)
+        return ((env_l - env_l.mean()) ** 2).sum().item()
+
+    actual_rv = _rv_for_assignment(assignment)
+    n_perms = 10
+    g_perm = torch.Generator().manual_seed(cfg.training.seed + 777)
+    perm_rvs = []
+    for _ in range(n_perms):
+        perm_assign = assignment[torch.randperm(N, generator=g_perm)]
+        perm_rvs.append(_rv_for_assignment(perm_assign))
+    mean_perm_rv = sum(perm_rvs) / n_perms
+
+    if mean_perm_rv > 1e-12:
+        signal_ratio = actual_rv / mean_perm_rv
+    else:
+        signal_ratio = 10.0 if actual_rv > 1e-12 else 1.0
+
+    reliability = min(1.0, max(0.0, (signal_ratio - 1.0) / 2.0))
+
     diag_metrics: dict[str, float] = {
         "discovery/assignment_color_abs_corr": disc_color_abs_corr,
         "discovery/color_label_corr_A":        _corr(mask_A),
@@ -1333,6 +1375,10 @@ def discover_environments(
         "discovery/n_env_B":                   float(mask_B.sum().item()),
         "discovery/n_excluded":                float((assignment == -1).sum().item()),
         "discovery/reweight_max":              float(weights.max().item()),
+        "adaptive/actual_risk_var":            actual_rv,
+        "adaptive/mean_perm_risk_var":         mean_perm_rv,
+        "adaptive/signal_ratio":               signal_ratio,
+        "adaptive/reliability":                reliability,
     }
     if return_model:
         return assignment, weights, diag_metrics, disc
@@ -1399,67 +1445,11 @@ def train_discovered_split(
 
     log_metrics(run, discovery_metrics, step=0)
 
-    # Adaptive V-REx via permutation test.
-    # Measures whether the discovered environments carry real signal by
-    # comparing the actual risk variance to the risk variance under random
-    # permutations of the assignment.  If actual >> permuted, the environments
-    # capture genuine structure → full V-REx.  If actual ≈ permuted, the
-    # environments are noise → scale lambda toward 0 (≈ JTT).
-    #
-    # This is principled: no dataset-size heuristics, no correlation thresholds.
-    # Directly tests "is the environment structure useful for V-REx?"
-    train_ds = loaders["train"].dataset
-    assign_cpu = assignment.cpu()
-
-    def _compute_risk_var(assign, loader, model_eval):
-        """One-pass risk variance estimate for a given assignment."""
-        model_eval.eval()
-        env_losses_sum = torch.zeros(K)
-        env_counts = torch.zeros(K)
-        weights_cpu = weights.cpu()
-        with torch.no_grad():
-            for batch in loader:
-                x_b = batch["image"].to(device)
-                y_b = batch["label"].to(device)
-                idx_b = batch["index"]
-                ce_b = F.cross_entropy(model_eval(x_b), y_b, reduction="none").cpu()
-                w_b = weights_cpu[idx_b]
-                a_b = assign[idx_b]
-                for k in range(K):
-                    mask = a_b == k
-                    if mask.any():
-                        env_losses_sum[k] += (w_b[mask] * ce_b[mask]).sum()
-                        env_counts[k] += w_b[mask].sum()
-        env_losses = env_losses_sum / env_counts.clamp(min=1)
-        mean_l = env_losses.mean()
-        return ((env_losses - mean_l) ** 2).sum().item()
-
-    # Actual risk variance with discovered environments.
-    actual_rv = _compute_risk_var(assign_cpu, loaders["train"], model)
-
-    # Risk variance under random permutations (null distribution).
-    n_perms = 5
-    perm_rvs = []
-    g_perm = torch.Generator().manual_seed(cfg.training.seed + 777)
-    for _ in range(n_perms):
-        perm_assign = assign_cpu[torch.randperm(len(assign_cpu), generator=g_perm)]
-        perm_rvs.append(_compute_risk_var(perm_assign, loaders["train"], model))
-    mean_perm_rv = sum(perm_rvs) / n_perms
-
-    # Signal-to-noise: how much more risk variance do real environments produce?
-    if mean_perm_rv > 1e-10:
-        signal_ratio = actual_rv / mean_perm_rv
-    else:
-        signal_ratio = 10.0  # permuted RV is zero → real signal is infinitely stronger
-
-    # Reliability: signal_ratio >= 3 → full V-REx.  < 1 → pure JTT.
-    reliability = min(1.0, max(0.0, (signal_ratio - 1.0) / 2.0))
-    log_metrics(run, {
-        "adaptive/actual_risk_var": actual_rv,
-        "adaptive/mean_perm_risk_var": mean_perm_rv,
-        "adaptive/signal_ratio": signal_ratio,
-        "adaptive/reliability": reliability,
-    }, step=0)
+    # Adaptive λ: use the reliability from the discovery permutation test.
+    # The test was computed using the DISCOVERY ERM (which has learned the
+    # shortcut), not this untrained model. This gives a stable, meaningful
+    # signal_ratio regardless of the V-REx model's random initialisation.
+    reliability = discovery_metrics.get("adaptive/reliability", 1.0)
 
     anneal_factor = cfg.training.lambda_anneal_factor
     patience = cfg.training.early_stop_patience
