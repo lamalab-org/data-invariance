@@ -162,9 +162,25 @@ All experiments re-run with:
 | DFR | 85.4% | 89.6% | Consistently best (needs balanced val) |
 | Ours (adaptive) | 80.8% | pending | Between Group DRO and DFR |
 
-**Emerging picture:** DFR > Ours > Group DRO > ERM > JTT.  Our method is the
-best option when you have NO group labels at all.  DFR is better when you
-have group labels on a validation set.  This is a fair positioning.
+**Full 5-seed results (test WGA, mean ± std):**
+
+| Method | Group labels? | Mean ± Std |
+|--------|:------------:|:----------:|
+| ERM | No | 71.0 ± 8.9 |
+| JTT | No | 71.5 ± 9.1 |
+| Group DRO | Yes | 80.5 ± 4.4 |
+| **Ours (adaptive)** | No | 72.4 ± 9.9 |
+| DFR | No* | **88.4 ± 2.5** |
+
+**Honest assessment:** Our method (72.4%) barely beats ERM (71.0%) with high
+variance (±9.9).  The permutation test is unstable: seed 789 gives λ=0
+(kills V-REx entirely); other seeds give λ=10.  DFR is consistently best.
+
+**The variance problem:** The permutation test uses only 5 permutations to
+estimate the null distribution.  With 5 samples, the mean is noisy.  When
+the actual risk variance happens to be low (by chance), the signal_ratio
+drops below the threshold → λ=0.  More permutations or a different
+calibration strategy might stabilise this.
 
 ---
 
