@@ -160,6 +160,41 @@ def compute_stability_scores(
     }
 
 
+def disagreement_stability_scores(
+    scores_ours: dict[str, torch.Tensor],
+    scores_erm: dict[str, torch.Tensor],
+) -> torch.Tensor:
+    """Stability score = disagreement between ERM and our model.
+
+    |P_erm(class1) - P_ours(class1)| per example.
+
+    Where they agree: prediction doesn't depend on shortcuts → stable.
+    Where they disagree: prediction depends on dataset composition → fragile.
+
+    This doesn't require our model to be more accurate — just different in
+    the right way (avoiding shortcuts the ERM uses).
+    """
+    # Confidence is max(softmax), which for binary = max(P(0), P(1)).
+    # We need P(class1) specifically. For binary: P(1) = 1 - P(0).
+    # But we have entropy and confidence. Let's use predictions and confidence.
+    # Actually, the simplest: |confidence_ours - confidence_erm| weighted by
+    # whether they predict the same class.
+
+    # Better: use the raw probability of class 1.
+    # For binary classifier: P(1) = 1 - confidence if prediction is 0, else confidence.
+    p1_ours = torch.where(
+        scores_ours["predictions"] == 1,
+        scores_ours["confidence"],
+        1.0 - scores_ours["confidence"],
+    )
+    p1_erm = torch.where(
+        scores_erm["predictions"] == 1,
+        scores_erm["confidence"],
+        1.0 - scores_erm["confidence"],
+    )
+    return (p1_ours - p1_erm).abs()
+
+
 def adaptive_stability_scores(
     scores_ours: dict[str, torch.Tensor],
     scores_erm: dict[str, torch.Tensor],
