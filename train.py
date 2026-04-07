@@ -1075,7 +1075,13 @@ def discover_environments(
             disc = MLP(input_dim=train_ds.input_dim, hidden_dim=cfg.model.hidden_dim).to(device)
         opt = torch.optim.AdamW(disc.parameters(), lr=cfg.training.lr, weight_decay=cfg.training.weight_decay)
 
-        for _ in range(cfg.training.discovery_epochs):
+        # Track per-example losses across the last few epochs for stable scoring.
+        n_epochs_disc = cfg.training.discovery_epochs
+        avg_window = max(1, n_epochs_disc // 2)  # average over last half of training
+        accumulated_losses = torch.zeros(N)
+        accumulation_count = 0
+
+        for ep in range(n_epochs_disc):
             disc.train()
             for batch in loaders["train"]:
                 x = batch["image"].to(device)
@@ -1084,6 +1090,21 @@ def discover_environments(
                 opt.zero_grad()
                 loss.backward()
                 opt.step()
+
+            # Accumulate per-example losses in the averaging window.
+            if ep >= n_epochs_disc - avg_window:
+                disc.eval()
+                with torch.no_grad():
+                    for batch in loaders["train"]:
+                        x_b = batch["image"].to(device)
+                        y_b = batch["label"].to(device)
+                        idx_b = batch["index"]
+                        ce = F.cross_entropy(disc(x_b), y_b, reduction="none").cpu()
+                        accumulated_losses[idx_b] += ce
+                accumulation_count += 1
+
+        # Pre-computed average losses for loss-based scoring criteria.
+        avg_losses = accumulated_losses / max(accumulation_count, 1)
 
     # Score every training example.
     criterion = cfg.training.discovery_criterion
@@ -1235,7 +1256,10 @@ def discover_environments(
                 idx = batch["index"]
                 logits = disc(x)
                 if criterion == "loss":
-                    s = F.cross_entropy(logits, y, reduction="none")
+                    # Use the averaged losses from the discovery window
+                    # for more stable ranking across seeds.
+                    scores[idx] = avg_losses[idx]
+                    continue
                 elif criterion == "confident_wrong":
                     # Data cartography-inspired: probability assigned to the
                     # WRONG class.  High = the model confidently predicts
@@ -1354,22 +1378,15 @@ def discover_environments(
     # untrained V-REx model.  This gives a meaningful signal — the ERM's
     # loss landscape has structure that the permutation test can detect.
     def _rv_for_assignment(assign_t):
-        disc.eval()
+        """Compute risk variance using pre-averaged losses (no extra forward pass)."""
         env_sums = torch.zeros(K)
         env_counts = torch.zeros(K)
-        with torch.no_grad():
-            for batch in loaders["train"]:
-                x_b = batch["image"].to(device)
-                y_b = batch["label"].to(device)
-                idx_b = batch["index"]
-                ce_b = F.cross_entropy(disc(x_b), y_b, reduction="none").cpu()
-                w_b = weights[idx_b]
-                a_b = assign_t[idx_b]
-                for kk in range(K):
-                    m = a_b == kk
-                    if m.any():
-                        env_sums[kk] += (w_b[m] * ce_b[m]).sum()
-                        env_counts[kk] += w_b[m].sum()
+        for i in range(N):
+            kk = assign_t[i].item()
+            if 0 <= kk < K:
+                w = weights[i].item()
+                env_sums[kk] += w * avg_losses[i].item()
+                env_counts[kk] += w
         env_l = env_sums / env_counts.clamp(min=1)
         return ((env_l - env_l.mean()) ** 2).sum().item()
 

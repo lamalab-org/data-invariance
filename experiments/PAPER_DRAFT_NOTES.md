@@ -195,7 +195,89 @@ Without Environment Labels"
   negative loss otherwise)
 - Early stopping: patience-based on validation metric
 
-### 3.5 Stability scores
+### 3.5 Algorithm (pseudocode)
+
+```
+Algorithm: Adaptive Invariance Training (AIT)
+
+Input: Training data D = {(x_i, y_i)}_{i=1}^N
+       Discovery epochs T_disc, Training epochs T_train
+       Number of environments K, Upweight factor α
+       Base penalty strength λ_base
+
+Phase 1: Environment Discovery
+  1. Train ERM model f_disc on D for T_disc epochs
+  2. For each epoch t ∈ [T_disc/2, T_disc]:
+       Compute per-example loss: ℓ_i^(t) = L(f_disc(x_i), y_i)
+  3. Average: ℓ̄_i = mean_t(ℓ_i^(t))      // stable scoring
+  4. Assign K environments by loss rank:
+       e_i = ⌊K · rank(ℓ̄_i) / N⌋
+  5. Compute upweights: w_i = 1 + α · ℓ̄_i / max_j(ℓ̄_j)
+
+Phase 2: Permutation Test (adaptive calibration)
+  6. Compute risk variance under real assignment:
+       RV_real = Σ_k (L̄_k - L̄)²
+     where L̄_k = Σ_{i: e_i=k} w_i ℓ̄_i / Σ_{i: e_i=k} w_i
+  7. For m = 1, ..., M:
+       Permute: π_m(e) = random shuffle of {e_i}
+       Compute: RV_m = RV(π_m(e))
+  8. Signal ratio: r = RV_real / mean_m(RV_m)
+  9. Reliability: ρ = clip((r - 1) / 2, 0, 1)
+  10. Effective penalty: λ = λ_base · ρ
+
+Phase 3: Invariance Training
+  11. Initialise fresh model f_θ
+  12. For epoch = 1, ..., T_train:
+        For each batch B:
+          Compute per-environment weighted losses:
+            L_k = Σ_{i ∈ B, e_i=k} w_i · L(f_θ(x_i), y_i)
+                  / Σ_{i ∈ B, e_i=k} w_i
+          Total loss: L_total = mean_k(L_k) + λ · Var_k(L_k)
+          Update θ by gradient descent on L_total
+        Model selection: track best validation metric
+
+Output: Trained model f_θ*
+        Per-example stability scores: s_i = L(f_θ*(x_i), y_i)
+```
+
+### 3.6 Mathematical formulation
+
+**Environment discovery.** Given ERM model f_disc trained on D, define
+the per-example score as the time-averaged loss:
+
+  s_i = (1/|W|) Σ_{t ∈ W} L(f_disc^(t)(x_i), y_i)
+
+where W = {T_disc/2, ..., T_disc} is the averaging window and f_disc^(t)
+is the model at epoch t. The environment assignment is:
+
+  e_i = ⌊K · rank(s_i) / N⌋   ∈ {0, 1, ..., K-1}
+
+**Adaptive penalty.** The permutation test computes:
+
+  r = RV(e) / E_π[RV(π(e))]
+
+where RV(e) = Σ_k (L̄_k(e) - L̄(e))² is the risk variance under
+assignment e, and π is a random permutation. Under H_0 (environments
+are random), E[r] = 1. We set:
+
+  λ = λ_base · min(1, max(0, (r - 1) / 2))
+
+This ensures λ = 0 when environments carry no signal (r ≈ 1) and
+λ = λ_base when signal is strong (r ≥ 3).
+
+**V-REx objective.** The training loss is:
+
+  L_total(θ) = (1/K) Σ_k L̄_k(θ) + λ · (1/K) Σ_k (L̄_k(θ) - L̄(θ))²
+
+where L̄_k(θ) = Σ_{i: e_i=k} w_i L(f_θ(x_i), y_i) / Σ_{i: e_i=k} w_i
+is the weighted per-environment loss.
+
+**Stability scores.** After training, the per-example loss L(f_θ*(x_i), y_i)
+serves as a stability score. High loss → the prediction is sensitive to
+data composition (the model performs differently on this example across
+environments). Low loss → robust prediction.
+
+### 3.7 Stability scores
 - After training, the model's per-example loss serves as a stability score
 - Low loss → prediction is robust to data composition changes
 - High loss → prediction depends on specific training examples
