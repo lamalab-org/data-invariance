@@ -96,6 +96,21 @@ Activation-based (K-means on features) finds clusters correlated with
 colour (0.99) but the clusters don't separate spurious-reliant from
 invariant examples — they separate by some other feature dimension.
 
+**Confident-wrong scoring (data cartography inspired):**
+Score = P(wrong class).  Isolates examples where ERM confidently predicts
+the wrong class (= minority) from examples where it's just uncertain.
+
+| Discovery | CMNIST OOD | Waterbirds WGA |
+|-----------|:----------:|:--------------:|
+| Loss | 67.3% | 76.7 ± 1.0 |
+| **Confident wrong** | 49.2% | **79.0%** |
+
+On CMNIST: same environments (no uncertain examples), worse OOD due to
+different upweight distribution.  On Waterbirds: +2.3pp because it
+correctly separates "confidently wrong" minority from "uncertain" majority.
+
+Multi-seed check pending.
+
 **Limitation:** OOD peaks early then degrades. Early stopping on risk variance (patience=5, warmup=5 epochs) auto-selects epoch 5 with 70.4% OOD.
 
 ---
