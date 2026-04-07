@@ -230,6 +230,24 @@ noisy signal_ratio → sometimes λ=0 by chance.  Using the discovery ERM
 **Ours (fixed): 76.7 ± 1.0.** Much more stable than before (±9.9).
 Reliably beats ERM (71.0 ± 8.9) with lower variance.
 
+### K=2 vs K=4 stability comparison (3 seeds each)
+
+| Config | Seeds | Mean ± Std |
+|--------|-------|:----------:|
+| K=2, loss | 75.7, 77.6, 76.8 | **76.7 ± 1.0** |
+| K=4, loss (no avg) | 80.2, 62.9, 72.3 | 71.8 ± 8.7 |
+| K=4, loss (avg disc) | 81.6, 76.3, 67.6 | 75.2 ± 7.0 |
+| ERM | — | 71.0 ± 8.9 |
+| Group DRO | — | 80.5 ± 4.4 |
+| DFR | — | 88.4 ± 2.5 |
+
+K=2 is the most stable configuration. K=4 has higher ceiling (81.6%)
+but too much seed variance. Loss averaging helps (mean 71.8→75.2,
+std 8.7→7.0) but doesn't fully stabilise K=4.
+
+**Best config for the paper: K=2, loss-based, permutation test on
+discovery ERM, averaged discovery losses.** 76.7 ± 1.0 test WGA.
+
 ---
 
 ## Prior Work: Baselines and Positioning
