@@ -160,6 +160,44 @@ def compute_stability_scores(
     }
 
 
+def adaptive_stability_scores(
+    scores_ours: dict[str, torch.Tensor],
+    scores_erm: dict[str, torch.Tensor],
+    reliability: float,
+) -> dict[str, torch.Tensor]:
+    """Blend stability scores from our model and ERM based on reliability.
+
+    When reliability is high (permutation test found strong environment signal),
+    our V-REx model's scores are better — it avoids the spurious shortcut.
+    When reliability is low (environments are noise), ERM's scores are better —
+    it's well-calibrated on clean data.
+
+    The reliability comes from the same permutation test that calibrates λ,
+    giving a unified adaptive framework for both training and scoring.
+
+    Args:
+        scores_ours: Stability scores from the V-REx model.
+        scores_erm:  Stability scores from the ERM model.
+        reliability: From the permutation test (0 = pure ERM, 1 = pure V-REx).
+
+    Returns:
+        Blended scores with the same keys.
+    """
+    blended = {}
+    for key in ["entropy", "loss", "confidence"]:
+        if key in scores_ours and key in scores_erm:
+            # Normalise both to [0, 1] range before blending.
+            s_ours = scores_ours[key]
+            s_erm = scores_erm[key]
+            # Min-max normalise.
+            s_ours_n = (s_ours - s_ours.min()) / (s_ours.max() - s_ours.min() + 1e-8)
+            s_erm_n = (s_erm - s_erm.min()) / (s_erm.max() - s_erm.min() + 1e-8)
+            blended[key] = reliability * s_ours_n + (1 - reliability) * s_erm_n
+    blended["predictions"] = scores_ours["predictions"]
+    blended["labels"] = scores_ours["labels"]
+    return blended
+
+
 def evaluate_stability_discrimination(
     scores_ours: dict[str, torch.Tensor],
     scores_erm: dict[str, torch.Tensor],
