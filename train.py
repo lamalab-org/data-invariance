@@ -1240,10 +1240,24 @@ def discover_environments(
                     # Data cartography-inspired: probability assigned to the
                     # WRONG class.  High = the model confidently predicts
                     # incorrectly = minority group (shortcut fails).
-                    # Directly identifies "confidently wrong" examples.
                     probs = logits.softmax(1)
                     correct_class_prob = probs.gather(1, y.unsqueeze(1)).squeeze(1)
                     s = 1.0 - correct_class_prob  # P(wrong class)
+                elif criterion == "cartography":
+                    # Full data cartography: 4 environments based on
+                    # correctness × confidence.  Assigns each example a
+                    # score that naturally creates the 4 cartography regions
+                    # when split into K=4 environments:
+                    #   env 0: correct + high confidence (easy, majority)
+                    #   env 1: correct + low confidence (boundary)
+                    #   env 2: wrong + low confidence (hard)
+                    #   env 3: wrong + high confidence (minority)
+                    # Score = -margin = -(P(correct) - P(wrong)).
+                    # Ranges from -1 (maximally correct) to +1 (maximally wrong).
+                    probs = logits.softmax(1)
+                    correct_class_prob = probs.gather(1, y.unsqueeze(1)).squeeze(1)
+                    margin = 2.0 * correct_class_prob - 1.0  # -1 to +1
+                    s = -margin  # flip so high = wrong
                 else:
                     # entropy
                     p = logits.softmax(1).clamp(min=1e-7)
