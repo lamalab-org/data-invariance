@@ -109,7 +109,18 @@ On CMNIST: same environments (no uncertain examples), worse OOD due to
 different upweight distribution.  On Waterbirds: +2.3pp because it
 correctly separates "confidently wrong" minority from "uncertain" majority.
 
-Multi-seed check pending.
+Multi-seed result: **74.5 ± 6.6** — worse than loss-based (76.7 ± 1.0)
+and much more variable.  The single-seed 79.0% was a lucky draw.
+
+Both loss and confident_wrong give env B with only 9.8% minority.  The
+fundamental issue: on Waterbirds the minority is 5% (240 examples).
+Any discovery that correctly identifies them produces a tiny env B.
+V-REx needs reasonably balanced environments.
+
+**Analysis: misclassified examples ARE the minority.**
+- 272 misclassified (5.7% of training)
+- 42% of those are true minority (vs 5% overall)
+- But 272 examples is too few for reliable per-env loss estimation.
 
 **Limitation:** OOD peaks early then degrades. Early stopping on risk variance (patience=5, warmup=5 epochs) auto-selects epoch 5 with 70.4% OOD.
 
