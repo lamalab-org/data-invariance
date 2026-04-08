@@ -1068,7 +1068,10 @@ def discover_environments(
         if cfg.dataset.arch == "resnet":
             # Cartography needs the ERM to make mistakes → fine-tune fully.
             # Other criteria work well with frozen backbone (faster).
-            freeze_disc = cfg.training.discovery_criterion != "cartography"
+            # Always freeze backbone during discovery. The frozen ResNet
+            # backbone achieves high accuracy → few mistakes → cartography
+            # correctly identifies the minority as "confidently wrong."
+            freeze_disc = True
             backbone, out_dim = make_resnet_backbone(freeze=freeze_disc)
             disc = MLP(backbone=backbone, backbone_out_dim=out_dim).to(device)
         else:
