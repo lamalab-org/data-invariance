@@ -1549,24 +1549,18 @@ def train_discovered_split(
                 env_losses_t = torch.stack(env_losses)
                 mean_loss = env_losses_t.mean()
 
-                # Adaptive penalty: blend V-REx and DRO.
-                # V-REx: penalise variance of per-env losses (balanced envs).
-                # DRO: upweight worst env (imbalanced envs / small groups).
-                risk_var = ((env_losses_t - mean_loss) ** 2).sum()
-                vrex_loss = mean_loss + lam * risk_var
+                risk_var = ((env_losses_t - mean_loss) ** 2).sum()  # tracked for logging
 
-                # DRO: weighted combination with worst-group upweighting.
-                # Detach group weights so they don't participate in backward.
-                dro_w = dro_group_weights[:len(env_losses)].detach()
-                dro_loss = (dro_w * env_losses_t).sum()
-
-                # Blend: balanced envs → V-REx, imbalanced → DRO.
-                # Both losses are constructed to have similar base scale
-                # (mean_loss + penalty). DRO implicitly penalises through
-                # the group weights; V-REx explicitly through λ*risk_var.
-                # No extra normalisation needed — the blend just controls
-                # which penalty mechanism dominates.
-                model_loss = env_balance * vrex_loss + (1 - env_balance) * dro_loss
+                # Use Group DRO (upweight worst discovered group) when envs
+                # are imbalanced; V-REx (variance penalty) when balanced.
+                # Binary switch at balance threshold 0.5.
+                if env_balance < 0.5:
+                    # Imbalanced envs (e.g. cartography K=4): pure DRO
+                    dro_w = dro_group_weights[:len(env_losses)].detach()
+                    model_loss = (dro_w * env_losses_t).sum()
+                else:
+                    # Balanced envs (e.g. K=2 median): V-REx
+                    model_loss = mean_loss + lam * risk_var
             elif len(env_losses) == 1:
                 model_loss = env_losses[0]
                 risk_var = torch.tensor(0.0)
