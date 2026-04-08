@@ -567,3 +567,88 @@ class TADFDataset(Dataset):
 
     def __len__(self) -> int:
         return len(self.labels)
+
+
+class PACSDataset(Dataset):
+    """PACS domain shift benchmark — 4 domains, 7 classes.
+
+    Standard protocol: train on 3 domains, test on the held-out domain.
+    Our method: train WITHOUT domain labels, discover environments from loss.
+
+    The domain label is available as the spurious attribute for diagnostics
+    (does the method discover domain-related structure?).
+
+    Args:
+        split: "train" (3 domains) or "test" (held-out domain).
+        test_domain: Which domain to hold out ("photo", "art_painting", "cartoon", "sketch").
+        data_dir: Cache directory for HuggingFace download.
+        transform: Optional custom transform.
+    """
+
+    def __init__(
+        self,
+        split: str = "train",
+        test_domain: str = "sketch",
+        data_dir: str = "./data/pacs",
+        transform: transforms.Compose | None = None,
+    ) -> None:
+        from datasets import load_dataset
+
+        ds = load_dataset("flwrlabs/pacs", split="train", cache_dir=data_dir)
+
+        # Map domain names to integers for the spurious attribute.
+        domain_names = sorted(set(ds["domain"]))
+        domain_to_idx = {d: i for i, d in enumerate(domain_names)}
+
+        # Split: train = all domains except test_domain, test = test_domain only.
+        if split == "train":
+            indices = [i for i, d in enumerate(ds["domain"]) if d != test_domain]
+        elif split == "test":
+            indices = [i for i, d in enumerate(ds["domain"]) if d == test_domain]
+        elif split == "val":
+            # Use 20% of training domains as validation.
+            train_idx = [i for i, d in enumerate(ds["domain"]) if d != test_domain]
+            rng = torch.Generator().manual_seed(42)
+            perm = torch.randperm(len(train_idx), generator=rng)
+            n_val = len(train_idx) // 5
+            indices = [train_idx[p] for p in perm[:n_val]]
+        else:
+            raise ValueError(f"Unknown split: {split}")
+
+        self._labels = torch.tensor([ds["label"][i] for i in indices], dtype=torch.long)
+        self._domain_idx = torch.tensor([domain_to_idx[ds["domain"][i]] for i in indices], dtype=torch.long)
+        self._images = [ds["image"][i] for i in indices]
+        self._test_domain_idx = domain_to_idx.get(test_domain, 0)
+
+        self.transform = transform or _waterbirds_transform(split if split != "val" else "test")
+
+    @property
+    def labels(self) -> torch.Tensor:
+        return self._labels
+
+    @property
+    def spurious(self) -> torch.Tensor:
+        """Domain index as the spurious attribute (for diagnostics)."""
+        return self._domain_idx
+
+    @property
+    def input_dim(self) -> int:
+        raise NotImplementedError("PACSDataset uses a ResNet backbone.")
+
+    @property
+    def num_classes(self) -> int:
+        return 7
+
+    def __getitem__(self, idx: int) -> dict:
+        img = self._images[idx]
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        return {
+            "image": self.transform(img),
+            "label": self._labels[idx].item(),
+            "spurious": self._domain_idx[idx].item(),
+            "index": idx,
+        }
+
+    def __len__(self) -> int:
+        return len(self._labels)

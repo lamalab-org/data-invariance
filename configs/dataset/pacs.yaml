@@ -1,0 +1,8 @@
+# PACS — Domain shift benchmark (4 domains: photo, art, cartoon, sketch).
+# 7 classes, ~10K images. Standard protocol: train on 3 domains, test on 1.
+# Our method: train without domain labels, discover environments from loss.
+name: pacs
+arch: resnet
+data_dir: ./data/pacs
+# Which domain to hold out for OOD test.
+test_domain: sketch

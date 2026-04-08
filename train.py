@@ -1296,20 +1296,23 @@ def discover_environments(
     K = cfg.training.num_discovery_envs
 
     if upweight > 0:
-        # Loss-based upweighting (residual rebalancing).
-        # Examples assigned to K environments by loss quantile; high-loss
-        # examples get higher weight.  Dataset-agnostic — no assumption
-        # about where the spurious feature lives.
-        #
-        # K=2: binary median split (default, same as before).
-        # K>2: quantile split for continuous spurious features.
-        # V-REx penalty: variance of K per-environment losses.
-        #
+        # Loss-based upweighting + environment assignment.
         # weight_i = 1 + upweight * (loss_i / max_loss)
-        # Rank-based assignment: sort by score, divide into K equal groups.
-        # Avoids quantile-tie collapse that breaks threshold-based splitting.
-        ranks = scores.argsort().argsort()  # rank of each example (0 to N-1)
-        assignment = (ranks.float() / N * K).long().clamp(max=K - 1)
+        #
+        # Environment assignment uses quantile q:
+        # q=0.5 (default): balanced rank-based K-way split
+        # q<0.5: asymmetric — bottom q and top q form envs, middle excluded
+        if q < 0.5:
+            # Asymmetric split: concentrate minority in small env B
+            low_thresh = torch.quantile(scores, q)
+            high_thresh = torch.quantile(scores, 1.0 - q)
+            assignment = torch.full((N,), -1, dtype=torch.long)
+            assignment[scores <= low_thresh] = 0
+            assignment[scores >= high_thresh] = 1
+        else:
+            # Standard rank-based K-way split
+            ranks = scores.argsort().argsort()
+            assignment = (ranks.float() / N * K).long().clamp(max=K - 1)
 
         score_max = scores.max()
         if score_max > 1e-8:
