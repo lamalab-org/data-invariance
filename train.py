@@ -1402,15 +1402,15 @@ def discover_environments(
     # untrained V-REx model.  This gives a meaningful signal — the ERM's
     # loss landscape has structure that the permutation test can detect.
     def _rv_for_assignment(assign_t):
-        """Compute risk variance using pre-averaged losses (no extra forward pass)."""
+        """Compute risk variance using pre-averaged losses (vectorised)."""
         env_sums = torch.zeros(K)
         env_counts = torch.zeros(K)
-        for i in range(N):
-            kk = assign_t[i].item()
-            if 0 <= kk < K:
-                w = weights[i].item()
-                env_sums[kk] += w * avg_losses[i].item()
-                env_counts[kk] += w
+        w_cpu = weights.cpu() if weights.is_cuda or (hasattr(weights, 'device') and str(weights.device) != 'cpu') else weights
+        for kk in range(K):
+            mask = assign_t == kk
+            if mask.any():
+                env_sums[kk] = (w_cpu[mask] * avg_losses[mask]).sum()
+                env_counts[kk] = w_cpu[mask].sum()
         env_l = env_sums / env_counts.clamp(min=1)
         return ((env_l - env_l.mean()) ** 2).sum().item()
 
