@@ -64,14 +64,15 @@ class MLP(nn.Module):
         hidden_dim: int = 256,
         backbone: nn.Module | None = None,
         backbone_out_dim: int | None = None,
+        num_classes: int = 2,
     ) -> None:
         super().__init__()
         if backbone is not None:
             self.backbone = backbone
-            self.head = nn.Linear(backbone_out_dim, 2)
+            self.head = nn.Linear(backbone_out_dim, num_classes)
         else:
             self.backbone, out_dim = _make_mlp_backbone(input_dim, hidden_dim)
-            self.head = nn.Linear(out_dim, 2)
+            self.head = nn.Linear(out_dim, num_classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.head(self.backbone(x))
@@ -102,6 +103,7 @@ class SplitMLP(nn.Module):
         separate_backbones: bool = False,
         backbone: nn.Module | None = None,
         backbone_out_dim: int | None = None,
+        num_classes: int = 2,
     ) -> None:
         super().__init__()
         self.separate_backbones = separate_backbones
@@ -119,8 +121,8 @@ class SplitMLP(nn.Module):
             else:
                 self.backbone, _ = _make_mlp_backbone(input_dim, hidden_dim)
 
-        self.head_a = nn.Linear(out_dim, 2)
-        self.head_b = nn.Linear(out_dim, 2)
+        self.head_a = nn.Linear(out_dim, num_classes)
+        self.head_b = nn.Linear(out_dim, num_classes)
 
     def get_features(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Return (features_a, features_b) from the backbone(s)."""
@@ -157,6 +159,7 @@ class MultiHeadMLP(nn.Module):
         separate_backbones: bool = False,
         backbone: nn.Module | None = None,
         backbone_out_dim: int | None = None,
+        num_classes: int = 2,
     ) -> None:
         super().__init__()
         assert num_heads >= 2, "num_heads must be at least 2"
@@ -178,7 +181,7 @@ class MultiHeadMLP(nn.Module):
                 self.backbone, _ = _make_mlp_backbone(input_dim, hidden_dim)
 
         self.heads = nn.ModuleList(
-            [nn.Linear(out_dim, 2) for _ in range(num_heads)]
+            [nn.Linear(out_dim, num_classes) for _ in range(num_heads)]
         )
 
     def get_all_features(self, x: torch.Tensor) -> list[torch.Tensor]:
