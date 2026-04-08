@@ -1488,10 +1488,18 @@ def train_discovered_split(
     log_metrics(run, discovery_metrics, step=0)
 
     # Adaptive λ: use the reliability from the discovery permutation test.
-    # The test was computed using the DISCOVERY ERM (which has learned the
-    # shortcut), not this untrained model. This gives a stable, meaningful
-    # signal_ratio regardless of the V-REx model's random initialisation.
     reliability = discovery_metrics.get("adaptive/reliability", 1.0)
+
+    # Adaptive penalty: blend V-REx and DRO based on environment balance.
+    # V-REx (variance penalty) works best with balanced environments.
+    # DRO (worst-group upweighting) works best with imbalanced environments.
+    # Balance = min_env_size / max_env_size (0 = very imbalanced, 1 = balanced).
+    env_sizes = [(assignment.cpu() == k).sum().item() for k in range(K)]
+    non_empty = [s for s in env_sizes if s > 0]
+    env_balance = min(non_empty) / max(non_empty) if len(non_empty) >= 2 else 1.0
+    # DRO group weights (maintained across batches).
+    dro_group_weights = torch.ones(K, device=device) / K
+    dro_step_size = 0.01
 
     anneal_factor = cfg.training.lambda_anneal_factor
     patience = cfg.training.early_stop_patience
@@ -1539,15 +1547,26 @@ def train_discovered_split(
 
             if len(env_losses) >= 2:
                 env_losses_t = torch.stack(env_losses)
-                # V-REx penalty = sum of squared deviations from mean.
-                # For K=2: equals (loss_A - loss_B)^2 / 2.
-                # For K>2: generalises naturally.
-                # We use sum-of-squares (not variance) so the penalty scale
-                # is independent of K — adding more environments doesn't
-                # dilute the penalty.
                 mean_loss = env_losses_t.mean()
+
+                # Adaptive penalty: blend V-REx and DRO.
+                # V-REx: penalise variance of per-env losses (balanced envs).
+                # DRO: upweight worst env (imbalanced envs / small groups).
                 risk_var = ((env_losses_t - mean_loss) ** 2).sum()
-                model_loss = mean_loss + lam * risk_var
+                vrex_loss = mean_loss + lam * risk_var
+
+                # DRO: weighted combination with worst-group upweighting.
+                # Detach group weights so they don't participate in backward.
+                dro_w = dro_group_weights[:len(env_losses)].detach()
+                dro_loss = (dro_w * env_losses_t).sum()
+
+                # Blend: balanced envs → V-REx, imbalanced → DRO.
+                # Both losses are constructed to have similar base scale
+                # (mean_loss + penalty). DRO implicitly penalises through
+                # the group weights; V-REx explicitly through λ*risk_var.
+                # No extra normalisation needed — the blend just controls
+                # which penalty mechanism dominates.
+                model_loss = env_balance * vrex_loss + (1 - env_balance) * dro_loss
             elif len(env_losses) == 1:
                 model_loss = env_losses[0]
                 risk_var = torch.tensor(0.0)
@@ -1586,6 +1605,14 @@ def train_discovered_split(
             model_loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
+
+            # Update DRO group weights AFTER backward (avoids in-place conflict).
+            if len(env_losses) >= 2:
+                with torch.no_grad():
+                    dro_group_weights[:len(env_losses)] *= torch.exp(
+                        dro_step_size * env_losses_t.detach()
+                    )
+                    dro_group_weights /= dro_group_weights.sum()
 
             epoch_loss += model_loss.item() * len(y)
             epoch_correct += (logits.argmax(1) == y).sum().item()
