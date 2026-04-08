@@ -1068,7 +1068,7 @@ def discover_environments(
         if cfg.dataset.arch == "resnet":
             # Cartography needs the ERM to make mistakes → fine-tune fully.
             # Other criteria work well with frozen backbone (faster).
-            freeze_disc = criterion != "cartography"
+            freeze_disc = cfg.training.discovery_criterion != "cartography"
             backbone, out_dim = make_resnet_backbone(freeze=freeze_disc)
             disc = MLP(backbone=backbone, backbone_out_dim=out_dim).to(device)
         else:
@@ -1295,35 +1295,27 @@ def discover_environments(
 
     K = cfg.training.num_discovery_envs
 
-    if upweight > 0:
-        # Loss-based upweighting + environment assignment.
-        # weight_i = 1 + upweight * (loss_i / max_loss)
-        #
-        # For cartography: use natural thresholds (margin = 0 separates
-        # correct from wrong; confidence creates sub-groups). This gives
-        # IMBALANCED groups — which is the point.
-        # For other criteria: rank-based equal splitting.
-        if criterion == "cartography":
-            # Natural cartography groups: wrong (score > 0) vs correct (score < 0),
-            # further split by confidence magnitude.
-            # score = -margin = -(2*P(correct) - 1), so:
-            #   score > 0 → wrong prediction
-            #   score < 0 → correct prediction
-            # Within each, split at median → 4 groups.
-            wrong = scores > 0
-            correct = ~wrong
-            assignment = torch.zeros(N, dtype=torch.long)
-            # Correct: split at median score → env 0 (easy) and env 1 (boundary)
-            if correct.any():
-                correct_median = scores[correct].median()
-                assignment[correct & (scores <= correct_median)] = 0  # easy (correct, confident)
-                assignment[correct & (scores > correct_median)] = 1   # boundary (correct, uncertain)
-            # Wrong: split at median score → env 2 (hard) and env 3 (confidently wrong)
-            if wrong.any():
-                wrong_median = scores[wrong].median()
-                assignment[wrong & (scores <= wrong_median)] = 2  # hard (wrong, uncertain)
-                assignment[wrong & (scores > wrong_median)] = 3   # confidently wrong (minority)
-        elif q < 0.5:
+    # Cartography always uses natural grouping (correct/wrong × confident/uncertain).
+    if criterion == "cartography":
+        wrong = scores > 0
+        correct = ~wrong
+        assignment = torch.zeros(N, dtype=torch.long)
+        if correct.any():
+            correct_median = scores[correct].median()
+            assignment[correct & (scores <= correct_median)] = 0  # easy
+            assignment[correct & (scores > correct_median)] = 1   # boundary
+        if wrong.any():
+            wrong_median = scores[wrong].median()
+            assignment[wrong & (scores <= wrong_median)] = 2      # hard
+            assignment[wrong & (scores > wrong_median)] = 3       # minority
+        # Upweight based on score magnitude.
+        score_max = scores.abs().max()
+        if upweight > 0 and score_max > 1e-8:
+            weights = 1.0 + upweight * (scores.abs() / score_max)
+        else:
+            weights = torch.ones(N)
+    elif upweight > 0:
+        if q < 0.5:
             # Asymmetric split: bottom q% = env A, top q% = env B
             low_thresh = torch.quantile(scores, q)
             high_thresh = torch.quantile(scores, 1.0 - q)
