@@ -123,6 +123,23 @@ doesn't assume the shift is caused by a spurious feature.  It assumes:
    test on 2021+.  Our method should identify examples from older papers
    that might not generalise.
 
+## Attempted improvements that didn't help
+
+| Variation | Result | Why it didn't help |
+|-----------|--------|-------------------|
+| K=4 environments | Higher ceiling but ±7 variance | Smaller envs → noisier loss estimates |
+| Asymmetric q=0.1 | 76.1% (≈ median) | Excluding 80% data loses learning signal |
+| Confident wrong | 74.5 ± 6.6 | Same ranking as loss on Waterbirds |
+| Cartography K=4 | Unstable (56-81%) | Extreme env sizes → noisy V-REx |
+| Averaged discovery | 74.8 ± 2.7 | Smooths out useful signal |
+| Iterative refinement | Same as round 1 | V-REx model has similar loss landscape to ERM |
+| Freeze backbone | 20-73% | Frozen features too generic or too biased |
+| Balanced sampling | 65.7% | Without upweighting, minority signal too dilute |
+| Env-aware mixup | Hurts on images | Pixel interpolation unrealistic |
+
+**Conclusion: the simple approach (K=2, median, loss, upweight=50) is the robust one.**
+Every added complexity increases variance without reliably improving the mean.
+
 ## Honest assessment for a paper
 
 ### What we CAN claim
