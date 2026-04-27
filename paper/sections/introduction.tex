@@ -1,13 +1,30 @@
 \section{Introduction}
 \label{sec:introduction}
 
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/fig0_overview.pdf}
+  \caption{\textbf{Cross-sample prediction fragility on BACE, and its
+    removal by twin-indep at matched compute.}  Each row is a test
+    molecule; each column is one of ten retrainings on an independent
+    bootstrap of the same canonical training pool.  Cells are
+    coloured by predicted class.  Visible vertical stripes in the
+    left panel are predictions that flip class across retrainings ---
+    $16.1\%$ of all test predictions on BACE and up to $43\%$ on the
+    most fragile decile.  The same ten retrainings under twin-indep
+    (right) collapse most of these flips at the same compute as
+    bagging $K{=}2$.  Argmax churn averaged over all test molecules:
+    ERM $16.1\%$ vs.\ twin-indep $6.4\%$.}
+  \label{fig:overview}
+\end{figure}
+
 A toxicity classifier is retrained after a new batch of assay results
 lands.  Aggregate accuracy is unchanged, yet predictions flip class
 for $8\text{--}17\%$ of candidate molecules---some already in
-synthesis queues.  We call this \emph{cross-sample prediction
-fragility}: the fraction of test predictions that change class
-between two models trained on independent bootstraps of the same
-population.
+synthesis queues (Figure~\ref{fig:overview}).  We call this
+\emph{cross-sample prediction fragility}: the fraction of test
+predictions that change class between two models trained on
+independent bootstraps of the same population.
 
 Chemistry machine learning has built architectures around invariances
 --- to atom indexing, rotation, conformational degrees of freedom

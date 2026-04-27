@@ -70,45 +70,59 @@ fragility-vs-$M$ slope.  Section~\ref{app:theory} explains why the
 theoretical $\beta = O(1/N)$ is unlikely to fit the empirical slope
 exactly.
 
-\section{Failed approaches}
+\section{Design choices we tried and rejected}
 \label{app:failures}
 
-We document approaches we tried that did \emph{not} pan out, to save
-follow-up readers the same blind alleys.
+We report alternatives we considered before settling on twin-indep
+with a fixed $\lambda$ and on independent bootstraps.  All numbers
+below are under the headline protocol of
+Section~\ref{sec:preliminaries}: ten train-seeds on BACE
+($\binom{10}{2} = 45$ paired-bootstrap seed pairs, $10{,}000$
+resamples on the seed-pair distribution).
 
-\paragraph{Weight-decay sweep.}
-Sweeping AdamW weight decay across five orders of magnitude
-($10^{-5}$ to $10^{-1}$) on BACE, BBBP, and TADF produced essentially
-no change in cross-sample churn.  The effective per-step regularisation
-under AdamW is too small to alter the partition-invariance properties
-that drive churn.
+\paragraph{GradNorm-balanced $\lambda$ collapses the consistency loss.}
+A parameter-free version of twin-indep would balance the gradient
+norms of the consistency and CE losses, replacing the fixed $\lambda$
+with an adaptive $\lambda_t$ such that
+$\|\nabla \mathcal{L}_{\mathrm{cons}}\|
+\approx \|\nabla \mathcal{L}_{\mathrm{CE}}\|$ at every step.
+On BACE, this rule drives the effective $\lambda$ to a steady state
+of order $1$ within the first three epochs --- two orders of magnitude
+below the BACE-frozen $\lambda{=}300$ that we report in the headline
+--- and the consistency loss has no measurable effect on argmax
+churn (paired $\Delta = -0.1$pp $[-0.5, +0.4]$ vs.\ ERM, $95\%$ CI
+includes zero).  The distributional sym-KL between bootstraps is
+reduced significantly but only marginally
+($\Delta = -0.15$ $[-0.17, -0.13]$); twin-indep at $\lambda{=}300$
+reduces sym-KL by an additional order of magnitude.  The interpretation
+is mechanical: when the two networks share an architecture and
+initialisation distribution, their gradients on the consistency loss
+are naturally large because the two heads are not yet specialised, so
+GradNorm shrinks $\lambda$ aggressively; the consistency loss must
+\emph{dominate} the CE gradient by roughly two orders of magnitude
+before churn moves measurably.  We conclude that gradient-norm
+balancing is the wrong inductive bias for this objective.
 
-\paragraph{GradNorm-balanced $\lambda$.}
-A natural attempt at a parameter-free version of twin-indep balances
-$\|\nabla \mathcal{L}_{\mathrm{cons}}\|$ to
-$\|\nabla \mathcal{L}_{\mathrm{CE}}\|$ at every step.  This produces
-effective $\lambda \approx 2$, about two orders of magnitude smaller
-than the BACE-frozen $\lambda{=}300$.  The induced regularisation is
-too weak; cross-sample churn essentially does not move.  Empirically,
-the consistency loss must \emph{dominate} task loss by $\sim$$100\times$
-to bite.
+\paragraph{Adversarial partitions agree more, not less.}
+We considered replacing independent bootstraps with a learned
+worst-case partition: an inner adversary chooses the data split that
+maximises prediction disagreement between the two heads, and the outer
+model trains to be robust to that split.  In the small-$N$
+from-scratch regime this fails to produce divergent twin training.
+The adversary tends to assign hard examples consistently to the
+\emph{same} head --- because both heads start at the same loss
+landscape and any consistent assignment of hard examples specialises
+one head more than the other --- which makes the heads agree more, not
+less, on average.  Independent bootstraps are the simpler and stronger
+choice.
 
-\paragraph{Hard-subset meta-Reptile.}
-We tried Reptile-style meta-learning where the inner loop trains on the
-hard half (top $50\%$ of per-example losses) of the data and the outer
-loop pulls toward an init from which both halves converge.  This
-reduces churn modestly ($\sim$$1\text{pp}$) at a meaningful accuracy
-cost ($\sim$$3\text{pp}$) and is dominated by twin-indep.
-
-\paragraph{Adversarial partitions.}
-We tried replacing independent bootstraps with a learned worst-case
-partition --- an inner adversary chooses the data split that maximises
-prediction disagreement between the two heads, the outer model trains
-to be robust to that split.  In the small-$N$ from-scratch regime this
-does not produce divergent twin training: the adversary tends to
-assign hard examples consistently to the \emph{same} head, which makes
-the heads agree more, not less, on average.  Independent bootstraps
-are the simpler and stronger choice.
+\paragraph{Weight decay alone is insufficient.}
+Sweeping AdamW weight decay over five orders of magnitude
+($10^{-5}$ to $10^{-1}$) on BACE, BBBP, and TADF produced no detectable
+movement in cross-sample churn (paired CIs vs.\ ERM include zero at
+every value tested).  The effective per-step regularisation under
+AdamW does not constrain the data-resampling sensitivity that drives
+churn.
 
 \section{Reproducibility}
 \label{app:repro}
