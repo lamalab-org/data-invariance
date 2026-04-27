@@ -1,0 +1,3 @@
+name: hia_hou
+arch: mlp
+data_dir: ./data/tdc

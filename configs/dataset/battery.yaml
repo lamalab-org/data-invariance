@@ -1,0 +1,10 @@
+# Battery capacity — clever-materials-hans dataset.
+# Binary classification: high capacity (>= 290 mAh/g) vs low.
+# Spurious: feat_comp_MagpieData mode NfValence — composition descriptor with |r|=0.001.
+name: battery
+arch: mlp
+parquet_path: data/chemistry/battery_preprocessed.parquet
+target_column: Value
+spurious_property: feat_comp_MagpieData mode NfValence
+spurious_correlation: 0.9
+data_dir: ./data

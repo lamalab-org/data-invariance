@@ -1,0 +1,8 @@
+# MultiNLI — JTT-style spurious correlation benchmark.
+# Binary: entailment vs not-entailment (neutral + contradiction).
+# Spurious: negation words in hypothesis → models learn "negation → not entailment".
+# DistilBERT backbone. Standard benchmark in JTT (Liu et al. 2021).
+name: multinli
+arch: distilbert
+max_length: 128
+data_dir: ./data/multi_nli

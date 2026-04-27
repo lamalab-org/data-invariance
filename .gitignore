@@ -29,6 +29,7 @@ wandb/
 # macOS
 .DS_Store
 
-# Editor
+# Editor / IDE
 .idea/
 .vscode/
+.claude/

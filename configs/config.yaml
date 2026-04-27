@@ -1,193 +1,30 @@
 defaults:
-  - method: erm  # override via `python run.py method=adversarial_split`
-  - dataset: cmnist  # override via `python run.py dataset=waterbirds`
+  - method: erm
+  - dataset: cmnist
   - _self_
 
 wandb:
   project: data-invariance
-  # Tags support CLI override: `python run.py "wandb.tags=[dev,final,high_corr]"`
-  # Keep "dev" until results are paper-ready; swap to "final" for reported runs.
   tags: [dev]
   enabled: true
 
 model:
   hidden_dim: 256
-  # Whether SplitMLP/MultiHeadMLP uses one shared backbone or K independent backbones.
-  # Separate backbones allow each head to learn genuinely different representations;
-  # shared backbone limits specialisation to the linear heads.
-  separate_backbones: false
-  # Number of heads for adversarial split. 2 → SplitMLP (binary, sigmoid assignments);
-  # >2 → MultiHeadMLP (K-way, softmax assignments). Other methods always use 2.
-  num_heads: 2
 
 training:
   lr: 1e-3
   batch_size: 256
   epochs: 10
   seed: 42
-  # Weight on the KL disagreement term. Shared across all split methods so sweeps
-  # are comparable. Too small → adversary has no effect; too large → heads diverge.
-  lambda_disagree: 20.0
-  # Adversary step size — only used by adversarial_split. Larger than model lr so
-  # assignment weights move meaningfully within each alternating step.
-  adv_lr: 1e-2
-  # AdamW weight decay. Decoupled from the gradient update (unlike Adam's broken
-  # weight decay). Small value — we are not sweeping this yet.
   weight_decay: 1e-4
 
-  # ---- Adversarial split options (ignored by erm / random_split) ----
-
-  # Assignment logit initialisation.
-  # "zeros"  → sigmoid(0) = 0.5 everywhere, fully uniform start.
-  # "random" → draw from N(0, adv_init_scale²), immediately creates a non-uniform
-  #            partition so CE_A ≠ CE_B from step 1 and the adversary has a gradient.
-  # "oracle" → initialize from ground-truth color labels (color=0 → +5, color=1 → -5).
-  #            Sanity check: does the mechanism improve OOD when the partition is known?
-  #            If yes, mechanism is sound; only bootstrap/discovery remains to solve.
-  adv_init: "zeros"
-  adv_init_scale: 1.0          # std of the random init; only used when adv_init=random
-
-  # Gaussian noise std added independently to backbone features before each head.
-  # Even with a shared backbone, each head sees slightly different inputs every
-  # forward pass, preventing collapse to identical linear maps.
-  head_noise: 0.0
-
-  # Epochs to keep assignment logits frozen before the adversary activates.
-  # Combined with adv_init=random: pre-differentiates the heads on a fixed random
-  # partition before the adversary starts optimising it.
-  adv_warmup_epochs: 0
-
-  # Adversary gradient steps per model step. More steps give the adversary time
-  # to commit to a partition before the model can equalise the heads again.
-  adv_steps_per_model_step: 1
-
-  # Epochs to linearly ramp lambda from 0 to lambda_disagree.
-  # 0 → use lambda_disagree from epoch 0 (current behaviour).
-  # N → start at lambda=0, reach full lambda at epoch N. Lets heads diverge first.
-  lambda_warmup_epochs: 0
-
-  # Lambda multiplier at the final epoch for discovered_split.
-  # lambda(epoch) = lambda_disagree * (1 + (lambda_anneal_factor - 1) * epoch / (epochs - 1))
-  # 1.0 → constant lambda (default). 10.0 → lambda grows 10x from first to last epoch.
-  # Prevents overfitting: as the model equalises risk, the penalty stays effective.
-  lambda_anneal_factor: 1.0
-
-  # ---- Environment discovery options (used by discovered_split only) ----
-
-  # Epochs to train the throw-away ERM discovery model.
-  # Enough to learn the spurious feature but not enough to overfit.
-  # 3–10 is usually sufficient; more epochs → more confident scores → sharper split.
+  # Discovery: loss-averaged environment identification
   discovery_epochs: 5
+  discovery_upweight: 50.0    # α in w_i = 1 + α · ℓ_i / max(ℓ)
+  num_discovery_envs: 2       # K environments (median split for K=2)
 
-  # Scoring criterion for environment discovery.
-  # "entropy" → split by prediction entropy H(p). Works when colour≠label examples
-  #             are genuinely uncertain (low correlation). Fails at high correlation
-  #             where the model is confidently WRONG on colour≠label examples.
-  # "loss"    → split by cross-entropy loss. colour≠label examples have high loss
-  #             (model predicts wrong class based on colour). Works at any correlation.
-  discovery_criterion: "loss"
+  # V-REx penalty (used by discovered_split method)
+  lambda_disagree: 10.0       # base λ (overridden by auto_lambda when used)
 
-  # Quantile threshold for environment split.
-  # 0.5 → median split (50/50 balanced).
-  # 0.1 → bottom 10% entropy (most confident) vs top 10% (most uncertain).
-  #        Gives sharper environment contrast but uses less training data.
-  # "extremes" → bottom Q% AND top Q% (both tails), discards the middle.
-  # At high train_correlation (0.9), only ~10% of examples have colour≠label.
-  # A 50/50 split dilutes env B with colour=label majority. Lower quantiles
-  # (0.1–0.2) concentrate the signal.
-  discovery_quantile: 0.5
-
-  # Balanced reweighting strength. When > 0, all examples are assigned via
-  # median split (discovery_quantile is ignored) but extreme examples get
-  # higher weight in the V-REx loss.
-  #   weight_i = 1 + reweight * extremeness_i   (extremeness ∈ [0, 1])
-  # 0.0 → uniform weights (default).  10.0 → most extreme examples are
-  # 11x the weight of median examples.
-  # Keeps all data in training (shape signal preserved) while amplifying
-  # the V-REx penalty's sensitivity to colour-correlation differences.
-  discovery_reweight: 0.0
-
-  # Loss-based upweighting (residual rebalancing). After the discovery ERM,
-  # each training example gets weight = 1 + upweight * (loss_i / max_loss).
-  # High-loss examples (the ERM's mistakes — likely the minority group) get
-  # upweighted in V-REx training.  Dataset-agnostic: no assumption about
-  # where the spurious feature lives.  0.0 → disabled.
-  discovery_upweight: 0.0
-
-  # Number of discovered environments for V-REx.
-  # 2 → binary median split (default).
-  # K>2 → split into K environments by loss quantile.
-  # V-REx penalty becomes variance of K per-environment losses.
-  # Useful for continuous spurious features where binary split loses nuance.
-  num_discovery_envs: 2
-
-  # Early stopping patience for discovered_split. After the epoch with
-  # lowest risk variance, if risk_var does not improve for this many
-  # consecutive epochs, stop training and restore the best checkpoint.
-  # 0 → disabled (train for all epochs).
+  # Early stopping (0 = disabled)
   early_stop_patience: 0
-
-  # Iterative discovery rounds. Each round: score examples with the current
-  # model, re-discover environments, train a fresh model with V-REx.
-  # 1 → standard single-round discovery (default).
-  # N>1 → N rounds of refinement. Each round uses the previous model's loss
-  # to find better environments.
-  discovery_rounds: 1
-
-  # Freeze backbone during V-REx training, retrain only the last layer.
-  # The discovery ERM learns features (both spurious and invariant);
-  # V-REx on frozen features forces the head to select invariant ones.
-  # Inspired by DFR (Kirichenko et al. 2023) but without needing a
-  # group-balanced validation set — uses discovered environments instead.
-  freeze_backbone: false
-
-  # Environment-balanced sampling during V-REx training.
-  # Each batch draws equally from all K environments via inverse-frequency
-  # weighted sampling.  Replaces loss-based upweighting — no upweight
-  # hyperparameter needed.
-  balanced_sampling: false
-
-  # Environment-aware mixup: interpolate features between env A and env B
-  # examples with the same label.  Creates synthetic counterexamples that
-  # blend out the spurious signal.  Especially useful for small datasets
-  # where real counterexamples are scarce.
-  # 0.0 → disabled.  1.0 → mixup loss weighted equally with V-REx loss.
-  env_mixup: 0.0
-
-  # Gaussian noise std added to input features during training.
-  # Prevents memorisation when minority examples are oversampled.
-  # Combined with balanced_sampling: oversampled copies get different
-  # noise each time → diverse augmented counterexamples.
-  # 0.0 → disabled.  0.1 → moderate noise.
-  training_noise: 0.0
-
-  # Adversary mode — controls what the adversary optimises.
-  # "task_loss"  → default: maximise per-head task loss; pushes examples toward their
-  #                harder head, creating an easy/hard partition.  Does NOT reliably
-  #                produce feature diversity.
-  # "grad_div"   → gradient-diversity: minimise cosine similarity between the two
-  #                heads' gradient update directions at the backbone output.
-  #                δ_A_i = W_A^T·(softmax(logits_A_i)−y_i)  [direction backbone features
-  #                need to move to reduce head A's loss on example i]
-  #                adv_loss = cos_sim(Σ s_i δ_A_i, Σ (1−s_i) δ_B_i)
-  #                Pushes toward a partition where heads specialise on DIFFERENT features
-  #                (e.g., colour vs digit shape) rather than easy vs hard examples.
-  adv_mode: "task_loss"
-
-  # Entropy bonus coefficient for the adversary.
-  # Adds -beta * H(s_i) to the adversary loss, penalising soft assignments and
-  # accelerating commitment toward hard 0/1 partitions.
-  # 0 → disabled (original formulation).
-  adv_entropy_bonus: 0.0
-
-  # Disagreement-threshold lambda scheduling.
-  # Forces lambda=0 until the heads have diverged enough; only then applies the
-  # KL penalty. Composable with lambda_warmup_epochs — the effective lambda is
-  # the minimum of both schedules.
-  #
-  # lambda_threshold: disagreement (KL) below which lambda is held at 0.
-  #   0.0 → disabled (lambda_warmup_epochs controls everything).
-  # lambda_ramp_range: disagreement units above threshold over which lambda
-  #   ramps linearly from 0 to its full value. 0.0 → hard step at threshold.
-  lambda_threshold: 0.0
-  lambda_ramp_range: 0.0

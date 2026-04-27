@@ -1,0 +1,3 @@
+name: pcba
+arch: mlp
+data_dir: ./data/molnet

@@ -1,0 +1,3 @@
+name: ames
+arch: mlp
+data_dir: ./data/tdc

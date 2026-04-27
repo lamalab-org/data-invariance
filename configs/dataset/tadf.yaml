@@ -4,7 +4,7 @@
 # with the label. A model using the shortcut fails on the unbiased test set.
 name: tadf
 arch: mlp
-parquet_path: /Users/kevinmaikjablonka/git/lamalab/clever-materials-hans/src/tex/output/tadf_preprocess.parquet
+parquet_path: data/chemistry/tadf_preprocess.parquet
 # Property-based spurious correlation.
 spurious_property: feat_mol_NumHeteroatoms
 spurious_correlation: 0.9

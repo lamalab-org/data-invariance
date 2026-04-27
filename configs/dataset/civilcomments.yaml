@@ -1,0 +1,8 @@
+# CivilComments toxicity — WILDS-style spurious correlation benchmark.
+# Binary: toxic (toxicity >= 0.5) vs not-toxic.
+# Spurious: demographic identity mentions → models learn "identity → toxic".
+# DistilBERT backbone. Standard benchmark in JTT, CnC, DFR, SSA.
+name: civilcomments
+arch: distilbert
+max_length: 128
+data_dir: ./data/civil_comments

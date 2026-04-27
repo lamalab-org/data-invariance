@@ -21,6 +21,9 @@ dependencies = [
     "Pillow>=10.0",
     "rdkit>=2025.9.6",
     "scikit-learn>=1.8.0",
+    "wilds>=2.0.0",
+    "transformers>=5.5.3",
+    "lama-aesthetics",
 ]
 
 [dependency-groups]
@@ -49,3 +52,6 @@ addopts = "--tb=short"
 [tool.hatch.build.targets.wheel]
 packages = ["."]
 exclude = ["tests", "data", "outputs", "*.ipynb"]
+
+[tool.uv.sources]
+lama-aesthetics = { git = "https://github.com/lamalab-org/lama-aesthetics.git" }

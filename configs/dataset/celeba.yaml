@@ -1,0 +1,6 @@
+# CelebA — standard Sagawa et al. 2020 spurious correlation benchmark.
+# Target: Blond_Hair. Spurious: Male. Worst group is (blond, male).
+# Loaded from Hugging Face: tpremoli/CelebA-attrs.
+name: celeba
+arch: resnet
+data_dir: ./data/celeba

@@ -8,6 +8,226 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 
+# Identity terms for CivilComments spurious group detection.
+# A comment is "identity-mentioning" if any of these terms appear in it.
+# This matches the WILDS CivilComments benchmark's group definition.
+_IDENTITY_TERMS = {
+    "male", "female", "transgender", "gay", "lesbian", "bisexual",
+    "homosexual", "straight", "heterosexual",
+    "christian", "jewish", "muslim", "buddhist", "hindu", "atheist",
+    "black", "white", "asian", "latino", "latina",
+    "african", "european", "arab",
+    "disability", "disabled",
+    "older", "younger", "elderly",
+}
+
+
+class CivilCommentsDataset(Dataset):
+    """CivilComments toxicity classification with demographic group spurious correlation.
+
+    From the Jigsaw/WILDS benchmark. Binary classification: toxic vs not-toxic.
+    Spurious correlation: models learn "mentions demographics → toxic" because
+    toxic comments disproportionately mention identity groups.
+
+    Worst group: (not_toxic, mentions_identity) — benign comments about
+    demographics that get falsely flagged as toxic.
+
+    Loaded from HuggingFace ``google/civil_comments``. Identity-mention detection
+    uses keyword matching (standard approach when WILDS annotations are unavailable).
+
+    Text is tokenized with DistilBERT's tokenizer and stored as token IDs.
+
+    Args:
+        split: "train", "val", or "test".
+        max_length: Maximum token sequence length (truncated/padded).
+        data_dir: Cache directory for HuggingFace download.
+    """
+
+    def __init__(
+        self,
+        split: str = "train",
+        max_length: int = 128,
+        data_dir: str = "./data/civil_comments",
+    ) -> None:
+        from datasets import load_dataset
+        from transformers import DistilBertTokenizer
+
+        hf_split = {"train": "train", "val": "validation", "test": "test"}[split]
+        ds = load_dataset("google/civil_comments", split=hf_split, cache_dir=data_dir)
+
+        # Binary toxicity label (standard threshold = 0.5).
+        toxicity = torch.tensor(ds["toxicity"], dtype=torch.float32)
+        self._labels = (toxicity >= 0.5).long()
+
+        # Convert to plain list (HF dataset columns are not plain lists).
+        texts = list(ds["text"])
+
+        # Spurious attribute: does the comment mention any identity group?
+        identity_mentioned = torch.zeros(len(texts), dtype=torch.long)
+        for i, text in enumerate(texts):
+            text_lower = text.lower()
+            if any(term in text_lower for term in _IDENTITY_TERMS):
+                identity_mentioned[i] = 1
+        self._spurious = identity_mentioned
+
+        # Tokenize with DistilBERT tokenizer in batches (full dataset at once
+        # can OOM for 1.8M train examples).
+        tokenizer = DistilBertTokenizer.from_pretrained("distilbert-base-uncased")
+        batch_size = 10000
+        all_input_ids = []
+        all_attention_mask = []
+        for start in range(0, len(texts), batch_size):
+            batch_texts = texts[start : start + batch_size]
+            encoded = tokenizer(
+                batch_texts,
+                max_length=max_length,
+                padding="max_length",
+                truncation=True,
+                return_tensors="pt",
+            )
+            all_input_ids.append(encoded["input_ids"])
+            all_attention_mask.append(encoded["attention_mask"])
+        self._input_ids = torch.cat(all_input_ids, dim=0)
+        self._attention_mask = torch.cat(all_attention_mask, dim=0)
+
+    @property
+    def labels(self) -> torch.Tensor:
+        return self._labels
+
+    @property
+    def spurious(self) -> torch.Tensor:
+        """Whether the comment mentions any identity group."""
+        return self._spurious
+
+    @property
+    def input_dim(self) -> int:
+        raise NotImplementedError("CivilComments uses DistilBERT, not input_dim.")
+
+    def __getitem__(self, idx: int) -> dict:
+        return {
+            "image": {
+                "input_ids": self._input_ids[idx],
+                "attention_mask": self._attention_mask[idx],
+            },
+            "label": self._labels[idx].item(),
+            "spurious": self._spurious[idx].item(),
+            "index": idx,
+        }
+
+    def __len__(self) -> int:
+        return len(self._labels)
+
+
+# Negation words for MultiNLI spurious feature detection.
+# Standard set from the literature (used in JTT, Sagawa et al.).
+_NEGATION_WORDS = {"nobody", "no", "never", "nothing"}
+
+
+class MultiNLIDataset(Dataset):
+    """MultiNLI natural language inference with negation spurious correlation.
+
+    From the JTT paper (Liu et al., 2021). Binary classification:
+    entailment (label=0) vs contradiction+neutral (label=1).
+
+    Spurious correlation: models learn "negation words in hypothesis → not
+    entailment" as a shortcut, since contradictions often contain negation.
+
+    Worst group: (entailment, has_negation) — entailment pairs where the
+    hypothesis contains negation words.
+
+    Loaded from HuggingFace ``multi_nli``. Text is tokenized with DistilBERT's
+    tokenizer (premise + hypothesis as sentence pair).
+
+    Args:
+        split: "train", "val", or "test".
+              - "train" → HF ``train`` split
+              - "val" → HF ``validation_matched`` split
+              - "test" → HF ``validation_mismatched`` split (OOD)
+        max_length: Maximum token sequence length (truncated/padded).
+        data_dir: Cache directory for HuggingFace download.
+    """
+
+    def __init__(
+        self,
+        split: str = "train",
+        max_length: int = 128,
+        data_dir: str = "./data/multi_nli",
+    ) -> None:
+        from datasets import load_dataset
+        from transformers import DistilBertTokenizer
+
+        hf_split = {
+            "train": "train",
+            "val": "validation_matched",
+            "test": "validation_mismatched",
+        }[split]
+        ds = load_dataset("multi_nli", split=hf_split, cache_dir=data_dir)
+
+        # Original labels: 0=entailment, 1=neutral, 2=contradiction.
+        # Binarize: entailment (0) vs not-entailment (1).
+        raw_labels = torch.tensor(ds["label"], dtype=torch.long)
+        self._labels = (raw_labels != 0).long()  # (N,)
+
+        premises = list(ds["premise"])
+        hypotheses = list(ds["hypothesis"])
+
+        # Spurious attribute: does the hypothesis contain any negation word?
+        has_negation = torch.zeros(len(hypotheses), dtype=torch.long)
+        for i, hyp in enumerate(hypotheses):
+            words = set(hyp.lower().split())
+            if words & _NEGATION_WORDS:
+                has_negation[i] = 1
+        self._spurious = has_negation  # (N,)
+
+        # Tokenize premise + hypothesis pairs with DistilBERT tokenizer.
+        tokenizer = DistilBertTokenizer.from_pretrained("distilbert-base-uncased")
+        batch_size = 10000
+        all_input_ids = []
+        all_attention_mask = []
+        for start in range(0, len(premises), batch_size):
+            batch_premises = premises[start : start + batch_size]
+            batch_hypotheses = hypotheses[start : start + batch_size]
+            encoded = tokenizer(
+                batch_premises,
+                batch_hypotheses,
+                max_length=max_length,
+                padding="max_length",
+                truncation=True,
+                return_tensors="pt",
+            )
+            all_input_ids.append(encoded["input_ids"])
+            all_attention_mask.append(encoded["attention_mask"])
+        self._input_ids = torch.cat(all_input_ids, dim=0)  # (N, max_length)
+        self._attention_mask = torch.cat(all_attention_mask, dim=0)  # (N, max_length)
+
+    @property
+    def labels(self) -> torch.Tensor:
+        return self._labels
+
+    @property
+    def spurious(self) -> torch.Tensor:
+        """Whether the hypothesis contains negation words."""
+        return self._spurious
+
+    @property
+    def input_dim(self) -> int:
+        raise NotImplementedError("MultiNLI uses DistilBERT, not input_dim.")
+
+    def __getitem__(self, idx: int) -> dict:
+        return {
+            "image": {
+                "input_ids": self._input_ids[idx],
+                "attention_mask": self._attention_mask[idx],
+            },
+            "label": self._labels[idx].item(),
+            "spurious": self._spurious[idx].item(),
+            "index": idx,
+        }
+
+    def __len__(self) -> int:
+        return len(self._labels)
+
+
 class ColoredMNIST(Dataset):
     """Colored MNIST dataset for studying spurious correlations.
 
@@ -94,6 +314,7 @@ class ColoredMNIST(Dataset):
         self.images = imgs    # (N, 3, 28, 28) float32
         self.labels = labels  # (N,) int64
         self.colors = colors  # (N,) int64
+        self.flipped = flip.bool()  # (N,) bool — ground truth for label-noise attribution
 
     @property
     def spurious(self) -> torch.Tensor:
@@ -426,6 +647,85 @@ class WaterbirdsDataset(Dataset):
         return len(self._labels)
 
 
+class CelebADataset(Dataset):
+    """CelebA with the standard Sagawa et al. (2020) spurious-correlation setup.
+
+    Target: ``Blond_Hair`` (binary; ~15% of training is blond)
+    Spurious: ``Male`` (binary; most blond examples in training are female)
+
+    Worst group is (blond, male): only ~1387 examples in train, but the model
+    is rewarded for predicting "blond → female" by the natural correlation.
+
+    Loaded via the Hugging Face ``datasets`` library from
+    ``tpremoli/CelebA-attrs``.  The dataset stores binary attributes as
+    ``-1`` / ``+1``; we convert to ``{0, 1}`` for compatibility with the
+    rest of the pipeline.
+
+    Standard splits (from CelebA's official identity-based split):
+        train:       162,770 examples
+        validation:   19,867 examples
+        test:         19,962 examples
+
+    Args:
+        split:     "train", "val", or "test".
+        data_dir:  Cache directory for the Hugging Face download.
+        transform: Optional custom transform; if None, uses the standard
+                   ImageNet-normalised crop/resize (same as Waterbirds).
+    """
+
+    def __init__(
+        self,
+        split: str = "train",
+        data_dir: str = "./data/celeba",
+        transform: transforms.Compose | None = None,
+    ) -> None:
+        from datasets import load_dataset
+
+        # Map our split names to HF split names.
+        hf_split = {"train": "train", "val": "validation", "test": "test"}[split]
+        ds = load_dataset("tpremoli/CelebA-attrs", split=hf_split, cache_dir=data_dir)
+
+        # Convert -1/+1 → 0/1 for the two attributes we use.
+        # Blond_Hair is the target; Male is the spurious feature.
+        blond_raw = torch.tensor(ds["Blond_Hair"], dtype=torch.long)
+        male_raw = torch.tensor(ds["Male"], dtype=torch.long)
+        self._labels = ((blond_raw + 1) // 2).long()      # -1→0, +1→1
+        self._spurious = ((male_raw + 1) // 2).long()     # -1→0, +1→1
+        self._images = ds["image"]  # list of PIL images, loaded lazily
+
+        self.transform = transform or _waterbirds_transform(split)
+
+    @property
+    def labels(self) -> torch.Tensor:
+        return self._labels
+
+    @property
+    def spurious(self) -> torch.Tensor:
+        """Spurious attribute: Male (0=female, 1=male)."""
+        return self._spurious
+
+    @property
+    def input_dim(self) -> int:
+        # ResNet handles its own input dimensions; this is not used.
+        raise NotImplementedError(
+            "CelebADataset uses a ResNet backbone — input_dim is not applicable."
+        )
+
+    def __getitem__(self, idx: int) -> dict:
+        img = self._images[idx]
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        return {
+            "image": self.transform(img),
+            "label": self._labels[idx].item(),
+            "spurious": self._spurious[idx].item(),
+            "index": idx,
+        }
+
+    def __len__(self) -> int:
+        return len(self._labels)
+
+
 class TADFDataset(Dataset):
     """TADF emission wavelength classification with controlled spurious correlations.
 
@@ -560,6 +860,136 @@ class TADFDataset(Dataset):
     def __getitem__(self, idx: int) -> dict:
         return {
             "image": self.images[idx],  # (D,) feature vector, named "image" for compatibility
+            "label": self.labels[idx].item(),
+            "spurious": self._spurious[idx].item(),
+            "index": idx,
+        }
+
+    def __len__(self) -> int:
+        return len(self.labels)
+
+
+class ChemistryDataset(Dataset):
+    """General tabular chemistry dataset from clever-materials-hans.
+
+    Works with any parquet file that has ``feat_*`` columns (molecular/materials
+    descriptors) and a numeric target column. Binary classification at the
+    target median. Spurious correlations are injected by subsampling to make a
+    chosen property correlate with the label.
+
+    Currently used for:
+    - **MOF thermal stability** — target: ``assigned_T_decomp`` (K).
+      Spurious: ``publication_year`` or any ``feat_*`` column.
+    - **Perovskite solar cells** — target: ``data.jv.default_PCE`` (%).
+      Spurious: ``publication_year`` or any ``feat_*`` column.
+
+    The same class could be used for battery, MOF solvent stability, etc.
+    by changing ``target_column`` and ``parquet_path``.
+
+    Args:
+        parquet_path:         Path to the preprocessed parquet file.
+        target_column:        Name of the numeric target column.
+        split:                "train", "test", or "test_misaligned".
+        seed:                 Random seed for splits.
+        spurious_property:    Column to use as spurious signal (None = no injection).
+        spurious_correlation: Fraction of aligned examples to keep in training.
+    """
+
+    def __init__(
+        self,
+        parquet_path: str,
+        target_column: str,
+        split: str = "train",
+        seed: int = 42,
+        spurious_property: str | None = None,
+        spurious_correlation: float = 0.9,
+    ) -> None:
+        import pandas as pd
+        import numpy as np
+
+        df = pd.read_parquet(parquet_path)
+
+        # Parse target — handle both numeric and string-encoded values.
+        target = pd.to_numeric(df[target_column], errors="coerce")
+        df["_target"] = target
+        df = df.dropna(subset=["_target"]).reset_index(drop=True)
+
+        # Binary label at median.
+        median_val = df["_target"].median()
+        df["_label"] = (df["_target"] >= median_val).astype(int)
+
+        # Feature matrix: all feat_ columns.
+        feat_cols = [c for c in df.columns if c.startswith("feat_")]
+        feats = df[feat_cols].copy().fillna(0.0)
+        non_const = feats.columns[feats.std() > 1e-10]
+        feats = feats[non_const]
+        feat_cols = list(non_const)
+
+        # Standardise.
+        feat_mean = feats.mean()
+        feat_std = feats.std().clip(lower=1e-8)
+        feats = (feats - feat_mean) / feat_std
+
+        # Spurious attribute: binarise the chosen property at its median.
+        if spurious_property and spurious_property in df.columns:
+            prop_vals = pd.to_numeric(df[spurious_property], errors="coerce").fillna(0).values
+            prop_median = np.median(prop_vals)
+            spurious = torch.tensor((prop_vals >= prop_median).astype(int), dtype=torch.long)
+        else:
+            spurious = torch.zeros(len(df), dtype=torch.long)
+
+        # Train/test split (80/20).
+        rng = np.random.RandomState(seed)
+        n = len(df)
+        perm = rng.permutation(n)
+        n_train = int(0.8 * n)
+        train_idx = perm[:n_train]
+        test_idx = perm[n_train:]
+
+        if split == "train":
+            idx = train_idx
+            # Inject spurious correlation by subsampling.
+            if spurious_property and spurious_property in df.columns:
+                labels_train = df["_label"].iloc[idx].values
+                spur_train = spurious[idx].numpy()
+                aligned = spur_train == labels_train
+                keep = np.zeros(len(idx), dtype=bool)
+                aligned_idx = np.where(aligned)[0]
+                n_keep_aligned = int(len(aligned_idx) * spurious_correlation)
+                keep[rng.choice(aligned_idx, n_keep_aligned, replace=False)] = True
+                misaligned_idx = np.where(~aligned)[0]
+                n_keep_mis = int(len(misaligned_idx) * (1 - spurious_correlation))
+                if n_keep_mis > 0 and len(misaligned_idx) > 0:
+                    keep[rng.choice(misaligned_idx, n_keep_mis, replace=False)] = True
+                idx = idx[keep]
+        elif split == "test":
+            idx = test_idx
+        elif split == "test_misaligned":
+            idx = test_idx
+            if spurious_property and spurious_property in df.columns:
+                labels_test = df["_label"].iloc[idx].values
+                spur_test = spurious[idx].numpy()
+                misaligned = spur_test != labels_test
+                idx = idx[misaligned]
+        else:
+            raise ValueError(f"Unknown split: {split}")
+
+        self.images = torch.tensor(feats.iloc[idx].values, dtype=torch.float32)
+        self.labels = torch.tensor(df["_label"].iloc[idx].values, dtype=torch.long)
+        self._spurious = spurious[idx]
+        self._feat_cols = feat_cols
+
+    @property
+    def spurious(self) -> torch.Tensor:
+        return self._spurious
+
+    @property
+    def input_dim(self) -> int:
+        return self.images.shape[1]
+
+    def __getitem__(self, idx: int) -> dict:
+        return {
+            "image": self.images[idx],
             "label": self.labels[idx].item(),
             "spurious": self._spurious[idx].item(),
             "index": idx,
