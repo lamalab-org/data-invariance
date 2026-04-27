@@ -99,34 +99,63 @@ def main() -> None:
     gs_outer = fig.add_gridspec(n_rows, n_cols, hspace=0.55, wspace=0.18)
     cmap = ListedColormap(["#3a6ea5", "#d97757"])
 
+    from rdkit.Chem.Draw import rdMolDraw2D
+    from rdkit.Chem import AllChem
+
+    def _render_mol(smiles: str, size: int = 1000) -> np.ndarray | None:
+        """Render a molecule at high resolution with consistent bond width.
+
+        Uses 2D coords with a fixed bond length so that molecules of
+        different sizes render with bonds of the same visual thickness when
+        embedded at the same matplotlib subplot size.
+        """
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            return None
+        AllChem.Compute2DCoords(mol)
+        d = rdMolDraw2D.MolDraw2DCairo(size, size)
+        opts = d.drawOptions()
+        opts.fixedBondLength = 30.0     # px; enforces consistent bond visual size
+        opts.bondLineWidth = 2.4
+        opts.baseFontSize = 0.55
+        opts.padding = 0.10
+        opts.clearBackground = True
+        opts.useBWAtomPalette()        # high-contrast for print
+        d.DrawMolecule(mol)
+        d.FinishDrawing()
+        png = d.GetDrawingText()
+        from io import BytesIO
+        from PIL import Image
+        return np.asarray(Image.open(BytesIO(png)))
+
     for k, idx in enumerate(picked):
         r, c = k // n_cols, k % n_cols
         gs_inner = gs_outer[r, c].subgridspec(
-            2, 1, height_ratios=[3, 0.6], hspace=0.12,
+            2, 1, height_ratios=[3, 0.5], hspace=0.10,
         )
         ax_struct = fig.add_subplot(gs_inner[0])
         ax_trace = fig.add_subplot(gs_inner[1])
 
-        mol = Chem.MolFromSmiles(test_smiles[idx])
-        img = Draw.MolToImage(mol, size=(420, 420)) if mol is not None else None
+        img = _render_mol(test_smiles[idx])
         if img is not None:
-            ax_struct.imshow(np.asarray(img))
+            ax_struct.imshow(img)
         ax_struct.axis("off")
         ax_struct.set_title(
-            f"ERM {erm_churn[idx]*100:.0f}\\%   $\\to$   "
-            f"Twin-indep {twin_churn[idx]*100:.0f}\\%   "
+            f"ERM {erm_churn[idx]*100:.0f}%  $\\to$  "
+            f"Twin-indep {twin_churn[idx]*100:.0f}%   "
             f"(true class {int(test_labels[idx])})",
-            fontsize=7.5, pad=3,
+            fontsize=8, pad=3,
         )
 
         trace = np.concatenate([erm_preds[:, idx], twin_preds[:, idx]])
         ax_trace.imshow(trace.reshape(1, -1), aspect="auto", cmap=cmap,
                         vmin=0, vmax=1, interpolation="nearest")
-        ax_trace.axvline(9.5, color="white", linewidth=1.0)  # divider
+        ax_trace.axvline(9.5, color="white", linewidth=1.2)  # divider
         ax_trace.set_xticks([4.5, 14.5])
-        ax_trace.set_xticklabels(["ERM (10 seeds)", "Twin-indep (10 seeds)"],
-                                 fontsize=6.5)
+        ax_trace.set_xticklabels(["ERM", "Twin-indep"], fontsize=7)
         ax_trace.set_yticks([])
+        for spine in ax_trace.spines.values():
+            spine.set_visible(False)
 
     legend_handles = [
         plt.Rectangle((0, 0), 1, 1, fc="#3a6ea5", ec="none", label="class 0"),

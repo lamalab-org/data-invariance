@@ -229,6 +229,158 @@ def _train_twin_indep(cfg, canonical_loaders, device, train_seed, epochs, lam,
     return model_A, model_B
 
 
+def _train_codistillation(cfg, canonical_loaders, device, train_seed, epochs,
+                          lam, pool_idx=None, n_train=None):
+    """Codistillation~\\cite{Anil 2018}: two networks on DISJOINT shards
+    of the canonical training pool, with sym-KL agreement on the union of
+    each step's two batches.  This is the published method-side neighbour
+    to twin-indep; the only mechanical difference is data sharding (no
+    overlap) instead of bootstraps with replacement (~40% overlap)."""
+    base = canonical_loaders["train"].dataset
+    if n_train is None:
+        n_train = len(base)
+    set_seed(train_seed)
+    model_A = _build_model(cfg, canonical_loaders, device)
+    set_seed(train_seed + 1)
+    model_B = _build_model(cfg, canonical_loaders, device)
+    opt_A = torch.optim.AdamW(model_A.parameters(), lr=cfg.training.lr,
+                              weight_decay=cfg.training.weight_decay)
+    opt_B = torch.optim.AdamW(model_B.parameters(), lr=cfg.training.lr,
+                              weight_decay=cfg.training.weight_decay)
+
+    rng = np.random.default_rng(train_seed)
+    perm = rng.permutation(n_train)
+    half = n_train // 2
+    shard_A, shard_B = perm[:half], perm[half:]
+    loader_A = _make_loader(base, shard_A, cfg, canonical_loaders, pool_idx=pool_idx)
+    loader_B = _make_loader(base, shard_B, cfg, canonical_loaders, pool_idx=pool_idx)
+
+    for _ in range(epochs):
+        model_A.train(); model_B.train()
+        it_A, it_B = iter(loader_A), iter(loader_B)
+        for _ in range(max(len(loader_A), len(loader_B))):
+            try:    ba = next(it_A)
+            except StopIteration: it_A = iter(loader_A); ba = next(it_A)
+            try:    bb = next(it_B)
+            except StopIteration: it_B = iter(loader_B); bb = next(it_B)
+            x_a, y_a = _move_x(ba["image"], device), ba["label"].to(device)
+            x_b, y_b = _move_x(bb["image"], device), bb["label"].to(device)
+            la_a, lb_a = model_A(x_a), model_B(x_a)
+            la_b, lb_b = model_A(x_b), model_B(x_b)
+            ce = F.cross_entropy(la_a, y_a) + F.cross_entropy(lb_b, y_b)
+            cons = 0.5 * (_sym_kl_loss(la_a, lb_a) + _sym_kl_loss(la_b, lb_b))
+            loss = ce + lam * cons
+            opt_A.zero_grad(); opt_B.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model_A.parameters(), 1.0)
+            torch.nn.utils.clip_grad_norm_(model_B.parameters(), 1.0)
+            opt_A.step(); opt_B.step()
+    return model_A, model_B
+
+
+def _train_distillation_anchor(cfg, canonical_loaders, device, train_seed, epochs,
+                               lam, pool_idx=None, n_train=None):
+    """Distillation-from-anchor~\\cite{Jiang 2022}: train a fresh student
+    with task loss + lambda * KL(student || frozen anchor).  We use an
+    ERM model trained at canonical_data_seed (no bootstrap) as the
+    anchor, mimicking the deployment-against-incumbent setting."""
+    base = canonical_loaders["train"].dataset
+    if n_train is None:
+        n_train = len(base)
+
+    # Anchor: ERM on a fresh bootstrap drawn at a fixed (train_seed-independent)
+    # seed, so every student sees the same incumbent.
+    set_seed(0)
+    anchor = _build_model(cfg, canonical_loaders, device)
+    anchor_loader = _make_loader(
+        base, _bootstrap_indices(n_train, 0), cfg, canonical_loaders,
+        pool_idx=pool_idx,
+    )
+    anchor_opt = torch.optim.AdamW(anchor.parameters(), lr=cfg.training.lr,
+                                   weight_decay=cfg.training.weight_decay)
+    for _ in range(epochs):
+        anchor.train()
+        for batch in anchor_loader:
+            x = _move_x(batch["image"], device)
+            y = batch["label"].to(device)
+            anchor_opt.zero_grad()
+            F.cross_entropy(anchor(x), y).backward()
+            torch.nn.utils.clip_grad_norm_(anchor.parameters(), 1.0)
+            anchor_opt.step()
+    anchor.eval()
+    for p in anchor.parameters():
+        p.requires_grad = False
+
+    # Student: trained on its own bootstrap; KL to frozen anchor on each batch.
+    set_seed(train_seed)
+    student = _build_model(cfg, canonical_loaders, device)
+    opt = torch.optim.AdamW(student.parameters(), lr=cfg.training.lr,
+                            weight_decay=cfg.training.weight_decay)
+    student_loader = _make_loader(
+        base, _bootstrap_indices(n_train, train_seed), cfg, canonical_loaders,
+        pool_idx=pool_idx,
+    )
+    for _ in range(epochs):
+        student.train()
+        for batch in student_loader:
+            x = _move_x(batch["image"], device)
+            y = batch["label"].to(device)
+            student_logits = student(x)
+            with torch.no_grad():
+                anchor_logits = anchor(x)
+            ce = F.cross_entropy(student_logits, y)
+            kl = _sym_kl_loss(student_logits, anchor_logits)
+            opt.zero_grad()
+            (ce + lam * kl).backward()
+            torch.nn.utils.clip_grad_norm_(student.parameters(), 1.0)
+            opt.step()
+    return student, anchor
+
+
+def _train_twin_indep_shared(cfg, canonical_loaders, device, train_seed, epochs,
+                             lam, pool_idx=None, n_train=None):
+    """Ablation: twin-indep but both networks see the SAME bootstrap.
+    Disagreement comes only from initialisation, so the consistency loss
+    penalises init-induced variance with no data axis to vary against."""
+    base = canonical_loaders["train"].dataset
+    if n_train is None:
+        n_train = len(base)
+    set_seed(train_seed)
+    model_A = _build_model(cfg, canonical_loaders, device)
+    set_seed(train_seed + 1)
+    model_B = _build_model(cfg, canonical_loaders, device)
+    opt_A = torch.optim.AdamW(model_A.parameters(), lr=cfg.training.lr,
+                              weight_decay=cfg.training.weight_decay)
+    opt_B = torch.optim.AdamW(model_B.parameters(), lr=cfg.training.lr,
+                              weight_decay=cfg.training.weight_decay)
+
+    boot = _bootstrap_indices(n_train, train_seed)
+    loader_A = _make_loader(base, boot, cfg, canonical_loaders, pool_idx=pool_idx)
+    loader_B = _make_loader(base, boot, cfg, canonical_loaders, pool_idx=pool_idx)
+
+    for _ in range(epochs):
+        model_A.train(); model_B.train()
+        it_A, it_B = iter(loader_A), iter(loader_B)
+        for _ in range(max(len(loader_A), len(loader_B))):
+            try:    ba = next(it_A)
+            except StopIteration: it_A = iter(loader_A); ba = next(it_A)
+            try:    bb = next(it_B)
+            except StopIteration: it_B = iter(loader_B); bb = next(it_B)
+            x_a, y_a = _move_x(ba["image"], device), ba["label"].to(device)
+            x_b, y_b = _move_x(bb["image"], device), bb["label"].to(device)
+            la_a, lb_a = model_A(x_a), model_B(x_a)
+            la_b, lb_b = model_A(x_b), model_B(x_b)
+            ce = F.cross_entropy(la_a, y_a) + F.cross_entropy(lb_b, y_b)
+            cons = 0.5 * (_sym_kl_loss(la_a, lb_a) + _sym_kl_loss(la_b, lb_b))
+            loss = ce + lam * cons
+            opt_A.zero_grad(); opt_B.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model_A.parameters(), 1.0)
+            torch.nn.utils.clip_grad_norm_(model_B.parameters(), 1.0)
+            opt_A.step(); opt_B.step()
+    return model_A, model_B
+
+
 def _train_twin_gradnorm(cfg, canonical_loaders, device, train_seed, epochs,
                          target_ratio=1.0, ema_alpha=0.9,
                          pool_idx=None, n_train=None):
@@ -402,6 +554,43 @@ def run(args):
                 canonical_data_seed=args.canonical_data_seed,
                 train_seed=train_seed, lam=args.lam, mode="twin_indep")
 
+        elif args.mode in ("codistillation", "twin_indep_shared"):
+            train_fn = (_train_codistillation if args.mode == "codistillation"
+                        else _train_twin_indep_shared)
+            mA, mB = train_fn(
+                cfg, canonical_loaders, device, train_seed, epochs, args.lam,
+                pool_idx=pool_idx, n_train=n_train)
+            id_pA, id_y, id_i = _predict(mA, canonical_loaders["id_test"], device)
+            id_pB, _, _      = _predict(mB, canonical_loaders["id_test"], device)
+            ood_pA, ood_y, ood_i = _predict(mA, canonical_loaders["ood_test"], device)
+            ood_pB, _, _        = _predict(mB, canonical_loaders["ood_test"], device)
+            id_avg, ood_avg = 0.5 * (id_pA + id_pB), 0.5 * (ood_pA + ood_pB)
+            print(f"  id_acc={(id_avg.argmax(1)==id_y).mean():.4f}  "
+                  f"ood_acc={(ood_avg.argmax(1)==ood_y).mean():.4f}  λ={args.lam}")
+            np.savez_compressed(
+                out_root / f"{args.mode}_train{train_seed}_lam{args.lam}.npz",
+                id_probs_A=id_pA, id_probs_B=id_pB, id_probs_avg=id_avg,
+                id_labels=id_y, id_indices=id_i,
+                ood_probs_A=ood_pA, ood_probs_B=ood_pB, ood_probs_avg=ood_avg,
+                ood_labels=ood_y, ood_indices=ood_i,
+                canonical_data_seed=args.canonical_data_seed,
+                train_seed=train_seed, lam=args.lam, mode=args.mode)
+
+        elif args.mode == "distillation_anchor":
+            student, anchor = _train_distillation_anchor(
+                cfg, canonical_loaders, device, train_seed, epochs, args.lam,
+                pool_idx=pool_idx, n_train=n_train)
+            id_p, id_y, id_i = _predict(student, canonical_loaders["id_test"], device)
+            ood_p, ood_y, ood_i = _predict(student, canonical_loaders["ood_test"], device)
+            print(f"  id_acc={(id_p.argmax(1)==id_y).mean():.4f}  "
+                  f"ood_acc={(ood_p.argmax(1)==ood_y).mean():.4f}  λ={args.lam}")
+            np.savez_compressed(
+                out_root / f"distillation_anchor_train{train_seed}_lam{args.lam}.npz",
+                id_probs=id_p, id_labels=id_y, id_indices=id_i,
+                ood_probs=ood_p, ood_labels=ood_y, ood_indices=ood_i,
+                canonical_data_seed=args.canonical_data_seed,
+                train_seed=train_seed, lam=args.lam, mode="distillation_anchor")
+
         elif args.mode == "twin_gradnorm":
             mA, mB = _train_twin_gradnorm(
                 cfg, canonical_loaders, device, train_seed, epochs,
@@ -439,7 +628,8 @@ if __name__ == "__main__":
                     help="Comma-separated list of train_seeds (one bootstrap per seed).")
     ap.add_argument("--mode", required=True,
                     choices=["erm", "deep_ensemble", "bagging", "twin_indep",
-                             "twin_gradnorm"])
+                             "twin_gradnorm", "codistillation",
+                             "distillation_anchor", "twin_indep_shared"])
     ap.add_argument("--K", type=int, default=5,
                     help="Ensemble size (deep_ensemble/bagging only).")
     ap.add_argument("--lam", type=float, default=0.0,
