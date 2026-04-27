@@ -80,43 +80,45 @@ def main() -> None:
     lama_aesthetics.get_style("main")
     plt.rcParams["axes.unicode_minus"] = False
 
-    fig_w = lama_aesthetics.ONE_COL_WIDTH
-    fig_h = fig_w * 0.75
+    # Square-ish, taking half a two-column width so it sits naturally next to
+    # supporting prose; large enough that 8 lines + labels are legible.
+    fig_w = lama_aesthetics.TWO_COL_WIDTH * 0.55
+    fig_h = fig_w * 0.85
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
 
     n_bins = 10
     x = np.arange(1, n_bins + 1)
 
-    # All non-dev datasets in muted grey; the dev dataset (BACE) highlighted.
+    # Non-dev datasets in muted grey; dev dataset (BACE) highlighted.
     other_color = "0.55"
-    for ds, decile_rates in rates.items():
-        if ds == DEV_DATASET:
-            continue
-        ax.plot(x, decile_rates * 100, color=other_color, linewidth=0.9,
-                marker="o", markersize=2.5, alpha=0.8, zorder=2)
-    # Annotate the right end of every line with its dataset name.
-    for ds, decile_rates in rates.items():
-        if ds == DEV_DATASET:
-            continue
-        ax.text(n_bins + 0.15, decile_rates[-1] * 100,
-                display(ds), fontsize=6.5, va="center",
-                color=other_color)
-
+    held_out = [ds for ds in rates if ds != DEV_DATASET]
+    for ds in held_out:
+        ax.plot(x, rates[ds] * 100, color=other_color, linewidth=0.9,
+                marker="o", markersize=2.8, alpha=0.85, zorder=2)
     if DEV_DATASET in rates:
-        ax.plot(x, rates[DEV_DATASET] * 100, color="#d62728", linewidth=1.6,
-                marker="o", markersize=4.5, zorder=3,
-                label=display(DEV_DATASET))
-        ax.text(n_bins + 0.15, rates[DEV_DATASET][-1] * 100,
-                display(DEV_DATASET), fontsize=7.5, va="center",
-                color="#d62728", fontweight="bold")
+        ax.plot(x, rates[DEV_DATASET] * 100, color="#d62728", linewidth=1.8,
+                marker="o", markersize=5.0, zorder=3,
+                label=f"{display(DEV_DATASET)} (dev)")
 
     ax.set_xticks(x)
     ax.set_xticklabels([str(k) for k in x], fontsize=8)
     ax.set_xlabel("Fragility decile (1 = least fragile, 10 = most)")
     ax.set_ylabel("Argmax-flip rate per pair (\\%)")
-    ax.set_xlim(0.5, n_bins + 1.6)
-    ax.set_ylim(bottom=-1)
+    ax.set_xlim(0.5, n_bins + 0.5)
+    ax.set_ylim(0, 50)
+    ax.set_yticks([0, 10, 20, 30, 40, 50])
     ax.grid(axis="y", linestyle="-", linewidth=0.4, alpha=0.4, zorder=0)
+
+    # Legend lists the held-out datasets compactly; dev gets its own entry.
+    handles = [
+        plt.Line2D([0], [0], color="#d62728", linewidth=1.8, marker="o",
+                   markersize=5.0, label=f"{display(DEV_DATASET)} (dev)"),
+        plt.Line2D([0], [0], color=other_color, linewidth=0.9, marker="o",
+                   markersize=2.8,
+                   label="held-out: " + ", ".join(display(d) for d in held_out)),
+    ]
+    ax.legend(handles=handles, loc="upper left", frameon=False,
+              fontsize=7.5, handletextpad=0.5)
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.out, bbox_inches="tight")

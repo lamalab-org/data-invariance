@@ -64,24 +64,9 @@ recipe: compute fragility, route the top decile for re-review.
 \subsection{Development analysis (BACE)}
 \label{sec:dev}
 
-Figure~\ref{fig:pareto} shows the development Pareto curve on BACE.
-A plateau of twin-indep configurations $\lambda \in \{1, 3, 10, 30\}$
-all preserve accuracy while reducing churn modestly; a knee at
-$\lambda \approx 100$ drops churn substantially; $\lambda{=}300$
-extends along the same axis at a $1$pp accuracy cost.  The
-pre-registered rule picks $\lambda{=}300$, the largest grid point
-within the accuracy tolerance, and we apply this value unchanged on
-every held-out dataset.
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=0.6\linewidth]{figures/fig2_pareto.pdf}
-  \caption{Development Pareto curve on BACE.  Twin-indep at
-    $\lambda \in \{1, 3, 10, 30, 100, 300\}$ traces an
-    accuracy-vs.-churn curve; the pre-registered selection rule
-    (largest $\lambda$ with id-acc $\ge$ ERM-id-acc $-0.02$) picks
-    $\lambda{=}300$ (filled red).  ERM (open square) and bagging
-    $K{=}5$ (blue) are reference points.  Error bars are bootstrap
-    $95\%$ CIs.}
-  \label{fig:pareto}
-\end{figure}
+The single hyperparameter, twin-indep $\lambda$, is selected on BACE
+by sweeping $\lambda \in \{1, 3, 10, 30, 100, 300\}$ and picking the
+largest grid point with BACE id-accuracy within $0.02$ of ERM
+id-accuracy.  This rule yields $\lambda{=}300$, which we apply
+unchanged on every held-out dataset.  Appendix~\ref{app:pareto} gives
+the full Pareto curve.

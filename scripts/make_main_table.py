@@ -36,6 +36,25 @@ from paper_constants import (
     DEV_DATASET, FROZEN_LAM, HEADLINE_DATASETS, N_TRAIN, display,
 )
 
+_CITE = {
+    "bace":            "TODO_wu2018_moleculenet",
+    "bbbp":            "TODO_wu2018_moleculenet",
+    "tadf":            "TODO_tadf_dataset",
+    "mof_thermal":     "TODO_mof_thermal_dataset",
+    "mof_solvent":     "TODO_mof_solvent_dataset",
+    "perovskite":      "TODO_perovskite_dataset",
+    "battery":         "TODO_battery_dataset",
+    "dili":            "TODO_huang2021_tdc",
+    "pgp_broccatelli": "TODO_huang2021_tdc",
+    "bbb_martins":     "TODO_huang2021_tdc",
+    "ames":            "TODO_huang2021_tdc",
+}
+
+
+def _cited(ds: str) -> str:
+    cite = _CITE.get(ds)
+    return f"{display(ds)}~\\citep{{{cite}}}" if cite else display(ds)
+
 
 # ---------------------------------------------------------------------------
 # Per-dataset analysis
@@ -132,7 +151,7 @@ def write_latex_table(rows, path, frozen_lam):
         for m in methods:
             r = by_ds[ds].get(m)
             cells.append(_fmt_delta_pp_from_row(r) if r else "---")
-        lines.append(f"    {display(ds)} & {N_TRAIN.get(ds, '---')} & "
+        lines.append(f"    {_cited(ds)} & {N_TRAIN.get(ds, '---')} & "
                      + " & ".join(cells) + r" \\")
     lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
     Path(path).parent.mkdir(parents=True, exist_ok=True)

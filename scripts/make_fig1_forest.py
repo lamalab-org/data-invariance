@@ -71,18 +71,28 @@ def main():
 
     n_methods = len(METHOD_ORDER)
     # Visual hierarchy: twin-indep (last) gets the strongest visual weight.
-    # Two-baseline pair (deep ens, bagging) uses cool tones; twin-indep is the
-    # warm contrast.  K=2 vs K=5 use different markers, not just shades.
+    # Deep ensemble is intentionally pushed to a paler grey so the eye reads
+    # the "ensembles miss the data axis" contrast immediately.
     method_styles = {
-        "Deep Ens. K=5": dict(marker="o", mfc="white",     mec="0.50", ms=4.5,  zorder=2),
-        "Bagging K=2":   dict(marker="s", mfc="white",     mec="#1f77b4", ms=4.5,  zorder=3),
-        "Bagging K=5":   dict(marker="s", mfc="#1f77b4",   mec="#0d3a5c", ms=5.5,  zorder=4),
-        "Twin-indep":    dict(marker="D", mfc="#d62728",   mec="#7a1313", ms=6.5,  zorder=5),
+        "Deep Ens. K=5": dict(marker="o", mfc="white",   mec="0.65", ms=4.0,  zorder=2),
+        "Bagging K=2":   dict(marker="s", mfc="white",   mec="#1f77b4", ms=5.5,  zorder=3),
+        "Bagging K=5":   dict(marker="s", mfc="#1f77b4", mec="#0d3a5c", ms=6.5,  zorder=4),
+        "Twin-indep":    dict(marker="D", mfc="#d62728", mec="#7a1313", ms=8.5,  zorder=5),
     }
 
     yticks, yticklabels = [], []
     row_spacing = 1.0
-    intra_method_offset = 0.18
+    intra_method_offset = 0.20
+
+    # Background bands: light green = improvement (Δ < 0); light grey = parity
+    # or worse.  Computed first so they sit behind the data.
+    ax.axvspan(-100, 0, color="#e6f0e6", alpha=0.55, zorder=0)
+    ax.axvspan(0, 100, color="#f3f3f3", alpha=0.6, zorder=0)
+
+    # Alternating row shading helps the eye keep rows separate at this density.
+    for i in range(len(HEADLINE_DATASETS)):
+        if i % 2 == 1:
+            ax.axhspan(i - 0.5, i + 0.5, color="0.97", zorder=0)
 
     for i, ds in enumerate(reversed(HEADLINE_DATASETS)):  # smallest N at top
         y_centre = i * row_spacing
@@ -96,7 +106,8 @@ def main():
             ax.errorbar(
                 mean * 100, y,
                 xerr=[[(mean - lo) * 100], [(hi - mean) * 100]],
-                fmt="none", elinewidth=1.0,
+                fmt="none",
+                elinewidth=1.4 if method == "Twin-indep" else 0.9,
                 ecolor=method_styles[method].get("mec", "0.55"),
                 zorder=method_styles[method]["zorder"] - 0.5,
             )
@@ -104,12 +115,27 @@ def main():
         yticks.append(y_centre)
         yticklabels.append(display(ds))
 
-    ax.axvline(0, color="0.3", linewidth=0.8, zorder=1)
+    # Per-method across-dataset mean as a thin coloured rule, to give the eye
+    # a vertical reference for each method's typical reduction.
+    for method in METHOD_ORDER:
+        per_ds_means = [deltas[(ds, method)][0] * 100
+                        for ds in HEADLINE_DATASETS
+                        if deltas[(ds, method)] is not None]
+        if not per_ds_means:
+            continue
+        col = method_styles[method].get("mec", "0.55")
+        ax.axvline(np.mean(per_ds_means), color=col,
+                   linewidth=1.2 if method == "Twin-indep" else 0.7,
+                   linestyle="--" if method != "Twin-indep" else "-",
+                   alpha=0.55 if method != "Twin-indep" else 0.85,
+                   zorder=1)
+
+    ax.axvline(0, color="0.25", linewidth=1.0, zorder=1)
     ax.set_yticks(yticks)
     ax.set_yticklabels(yticklabels)
-    ax.set_xlabel(r"Paired $\Delta$ id-churn vs. ERM (percentage points)")
+    ax.set_xlabel(r"Paired $\Delta$ id-churn vs.\ ERM (pp; negative is better)")
     ax.set_ylim(-0.6, len(HEADLINE_DATASETS) - 0.4)
-    ax.grid(axis="x", linestyle="-", linewidth=0.4, alpha=0.4, zorder=0)
+    ax.grid(axis="x", linestyle="-", linewidth=0.4, alpha=0.35, zorder=0)
 
     # Legend below the plot — never overlaps the data.
     handles = []

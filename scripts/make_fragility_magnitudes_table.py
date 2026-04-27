@@ -17,6 +17,31 @@ from _analysis_lib import bootstrap_ci, load_runs, pairwise_metrics, per_run_acc
 from paper_constants import DEV_DATASET, HEADLINE_DATASETS, N_TRAIN, display
 
 
+# Per-dataset citation key (TODO_ until references.bib is wired).
+_CITE = {
+    "bace":            "TODO_wu2018_moleculenet",
+    "bbbp":            "TODO_wu2018_moleculenet",
+    "tadf":            "TODO_tadf_dataset",
+    "mof_thermal":     "TODO_mof_thermal_dataset",
+    "mof_solvent":     "TODO_mof_solvent_dataset",
+    "perovskite":      "TODO_perovskite_dataset",
+    "battery":         "TODO_battery_dataset",
+    "dili":            "TODO_huang2021_tdc",
+    "pgp_broccatelli": "TODO_huang2021_tdc",
+    "bbb_martins":     "TODO_huang2021_tdc",
+    "ames":            "TODO_huang2021_tdc",
+    "herg":            "TODO_huang2021_tdc",
+    "hia_hou":         "TODO_huang2021_tdc",
+    "skin_reaction":   "TODO_huang2021_tdc",
+}
+
+
+def cited(ds: str) -> str:
+    """Return display name with a \\citep{} attached."""
+    cite = _CITE.get(ds)
+    return f"{display(ds)}~\\citep{{{cite}}}" if cite else display(ds)
+
+
 def _row(dataset: str, root: Path) -> dict | None:
     runs = load_runs(root / dataset, "erm_train*.npz")
     if len(runs) < 2:
@@ -71,7 +96,7 @@ def main() -> None:
     ]
     for r in rows:
         lines.append(
-            f"    {display(r['dataset'])} & {r['n_train']} & "
+            f"    {cited(r['dataset'])} & {r['n_train']} & "
             f"{r['id_acc_mean']:.3f} & {_fmt_pct_ci(r['churn'])} & "
             f"{_fmt_ci(r['sym_kl'])} \\\\"
         )
