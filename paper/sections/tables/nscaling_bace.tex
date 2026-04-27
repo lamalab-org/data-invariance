@@ -1,0 +1,17 @@
+\begin{table}[h]
+  \centering
+  \caption{Within-dataset $N$-scaling on BACE under the cross-sample bootstrap protocol.  Each row is mean cross-pair sym-KL and argmax churn at training-pool size $M$, computed over $\binom{10}{2}=45$ seed pairs with paired-bootstrap $95\%$ CIs ($10{,}000$ resamples).  The within-dataset log-log slope of sym-KL vs $M$ is $-0.22$, shallower than the theoretical $\beta = O(1/N)$ rate ($-1$); see Appendix~\ref{app:theory} for the gaps that explain why the bound does not transfer quantitatively.}
+  \label{tab:nscaling}
+  \small
+  \begin{tabular}{rll}
+    \toprule
+    $M$ & sym-KL (mean [95\% CI]) & Argmax churn (\%, [95\% CI]) \\
+    \midrule
+    200 & 0.886 [0.839, 0.934] & 18.2 [17.5, 19.0] \\
+    400 & 0.796 [0.756, 0.838] & 18.7 [18.1, 19.2] \\
+    600 & 0.570 [0.549, 0.592] & 15.0 [14.5, 15.4] \\
+    800 & 0.549 [0.511, 0.588] & 14.9 [14.2, 15.6] \\
+    968 & 0.753 [0.712, 0.796] & 16.1 [15.6, 16.7] \\
+    \bottomrule
+  \end{tabular}
+\end{table}

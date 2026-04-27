@@ -81,19 +81,27 @@ chemistry-internal effect (twin-indep over-regularises ChemBERTa as it
 does ResNet-50 on Waterbirds) or whether the Waterbirds result is
 modality-specific.
 
-\section{Within-dataset $N$-scaling}
+\section{Within-dataset $N$-scaling on BACE}
 \label{app:nscaling}
 
-A controlled within-dataset $N$-scaling under the bootstrap protocol
-of Section~\ref{sec:preliminaries} would isolate $N$ from cross-dataset
-heterogeneity, complementing the cross-dataset magnitudes of
-Table~\ref{tab:fragility-magnitudes}.  We leave this experiment to
-follow-up work: a clean comparison requires re-running ERM at multiple
-subsample sizes $M$ on the same canonical training pool, with enough
-seeds at each $M$ to compute paired-bootstrap CIs of the
-fragility-vs-$M$ slope.  Section~\ref{app:theory} explains why the
-theoretical $\beta = O(1/N)$ is unlikely to fit the empirical slope
-exactly.
+We isolate $N$ from cross-dataset heterogeneity by subsampling the
+BACE canonical training pool to $M \in \{200, 400, 600, 800, 968\}$
+and re-running ERM at each $M$ for ten train-seeds.  The pool at each
+$M$ is the deterministic prefix of a fixed canonical-seed shuffle, so
+all ten train-seeds at the same $M$ draw their bootstraps from the
+same underlying pool.  Table~\ref{tab:nscaling} reports cross-pair
+sym-KL and argmax churn at each $M$ with paired-bootstrap CIs.
+
+\input{sections/tables/nscaling_bace.tex}
+
+The within-dataset log-log slope is $-0.22$, well below the
+theoretical $-1$ predicted by uniform algorithmic stability.  The gap
+is consistent with Appendix~\ref{app:theory}: the bootstrap protocol
+perturbs many examples simultaneously rather than the single example
+that defines $\beta$, and the irreducible floor at finite $N$ (visible
+as the plateau between $M=600$ and $M=800$) is not captured by an
+$N$-rate that goes to zero.  We therefore do not extrapolate the slope
+beyond the measured range.
 
 \section{Design choices we tried and rejected}
 \label{app:failures}
@@ -148,6 +156,49 @@ movement in cross-sample churn (paired CIs vs.\ ERM include zero at
 every value tested).  The effective per-step regularisation under
 AdamW does not constrain the data-resampling sensitivity that drives
 churn.
+
+\section{Predictive entropy as a flip-predictor baseline}
+\label{app:entropy}
+
+A natural deployment-cheaper alternative to per-example fragility is
+the predictive entropy of a single trained model: the practitioner
+already has access to a softmax distribution at deployment time and
+need not train a second model.  We test whether the per-example
+entropy ranks test predictions for retraining-flip risk as well as
+fragility does.
+
+\input{sections/tables/entropy_vs_fragility.tex}
+
+Across the eight headline datasets, fragility captures more of the
+total flip-mass in its top decile and has a larger area under the
+precision-vs-coverage curve than predictive entropy.  The gap is
+consistent and ranges from $1$pp to $13$pp on top-decile recall.  The
+practitioner cost of computing fragility is one additional ERM
+training run, which the speedup over training a full
+$K$-bootstrap-bagging ensemble may amortise; entropy is free at
+deployment time but is a meaningfully weaker signal.
+
+\section{Aggregate statistical test (Friedman + Nemenyi)}
+\label{app:friedman}
+
+The pairwise CIs reported in Table~\ref{tab:main} test each
+(method, dataset) cell separately.  As an aggregate cross-dataset
+test, we apply the Friedman non-parametric rank test on mean
+cross-sample id-churn over the eight datasets and five methods (ERM,
+Deep Ensemble $K{=}5$, Bagging $K{=}2$, Bagging $K{=}5$, Twin-indep
+$\lambda{=}300$).  The test rejects the null of equal ranks at
+$\chi^2 = 28.10$, $p = 1.19 \times 10^{-5}$.  Mean ranks (lower is
+better, $1$ = best on cross-sample id-churn) are
+twin-indep $1.50$, bagging $K{=}5$ $1.62$, bagging $K{=}2$ $2.88$,
+deep-ensemble $K{=}5$ $4.25$, ERM $4.75$.  The Nemenyi critical
+difference at $\alpha{=}0.05$ is $\textit{CD}{=}2.16$; rank gaps
+exceeding $\textit{CD}$ identify pairs that differ significantly.
+Twin-indep is significantly better than ERM and deep-ensemble; it is
+\emph{not} significantly different in rank from bagging $K{=}5$
+(rank gap $0.12$).  This is a useful honest finding: at the level of
+mean-id-churn ranks, twin-indep matches bagging $K{=}5$ at roughly
+$2{\times}$ ERM compute (Appendix~\ref{app:compute}) versus the
+$5{\times}$ that bagging $K{=}5$ requires.
 
 \section{Compute footprint}
 \label{app:compute}

@@ -37,11 +37,22 @@ empirical claim we verify across heterogeneous tasks.
 
 \input{sections/tables/fragility_magnitudes.tex}
 
+Within a single task (BACE), subsampling the training pool to $M \in
+\{200, 400, 600, 800, 968\}$ traces a within-dataset $N$-scaling curve
+(Appendix~\ref{app:nscaling}, Table~\ref{tab:nscaling}): fragility
+decreases over $M=200 \to 800$ with a log-log slope of $-0.22$, then
+levels off at an irreducible floor.  This is shallower than the
+theoretical $\beta = O(1/N)$ rate ($-1$); Appendix~\ref{app:theory}
+enumerates the gaps that prevent the bound from transferring
+quantitatively.
+
 \subsection{Fragility predicts which predictions will flip}
 \label{sec:churn-decile}
 
 Per-example fragility identifies the predictions that retraining will
-flip.  Figure~\ref{fig:decile} ranks every test example by its mean
+flip, and does so better than a single-model softmax-confidence
+baseline (Appendix~\ref{app:entropy}).  Figure~\ref{fig:decile} ranks
+every test example by its mean
 cross-bootstrap fragility across all ERM seed pairs, then bins into
 deciles and reports the average argmax-flip rate within each decile.
 On every dataset we tested, the bottom $50\%$-fragility examples flip

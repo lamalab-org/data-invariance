@@ -1,4 +1,4 @@
-"""Paper Figure 3: top-decile fragility predicts which test predictions churn.
+"""Paper Figure (rendered as Fig 2): top-decile fragility predicts churn.
 
 For every test example, compute (i) average cross-bootstrap fragility
 (mean sym-KL across all pairs of ERM bootstraps that disagree on the
@@ -13,13 +13,13 @@ at a high rate; the bottom 10% rarely flip.
 Practitioner take: a single additional bootstrap suffices to flag the
 fragile decile for re-review, without a full retraining cascade.
 
-Visual design
--------------
-Grouped bar chart: one cluster per fragility decile, one bar per
-dataset within the cluster (BACE highlighted).  This is the original
-form; we keep it because the per-decile comparison across datasets is
-what the figure is for.  Sized larger than the previous draft so the
-bars are visible at print size.
+Visual design (line plot)
+-------------------------
+Eight datasets as eight lines over the 10 deciles.  BACE (the dev
+dataset) is highlighted in red; the seven held-out datasets are muted
+grey lines.  The "top decile shoots up" pattern is then a single
+visual gesture across the curves.  Legend below the panel so it never
+overlaps the data; figure is sized for a NeurIPS column.
 """
 from __future__ import annotations
 
@@ -36,7 +36,6 @@ from paper_constants import DEV_DATASET, HEADLINE_DATASETS, display
 
 
 def _per_example_fragility_and_flips(ds_dir: Path):
-    """Return (fragility[N_test], flip_rate[N_test]) over all ERM seed pairs."""
     runs = load_runs(ds_dir, "erm_train*.npz")
     if len(runs) < 2:
         return None
@@ -53,7 +52,6 @@ def _per_example_fragility_and_flips(ds_dir: Path):
 
 
 def _decile_flip_rates(fragility, flips, n_bins=10):
-    """Bin examples by fragility decile; return mean flip rate per bin."""
     order = np.argsort(fragility)
     n = len(fragility)
     edges = np.linspace(0, n, n_bins + 1, dtype=int)
@@ -80,47 +78,55 @@ def main() -> None:
     lama_aesthetics.get_style("main")
     plt.rcParams["axes.unicode_minus"] = False
 
-    # Wider, taller than the previous draft so each per-dataset bar within a
-    # decile cluster is unambiguously visible.
-    fig_w = lama_aesthetics.TWO_COL_WIDTH
-    fig_h = fig_w * 0.32
+    # Two-column-wide × short banner layout: legend below the panel never
+    # overlaps the data and never collides with surrounding LaTeX text.
+    fig_w = lama_aesthetics.TWO_COL_WIDTH * 0.55
+    fig_h = fig_w * 0.62
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
 
     n_bins = 10
-    n_ds = len(rates)
-    bar_w = 0.82 / n_ds
-    bin_centres = np.arange(n_bins)
+    x = np.arange(1, n_bins + 1)
+    held_out = [ds for ds in rates if ds != DEV_DATASET]
 
-    cmap = plt.cm.viridis(np.linspace(0.15, 0.85, n_ds))
-    # Ensure BACE (dev) gets a distinctive colour for emphasis.
-    ds_list = list(rates.keys())
-    bace_idx = ds_list.index(DEV_DATASET) if DEV_DATASET in rates else None
-    for di, ds in enumerate(ds_list):
-        offset = (di - (n_ds - 1) / 2) * bar_w
-        col = "#d62728" if ds == DEV_DATASET else cmap[di]
-        ax.bar(bin_centres + offset, rates[ds] * 100, bar_w,
-               color=col, label=display(ds), edgecolor="none",
-               zorder=3 if ds == DEV_DATASET else 2)
+    grey = "0.55"
+    for ds in held_out:
+        ax.plot(x, rates[ds] * 100, color=grey, linewidth=1.0,
+                marker="o", markersize=3.0, alpha=0.85, zorder=2)
+    if DEV_DATASET in rates:
+        ax.plot(x, rates[DEV_DATASET] * 100, color="#d62728", linewidth=1.8,
+                marker="o", markersize=5.0, zorder=3,
+                label=f"{display(DEV_DATASET)} (dev)")
 
-    ax.set_xticks(bin_centres)
-    ax.set_xticklabels([str(k + 1) for k in range(n_bins)])
+    ax.set_xticks(x)
+    ax.set_xticklabels([str(k) for k in x], fontsize=8)
     ax.set_xlabel("Fragility decile (1 = least fragile, 10 = most)")
     ax.set_ylabel("Argmax-flip rate per pair (%)")
+    ax.set_xlim(0.5, n_bins + 0.5)
     ax.set_ylim(0, 50)
     ax.set_yticks([0, 10, 20, 30, 40, 50])
     ax.grid(axis="y", linestyle="-", linewidth=0.4, alpha=0.4, zorder=0)
-    ax.legend(ncol=min(4, n_ds), frameon=False, fontsize=7,
-              loc="upper center", bbox_to_anchor=(0.5, -0.22),
-              handletextpad=0.4, columnspacing=1.0)
+
+    handles = [
+        plt.Line2D([0], [0], color="#d62728", linewidth=1.8, marker="o",
+                   markersize=5.0, label=f"{display(DEV_DATASET)} (dev)"),
+        plt.Line2D([0], [0], color=grey, linewidth=1.0, marker="o",
+                   markersize=3.0,
+                   label="held-out: " + ", ".join(display(d) for d in held_out)),
+    ]
+    ax.legend(handles=handles, loc="upper center",
+              bbox_to_anchor=(0.5, -0.22), ncol=1,
+              frameon=False, fontsize=7.5, handletextpad=0.5)
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.out, bbox_inches="tight")
     print(f"Wrote {args.out}")
-    print(f"\nTop-decile / bottom-decile flip rates (%):")
+    print()
+    print(f"Top-decile / bottom-decile flip rates (%):")
     print(f"{'dataset':16s}  {'bottom (1)':>12s}  {'top (10)':>10s}  {'ratio':>8s}")
     for ds, dr in rates.items():
         ratio = dr[-1] / dr[0] if dr[0] > 0 else float("inf")
-        print(f"{ds:16s}  {dr[0]*100:>12.2f}  {dr[-1]*100:>10.2f}  {ratio:>8.1f}x")
+        print(f"{ds:16s}  {dr[0]*100:>12.2f}  {dr[-1]*100:>10.2f}  "
+              f"{ratio:>8.1f}x")
 
 
 if __name__ == "__main__":
