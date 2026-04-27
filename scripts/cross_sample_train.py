@@ -1,0 +1,357 @@
+"""Train models under the cross-sample fragility protocol.
+
+Cross-sample protocol
+---------------------
+A canonical dataset is constructed once at ``--canonical_data_seed`` (default
+99), so the test set is byte-identical across every training run. For each
+``--train_seed`` we draw a different *bootstrap* of the canonical training
+data (size N with replacement) — this simulates "what would have happened
+if I had drawn a different sample of size N from the same population."
+
+We measure cross-sample fragility as the per-example argmax disagreement
+between the predictions of two models trained at different ``train_seed``s
+on the *same* canonical test set.
+
+Modes
+-----
+``erm``           Single model trained on one bootstrap. Baseline.
+``deep_ensemble`` K models on the *same* bootstrap, different inits.
+                  Isolates parameter variance (no data variance).
+``bagging``       K models on K *independent* bootstraps. Parameter +
+                  data variance, no consistency loss.
+``twin_indep``    K=2 models on independent bootstraps with a sym-KL
+                  consistency penalty on the union of both batches.
+                  This is the paper's main method.
+
+All modes save softmax predictions on canonical id_test and ood_test.
+"""
+import argparse
+import sys
+from pathlib import Path
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, Subset
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from scripts.run_experiment import HPARAMS, _build_model, build_cfg  # noqa: E402
+from train import make_dataloaders  # noqa: E402
+from utils import set_seed  # noqa: E402
+
+
+# ---------------------------------------------------------------------------
+# Small helpers
+# ---------------------------------------------------------------------------
+
+def _move_x(batch_image, device):
+    """Move a batch ``"image"`` field to ``device``. Handles dict-batches."""
+    if isinstance(batch_image, dict):
+        return {k: v.to(device) for k, v in batch_image.items()}
+    return batch_image.to(device)
+
+
+def _predict(model, loader, device):
+    """Forward `model` over `loader`, return (probs, labels, indices) np arrays."""
+    model.eval()
+    probs, labels, idx = [], [], []
+    with torch.no_grad():
+        for batch in loader:
+            x = _move_x(batch["image"], device)
+            probs.append(F.softmax(model(x), dim=1).cpu().numpy())
+            labels.append(batch["label"].numpy())
+            idx.append(batch["index"].numpy())
+    return np.concatenate(probs), np.concatenate(labels), np.concatenate(idx)
+
+
+def _bootstrap_indices(n_train, seed, size=None):
+    """`size` (or `n_train` if None) samples with replacement from {0,..,n_train-1}.
+
+    Note: at the same `seed` value, different modes use slightly different
+    seed conventions:
+        ERM, twin_indep:  seed = train_seed                  (one or two draws)
+        bagging, deep_ensemble: seed = train_seed * 100 + k  (one draw per k)
+    Cross-sample metrics in this paper compare runs *across train_seeds*;
+    method comparisons within a single train_seed are not exact matched
+    pairs because of this convention.  See `paper/sections/scope.tex`.
+
+    `size` lets the caller shrink the bootstrap to a subsample of the
+    canonical training set, used by within-dataset N-scaling experiments.
+    """
+    if size is None:
+        size = n_train
+    return np.random.default_rng(seed).integers(0, n_train, size=size)
+
+
+def _make_loader(base_dataset, indices, cfg, canonical_loaders, pool_idx=None):
+    """DataLoader over ``Subset(base_dataset, indices)`` with canonical kwargs.
+
+    If `pool_idx` is given, `indices` is interpreted as relative to the pool
+    and is mapped through `pool_idx` before subsetting `base_dataset`.
+    """
+    indices = np.asarray(indices)
+    if pool_idx is not None:
+        indices = pool_idx[indices]
+    return DataLoader(
+        Subset(base_dataset, indices.tolist()),
+        batch_size=cfg.training.batch_size, shuffle=True,
+        num_workers=canonical_loaders["train"].num_workers,
+        pin_memory=canonical_loaders["train"].pin_memory)
+
+
+# ---------------------------------------------------------------------------
+# Training procedures (one per mode)
+# ---------------------------------------------------------------------------
+
+def _train_one_model(cfg, train_loader, canonical_loaders, device,
+                     model_seed, epochs):
+    """Train a single model with cross-entropy on `train_loader`. Returns model."""
+    set_seed(model_seed)
+    model = _build_model(cfg, canonical_loaders, device)
+    opt = torch.optim.AdamW(model.parameters(),
+                            lr=cfg.training.lr,
+                            weight_decay=cfg.training.weight_decay)
+    for _ in range(epochs):
+        model.train()
+        for batch in train_loader:
+            x = _move_x(batch["image"], device)
+            y = batch["label"].to(device)
+            opt.zero_grad()
+            F.cross_entropy(model(x), y).backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            opt.step()
+    return model
+
+
+def _train_ensemble(cfg, canonical_loaders, device, train_seed, epochs, K,
+                    independent_bootstraps, pool_idx=None, n_train=None):
+    """K-model ensemble.
+
+    independent_bootstraps=False  → 'deep ensemble': all K models share one
+                                    bootstrap; only init seeds differ.
+    independent_bootstraps=True   → 'bagging': each model gets its own
+                                    independent bootstrap.
+
+    `pool_idx` and `n_train` (effective pool size) restrict the bootstrap
+    pool when subsampling for within-dataset N-scaling.
+    """
+    base = canonical_loaders["train"].dataset
+    if n_train is None:
+        n_train = len(base)
+    shared_loader = None
+    if not independent_bootstraps:
+        shared_loader = _make_loader(
+            base, _bootstrap_indices(n_train, train_seed),
+            cfg, canonical_loaders, pool_idx=pool_idx)
+
+    models = []
+    for k in range(K):
+        if independent_bootstraps:
+            loader = _make_loader(
+                base, _bootstrap_indices(n_train, train_seed * 100 + k),
+                cfg, canonical_loaders, pool_idx=pool_idx)
+        else:
+            loader = shared_loader
+        models.append(_train_one_model(
+            cfg, loader, canonical_loaders, device,
+            model_seed=train_seed * 100 + k, epochs=epochs))
+    return models
+
+
+def _sym_kl_loss(logits_a, logits_b, eps=1e-12):
+    """Symmetric KL between two batches of softmax distributions."""
+    p_a = F.softmax(logits_a, dim=1)
+    p_b = F.softmax(logits_b, dim=1)
+    log_p_a = torch.log(p_a + eps)
+    log_p_b = torch.log(p_b + eps)
+    return 0.5 * ((p_a * (log_p_a - log_p_b)).sum(-1)
+                  + (p_b * (log_p_b - log_p_a)).sum(-1)).mean()
+
+
+def _train_twin_indep(cfg, canonical_loaders, device, train_seed, epochs, lam,
+                      pool_idx=None, n_train=None):
+    """Two-head twin where each head sees its OWN independent bootstrap.
+
+    Per step:
+      - Pull one batch from each head's loader.
+      - Both heads forward both batches (4 forward passes).
+      - CE: each head on its own batch only.
+      - Consistency: sym-KL between heads, evaluated on the union of batches.
+      - Joint loss = CE + lam * consistency, single backward through both
+        head's parameters.
+    """
+    base = canonical_loaders["train"].dataset
+    if n_train is None:
+        n_train = len(base)
+
+    set_seed(train_seed)
+    model_A = _build_model(cfg, canonical_loaders, device)
+    set_seed(train_seed + 1)
+    model_B = _build_model(cfg, canonical_loaders, device)
+    opt_A = torch.optim.AdamW(model_A.parameters(), lr=cfg.training.lr,
+                              weight_decay=cfg.training.weight_decay)
+    opt_B = torch.optim.AdamW(model_B.parameters(), lr=cfg.training.lr,
+                              weight_decay=cfg.training.weight_decay)
+
+    rng = np.random.default_rng(train_seed)
+    boot_A = rng.integers(0, n_train, size=n_train)
+    boot_B = rng.integers(0, n_train, size=n_train)
+    loader_A = _make_loader(base, boot_A, cfg, canonical_loaders, pool_idx=pool_idx)
+    loader_B = _make_loader(base, boot_B, cfg, canonical_loaders, pool_idx=pool_idx)
+
+    for _ in range(epochs):
+        model_A.train(); model_B.train()
+        it_A, it_B = iter(loader_A), iter(loader_B)
+        for _ in range(max(len(loader_A), len(loader_B))):
+            try:    ba = next(it_A)
+            except StopIteration: it_A = iter(loader_A); ba = next(it_A)
+            try:    bb = next(it_B)
+            except StopIteration: it_B = iter(loader_B); bb = next(it_B)
+
+            x_a, y_a = _move_x(ba["image"], device), ba["label"].to(device)
+            x_b, y_b = _move_x(bb["image"], device), bb["label"].to(device)
+
+            logits_a_on_a, logits_b_on_a = model_A(x_a), model_B(x_a)
+            logits_a_on_b, logits_b_on_b = model_A(x_b), model_B(x_b)
+
+            ce = (F.cross_entropy(logits_a_on_a, y_a)
+                  + F.cross_entropy(logits_b_on_b, y_b))
+            cons = 0.5 * (_sym_kl_loss(logits_a_on_a, logits_b_on_a)
+                          + _sym_kl_loss(logits_a_on_b, logits_b_on_b))
+            loss = ce + lam * cons
+
+            opt_A.zero_grad(); opt_B.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model_A.parameters(), 1.0)
+            torch.nn.utils.clip_grad_norm_(model_B.parameters(), 1.0)
+            opt_A.step(); opt_B.step()
+    return model_A, model_B
+
+
+# ---------------------------------------------------------------------------
+# Top-level driver
+# ---------------------------------------------------------------------------
+
+def run(args):
+    device = torch.device(
+        "cuda" if torch.cuda.is_available() else
+        "mps" if torch.backends.mps.is_available() else "cpu")
+
+    out_root = Path(args.output_dir) / args.dataset
+    out_root.mkdir(parents=True, exist_ok=True)
+
+    cfg = build_cfg(args.dataset)
+    cfg.training.seed = args.canonical_data_seed
+    set_seed(args.canonical_data_seed)
+    canonical_loaders = make_dataloaders(cfg)
+    epochs = args.epochs if args.epochs is not None else HPARAMS[args.dataset]["epochs"]
+    n_train_full = len(canonical_loaders["train"].dataset)
+
+    # Optional within-dataset N-scaling: cap the canonical training pool at
+    # the first M indices of a deterministic shuffle (via canonical_data_seed).
+    # We map subsequent bootstrap indices through `pool_idx`, leaving
+    # `canonical_loaders["train"].dataset` untouched so `_build_model` still
+    # finds `input_dim` on the underlying dataset.
+    pool_idx = None
+    if args.subsample_size is not None and args.subsample_size < n_train_full:
+        pool_rng = np.random.default_rng(args.canonical_data_seed)
+        pool_idx = pool_rng.permutation(n_train_full)[: args.subsample_size]
+        n_train = args.subsample_size
+        print(f"Subsample: training pool capped at M={n_train} "
+              f"(canonical set has {n_train_full} examples).")
+    else:
+        n_train = n_train_full
+
+    print(f"Canonical test set: id n={len(canonical_loaders['id_test'].dataset)}, "
+          f"ood n={len(canonical_loaders['ood_test'].dataset)}")
+
+    for train_seed in (int(s) for s in args.train_seeds.split(",")):
+        print(f"\n=== {args.dataset}  canonical={args.canonical_data_seed}  "
+              f"train_seed={train_seed}  mode={args.mode} ===")
+
+        if args.mode == "erm":
+            boot_loader = _make_loader(
+                canonical_loaders["train"].dataset,
+                _bootstrap_indices(n_train, train_seed),
+                cfg, canonical_loaders, pool_idx=pool_idx)
+            model = _train_one_model(cfg, boot_loader, canonical_loaders,
+                                     device, train_seed, epochs)
+            id_p, id_y, id_i = _predict(model, canonical_loaders["id_test"], device)
+            ood_p, ood_y, ood_i = _predict(model, canonical_loaders["ood_test"], device)
+            print(f"  id_acc={(id_p.argmax(1)==id_y).mean():.4f}  "
+                  f"ood_acc={(ood_p.argmax(1)==ood_y).mean():.4f}")
+            np.savez_compressed(
+                out_root / f"erm_train{train_seed}.npz",
+                id_probs=id_p, id_labels=id_y, id_indices=id_i,
+                ood_probs=ood_p, ood_labels=ood_y, ood_indices=ood_i,
+                canonical_data_seed=args.canonical_data_seed,
+                train_seed=train_seed, mode="erm")
+
+        elif args.mode in ("deep_ensemble", "bagging"):
+            models = _train_ensemble(
+                cfg, canonical_loaders, device, train_seed, epochs,
+                K=args.K, independent_bootstraps=(args.mode == "bagging"),
+                pool_idx=pool_idx, n_train=n_train)
+            id_probs, ood_probs = [], []
+            for m in models:
+                ip, iy, ii = _predict(m, canonical_loaders["id_test"], device)
+                op, oy, oi = _predict(m, canonical_loaders["ood_test"], device)
+                id_probs.append(ip); ood_probs.append(op)
+            id_avg = np.mean(id_probs, axis=0)
+            ood_avg = np.mean(ood_probs, axis=0)
+            print(f"  id_acc={(id_avg.argmax(1)==iy).mean():.4f}  "
+                  f"ood_acc={(ood_avg.argmax(1)==oy).mean():.4f}  K={args.K}")
+            np.savez_compressed(
+                out_root / f"{args.mode}_train{train_seed}_K{args.K}.npz",
+                id_probs_avg=id_avg, id_labels=iy, id_indices=ii,
+                ood_probs_avg=ood_avg, ood_labels=oy, ood_indices=oi,
+                canonical_data_seed=args.canonical_data_seed,
+                train_seed=train_seed, K=args.K, mode=args.mode)
+
+        elif args.mode == "twin_indep":
+            mA, mB = _train_twin_indep(
+                cfg, canonical_loaders, device, train_seed, epochs, args.lam,
+                pool_idx=pool_idx, n_train=n_train)
+            id_pA, id_y, id_i = _predict(mA, canonical_loaders["id_test"], device)
+            id_pB, _, _      = _predict(mB, canonical_loaders["id_test"], device)
+            ood_pA, ood_y, ood_i = _predict(mA, canonical_loaders["ood_test"], device)
+            ood_pB, _, _        = _predict(mB, canonical_loaders["ood_test"], device)
+            id_avg, ood_avg = 0.5 * (id_pA + id_pB), 0.5 * (ood_pA + ood_pB)
+            print(f"  id_acc={(id_avg.argmax(1)==id_y).mean():.4f}  "
+                  f"ood_acc={(ood_avg.argmax(1)==ood_y).mean():.4f}  λ={args.lam}")
+            np.savez_compressed(
+                out_root / f"twin_indep_train{train_seed}_lam{args.lam}.npz",
+                id_probs_A=id_pA, id_probs_B=id_pB, id_probs_avg=id_avg,
+                id_labels=id_y, id_indices=id_i,
+                ood_probs_A=ood_pA, ood_probs_B=ood_pB, ood_probs_avg=ood_avg,
+                ood_labels=ood_y, ood_indices=ood_i,
+                canonical_data_seed=args.canonical_data_seed,
+                train_seed=train_seed, lam=args.lam, mode="twin_indep")
+
+        else:
+            raise ValueError(f"unknown mode {args.mode}")
+
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--dataset", required=True, choices=list(HPARAMS.keys()))
+    ap.add_argument("--canonical_data_seed", type=int, default=99,
+                    help="Seed for canonical (test-set-fixed) dataset construction.")
+    ap.add_argument("--train_seeds", default="1,2,3,4,5",
+                    help="Comma-separated list of train_seeds (one bootstrap per seed).")
+    ap.add_argument("--mode", required=True,
+                    choices=["erm", "deep_ensemble", "bagging", "twin_indep"])
+    ap.add_argument("--K", type=int, default=5,
+                    help="Ensemble size (deep_ensemble/bagging only).")
+    ap.add_argument("--lam", type=float, default=0.0,
+                    help="Consistency-loss weight (twin_indep only).")
+    ap.add_argument("--subsample_size", type=int, default=None,
+                    help="If set, cap the canonical training pool at this "
+                         "many examples (for within-dataset N-scaling).")
+    ap.add_argument("--epochs", type=int, default=None,
+                    help="Override epochs from HPARAMS (smoke tests).")
+    ap.add_argument("--output_dir", default="outputs/cross_sample")
+    args = ap.parse_args()
+    run(args)

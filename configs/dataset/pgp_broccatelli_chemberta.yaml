@@ -1,0 +1,3 @@
+name: pgp_broccatelli_chemberta
+arch: chemberta
+data_dir: ./data/tdc
