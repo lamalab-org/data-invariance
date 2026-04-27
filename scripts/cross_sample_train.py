@@ -229,6 +229,79 @@ def _train_twin_indep(cfg, canonical_loaders, device, train_seed, epochs, lam,
     return model_A, model_B
 
 
+def _train_twin_gradnorm(cfg, canonical_loaders, device, train_seed, epochs,
+                         target_ratio=1.0, ema_alpha=0.9,
+                         pool_idx=None, n_train=None):
+    """Twin-indep with GradNorm-balanced lambda.
+
+    At every step, lambda is chosen so that lam * |∇L_cons| ≈ target_ratio *
+    |∇L_CE| (norm taken over `model_A`'s parameters; the symmetry of the
+    two-head construction makes the choice of which network's gradient we use
+    a wash).  We EMA-smooth across steps to prevent oscillation.
+
+    This is the parameter-free analogue of `_train_twin_indep` and serves as
+    a reported design choice we tried and rejected (see appendix:failures).
+    """
+    base = canonical_loaders["train"].dataset
+    if n_train is None:
+        n_train = len(base)
+
+    set_seed(train_seed)
+    model_A = _build_model(cfg, canonical_loaders, device)
+    set_seed(train_seed + 1)
+    model_B = _build_model(cfg, canonical_loaders, device)
+    opt_A = torch.optim.AdamW(model_A.parameters(), lr=cfg.training.lr,
+                              weight_decay=cfg.training.weight_decay)
+    opt_B = torch.optim.AdamW(model_B.parameters(), lr=cfg.training.lr,
+                              weight_decay=cfg.training.weight_decay)
+
+    rng = np.random.default_rng(train_seed)
+    boot_A = rng.integers(0, n_train, size=n_train)
+    boot_B = rng.integers(0, n_train, size=n_train)
+    loader_A = _make_loader(base, boot_A, cfg, canonical_loaders, pool_idx=pool_idx)
+    loader_B = _make_loader(base, boot_B, cfg, canonical_loaders, pool_idx=pool_idx)
+
+    lam = 1.0  # initial value before the first balanced update
+    for _ in range(epochs):
+        model_A.train(); model_B.train()
+        it_A, it_B = iter(loader_A), iter(loader_B)
+        for _ in range(max(len(loader_A), len(loader_B))):
+            try:    ba = next(it_A)
+            except StopIteration: it_A = iter(loader_A); ba = next(it_A)
+            try:    bb = next(it_B)
+            except StopIteration: it_B = iter(loader_B); bb = next(it_B)
+
+            x_a, y_a = _move_x(ba["image"], device), ba["label"].to(device)
+            x_b, y_b = _move_x(bb["image"], device), bb["label"].to(device)
+
+            logits_a_on_a, logits_b_on_a = model_A(x_a), model_B(x_a)
+            logits_a_on_b, logits_b_on_b = model_A(x_b), model_B(x_b)
+
+            ce = (F.cross_entropy(logits_a_on_a, y_a)
+                  + F.cross_entropy(logits_b_on_b, y_b))
+            cons = 0.5 * (_sym_kl_loss(logits_a_on_a, logits_b_on_a)
+                          + _sym_kl_loss(logits_a_on_b, logits_b_on_b))
+
+            # Compute |∇CE| and |∇cons| separately to balance them.
+            ce_grads = torch.autograd.grad(ce, model_A.parameters(),
+                                           retain_graph=True)
+            cons_grads = torch.autograd.grad(cons, model_A.parameters(),
+                                             retain_graph=True)
+            ce_norm = torch.cat([g.flatten() for g in ce_grads]).norm().item()
+            cons_norm = torch.cat([g.flatten() for g in cons_grads]).norm().item()
+            new_lam = (target_ratio * ce_norm) / max(cons_norm, 1e-8)
+            lam = ema_alpha * lam + (1 - ema_alpha) * new_lam
+            lam = float(np.clip(lam, 1e-3, 1e3))
+
+            loss = ce + lam * cons
+            opt_A.zero_grad(); opt_B.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model_A.parameters(), 1.0)
+            torch.nn.utils.clip_grad_norm_(model_B.parameters(), 1.0)
+            opt_A.step(); opt_B.step()
+    return model_A, model_B
+
+
 # ---------------------------------------------------------------------------
 # Top-level driver
 # ---------------------------------------------------------------------------
@@ -329,6 +402,29 @@ def run(args):
                 canonical_data_seed=args.canonical_data_seed,
                 train_seed=train_seed, lam=args.lam, mode="twin_indep")
 
+        elif args.mode == "twin_gradnorm":
+            mA, mB = _train_twin_gradnorm(
+                cfg, canonical_loaders, device, train_seed, epochs,
+                target_ratio=args.target_ratio,
+                pool_idx=pool_idx, n_train=n_train)
+            id_pA, id_y, id_i = _predict(mA, canonical_loaders["id_test"], device)
+            id_pB, _, _      = _predict(mB, canonical_loaders["id_test"], device)
+            ood_pA, ood_y, ood_i = _predict(mA, canonical_loaders["ood_test"], device)
+            ood_pB, _, _        = _predict(mB, canonical_loaders["ood_test"], device)
+            id_avg, ood_avg = 0.5 * (id_pA + id_pB), 0.5 * (ood_pA + ood_pB)
+            print(f"  id_acc={(id_avg.argmax(1)==id_y).mean():.4f}  "
+                  f"ood_acc={(ood_avg.argmax(1)==ood_y).mean():.4f}  "
+                  f"target_ratio={args.target_ratio}")
+            np.savez_compressed(
+                out_root / f"twin_gradnorm_train{train_seed}_tr{args.target_ratio}.npz",
+                id_probs_A=id_pA, id_probs_B=id_pB, id_probs_avg=id_avg,
+                id_labels=id_y, id_indices=id_i,
+                ood_probs_A=ood_pA, ood_probs_B=ood_pB, ood_probs_avg=ood_avg,
+                ood_labels=ood_y, ood_indices=ood_i,
+                canonical_data_seed=args.canonical_data_seed,
+                train_seed=train_seed, target_ratio=args.target_ratio,
+                mode="twin_gradnorm")
+
         else:
             raise ValueError(f"unknown mode {args.mode}")
 
@@ -342,11 +438,14 @@ if __name__ == "__main__":
     ap.add_argument("--train_seeds", default="1,2,3,4,5",
                     help="Comma-separated list of train_seeds (one bootstrap per seed).")
     ap.add_argument("--mode", required=True,
-                    choices=["erm", "deep_ensemble", "bagging", "twin_indep"])
+                    choices=["erm", "deep_ensemble", "bagging", "twin_indep",
+                             "twin_gradnorm"])
     ap.add_argument("--K", type=int, default=5,
                     help="Ensemble size (deep_ensemble/bagging only).")
     ap.add_argument("--lam", type=float, default=0.0,
                     help="Consistency-loss weight (twin_indep only).")
+    ap.add_argument("--target_ratio", type=float, default=1.0,
+                    help="GradNorm target ratio |∇cons|/|∇CE| (twin_gradnorm only).")
     ap.add_argument("--subsample_size", type=int, default=None,
                     help="If set, cap the canonical training pool at this "
                          "many examples (for within-dataset N-scaling).")
