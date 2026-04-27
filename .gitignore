@@ -14,6 +14,11 @@ data/
 outputs/
 multirun/
 
+# Logs and stale binaries kept on disk but not in git
+logs/
+legacy/outputs/
+legacy/figures_old/
+
 # Wandb local cache
 wandb/
 

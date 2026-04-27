@@ -1,0 +1,62 @@
+\section{Cross-sample prediction fragility}
+\label{sec:preliminaries}
+
+\paragraph{Setting.}
+A learner $\mathcal{A}$ maps a training set
+$S = \{(x_i, y_i)\}_{i=1}^{N}$ drawn iid from population $\mathcal{D}$
+to a classifier $f_S = \mathcal{A}(S)$.  At deployment time the
+practitioner reports $\hat{y}(x) = \arg\max_c f_S(x)_c$ for each test
+example $x$.  We are interested in how much $\hat{y}(x)$ changes when
+$S$ is replaced by an independent draw from $\mathcal{D}$.
+
+\paragraph{Definition (cross-sample fragility).}
+Given two iid training samples $S_A, S_B \sim \mathcal{D}^N$ and a
+test example $x$, the \emph{cross-sample fragility} of $\mathcal{A}$ at
+$x$ is
+\begin{equation}
+  \rho(\mathcal{A}, x) =
+  \mathbb{P}_{S_A, S_B}\!\big[\arg\max f_{S_A}(x) \neq \arg\max f_{S_B}(x)\big].
+\end{equation}
+A fragility-aware report supplements the standard accuracy with the
+expected per-example argmax disagreement
+$\bar\rho(\mathcal{A}) = \mathbb{E}_x [\rho(\mathcal{A}, x)]$, and
+optionally with a distributional analogue
+$\bar\rho_{\mathrm{KL}}(\mathcal{A})
+= \mathbb{E}_x \big[\tfrac{1}{2}(\mathrm{KL}(f_{S_A}(x) \| f_{S_B}(x))
+                                + \mathrm{KL}(f_{S_B}(x) \| f_{S_A}(x)))\big]$.
+
+\paragraph{Bootstrap estimator.}
+In practice we have one observed training set $S$, so we estimate
+$\rho$ by drawing two independent bootstraps from $S$ (sample $N$
+items with replacement).  Each bootstrap is a draw of size $N$ from
+the empirical distribution $\hat{\mathcal{D}}_S$, and $\hat{\mathcal{D}}_S
+\to \mathcal{D}$ as $N \to \infty$.  We treat the bootstrap-pair
+disagreement as a proxy for $\rho$ throughout this paper; we do not
+claim a formal consistency result.  All numerical magnitudes we report
+are with respect to this bootstrap proxy, which is what a practitioner
+can compute from their own training set.
+
+\paragraph{Connection to algorithmic stability.}
+\citet{TODO_bousquet2002} define uniform stability $\beta$ as the
+maximum loss change when one example is altered, and prove it bounds
+the generalisation gap by $O(\beta) + O(1/\sqrt{N})$ for $\beta = O(1/N)$.
+Cross-sample fragility is the corresponding statement for $\hat{y}$
+rather than the loss.  This identifies $\beta$ as the right
+theoretical motivation for fragility decreasing with $N$; we use this
+as an interpretive anchor, but make no empirical claim that fragility
+matches the $O(1/N)$ rate.  Two complications obstruct a clean
+empirical fit: the bootstrap protocol perturbs many examples
+simultaneously rather than one (so $\beta$ underestimates), and
+intrinsic boundary ambiguity contributes an irreducible floor at
+finite $N$ (Section~\ref{sec:measurement}).
+
+\paragraph{Strict measurement protocol.}
+To avoid contaminating cross-sample measurements with test-set drift, we
+fix a canonical test set once and only vary the training-side seed.
+Concretely: a single canonical seed $99$ constructs the test set; for
+each measurement seed $s \in \{1, \dots, 10\}$ we draw a bootstrap
+$S^{(s)}$ from the canonical training set and train
+$f^{(s)} = \mathcal{A}(S^{(s)})$.  Cross-sample churn is the average of
+$\mathbf{1}[\arg\max f^{(s)}(x) \neq \arg\max f^{(s')}(x)]$ over all
+$\binom{10}{2}$ seed pairs.  Confidence intervals are obtained by
+bootstrap resampling of seed pairs; deltas between methods are paired.

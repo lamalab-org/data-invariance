@@ -1,0 +1,83 @@
+\section{Scope and limitations}
+\label{sec:scope}
+
+\paragraph{Pretrained backbones (Waterbirds).}
+We test the BACE-frozen recipe on Waterbirds, a vision benchmark with
+ImageNet-pretrained ResNet-50.  Bagging $K{=}5$ improves both
+accuracy ($+2$pp) and cross-sample churn ($-51\%$ relative).
+Twin-indep at the same $\lambda{=}300$ collapses accuracy by $27$pp
+while still reducing churn (Table~\ref{tab:waterbirds}).
+Reducing $\lambda$ to a principled scaled value $\lambda_N
+= \lambda_{\mathrm{dev}} \cdot N_{\mathrm{dev}}/N \approx 60$ recovers
+some accuracy but does not return to the Pareto frontier of bagging.
+
+\paragraph{Why the consistency loss interferes with finetuning.}
+A pretrained backbone is itself an implicit data prior: ImageNet-scale
+training has already collapsed most cross-sample variation in the
+learned features.  Our consistency loss imposes the same prior
+\emph{again}, on top of finetuning, and the two pull the model toward
+an over-averaged solution.  This is a feature: cross-sample fragility
+is largest precisely where there is no pretrained prior to anchor
+predictions, which is where the consistency loss is most needed.
+Bagging adds no such second prior and so extends to the
+pretrained-backbone setting unchanged.
+
+\paragraph{Class-proportion shift (MOFs).}
+On the two MOF datasets the OOD test split has flipped class
+proportions relative to the training distribution.  Both bagging and
+twin-indep reduce cross-sample churn, but accuracy on this OOD split
+suffers because the methods anchor to the training prior more strongly
+than ERM does.  This is a known limitation of any prior-imposing
+method under prior shift; conformal-prediction-style recalibration is
+complementary.
+
+\paragraph{Class of learners.}
+Our results are for binary classification with cross-entropy training.
+The fragility definition extends to multi-class and (with a metric
+substitution) to regression; we leave the regression extension to
+future work.
+
+\paragraph{Architecture and featurisation.}
+The chemistry experiments use Morgan fingerprints (radius $2$, $2048$
+bits) and a $256$-unit MLP trained from scratch---the canonical
+small-$N$ tabular pipeline, and the regime where pretrained models do
+not yet help reliably.  D-MPNN~\citep{TODO_yang2019_dmpnn} and
+ChemBERTa~\citep{TODO_chithrananda2020_chemberta} would be natural
+architectures to test next.  We expect partial transfer at small $N$
+and a Waterbirds-like collapse of the consistency loss under heavy
+pretraining (Section~\ref{sec:scope}); fragility magnitudes
+themselves should remain measurable and within the same order.
+
+\paragraph{Twin head count.}
+We report twin-indep with $K{=}2$.  Larger $K$ extends mechanically by
+all-pairs sym-KL consistency and would interpolate between bagging-$K$
+and twin-indep, but we do not study the trade-off here.
+
+\paragraph{Two protocol choices we did not vary.}
+The reported numbers depend on a single canonical seed (\texttt{99})
+that fixes test-set construction across all training runs.  We did not
+re-run the full sweep at a different canonical seed; canonical-seed
+sensitivity, if present, would shift absolute fragility magnitudes
+without changing method ordering.  The development hyperparameter
+$\lambda$ was selected on BACE alone, then frozen.  Cross-validating
+the development rule across multiple dev datasets is a natural
+robustness check we leave to follow-up; on the dev curve itself, the
+selected $\lambda$ sits at the extreme of the feasible interval, which
+suggests the rule is not a knife-edge.
+
+\paragraph{Multi-class.}
+The fragility definition reduces to argmax disagreement and a
+multi-class symmetric KL with no protocol changes; we have not run
+multi-class experiments and so do not claim that the magnitudes
+reported here transfer.
+
+\paragraph{Compute used.}
+Small-$N$ chemistry experiments (BACE, BBBP, TADF, MOFs, TDC ADME/Tox
+benchmarks) run end-to-end on a single laptop CPU; the total compute
+budget for the small-$N$ portion of the paper is approximately $50$
+CPU-hours.  Waterbirds (Section~\ref{sec:scope}) runs on a single
+A100 GPU with a budget of approximately $6$ GPU-hours total.  Each
+\texttt{cross\_sample\_train.py} run prints reproducibility metadata
+(canonical seed, train seed, mode, $\lambda$).  All trained
+predictions are saved as NPZ; every paper table is regenerated from
+saved NPZs with no retraining required.

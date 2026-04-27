@@ -1,0 +1,53 @@
+\section{Related work}
+\label{sec:related}
+
+We organise prior work by what it does \emph{not} address.
+
+\paragraph{Algorithmic stability.}
+\citet{TODO_bousquet2002} bound the generalisation gap by uniform
+stability $\beta = O(1/N)$ but treat $\beta$ as an analytical quantity.
+We measure it as a per-example, deployment-relevant signal and use it
+as a training objective.
+
+\paragraph{Parameter-distribution uncertainty.}
+Deep ensembles~\citep{TODO_lakshminarayanan2017} and MC
+dropout~\citep{TODO_gal2016} sample over model parameters at a
+\emph{fixed} dataset.  Our measurements (Section~\ref{sec:measurement})
+show this is the wrong axis: deep ensembles reduce per-example churn by
+${\sim}9\%$ on average, while the data axis we measure has
+$10\text{--}100\times$ more variance.
+
+\paragraph{Bagging.}
+\citet{TODO_breiman1996} introduced bootstrap aggregation as a
+variance-reduction estimator.  In modern deep-learning practice it has
+been displaced by deep ensembling (same compute, no resampling).  We
+revisit bagging and show it is the strongest no-cost baseline for
+cross-sample stability; the data-resampling axis is precisely the one
+deep ensembles miss.
+
+\paragraph{Consistency regularisation.}
+Mean Teacher and $\Pi$-model~\citep{TODO_tarvainen2017} penalise
+disagreement under \emph{input augmentation}.  We penalise disagreement
+under \emph{training-data resampling}, which is a different axis.
+The two are complementary.
+
+\paragraph{Conformal prediction.}
+\citet{TODO_vovk2005} provide marginal coverage guarantees but
+make no statement about per-example prediction stability under
+retraining.
+
+\paragraph{Worst-group robustness.}
+Group DRO~\citep{TODO_sagawa2020},
+IRM~\citep{TODO_arjovsky2019}, and
+V-REx~\citep{TODO_krueger2021} address worst-group accuracy under
+distribution shift.  Cross-sample fragility is orthogonal: a perfectly
+group-invariant model can still flip individual predictions on
+retraining of the same population.
+
+\paragraph{Prediction churn.}
+Industry studies~\citep{TODO_milani2016, TODO_anil2023} document
+prediction churn as a deployment problem and propose ad-hoc remedies
+(warm-starting, distillation against the previous model).  We provide
+a principled definition tied to algorithmic stability, a measurement
+protocol with paired confidence intervals, and a training-time
+intervention that does not require access to the previous model.

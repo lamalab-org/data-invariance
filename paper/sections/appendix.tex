@@ -1,0 +1,56 @@
+\section{Theoretical addendum}
+\label{app:theory}
+
+(Stub.)  Formal statement of the bootstrap-estimator consistency for
+$\rho$, and the algorithmic-stability bound on $\bar\rho$.
+
+\section{Within-dataset $N$-scaling on BACE}
+\label{app:nscaling}
+
+(Stub.)  Subsampled BACE results showing slope $-0.94$ in the
+informative-sample regime and the irreducible floor at large $N$.
+
+\section{Failed approaches}
+\label{app:failures}
+
+We document approaches we tried that did \emph{not} pan out, to save
+follow-up readers the same blind alleys.
+
+\paragraph{Weight-decay sweep.}
+Sweeping AdamW weight decay across five orders of magnitude
+($10^{-5}$ to $10^{-1}$) on BACE, BBBP, and TADF produced essentially
+no change in cross-sample churn.  The effective per-step regularisation
+under AdamW is too small to alter the partition-invariance properties
+that drive churn.
+
+\paragraph{GradNorm-balanced $\lambda$.}
+A natural attempt at a parameter-free version of twin-indep balances
+$\|\nabla \mathcal{L}_{\mathrm{cons}}\|$ to
+$\|\nabla \mathcal{L}_{\mathrm{CE}}\|$ at every step.  This produces
+effective $\lambda \approx 2$, about two orders of magnitude smaller
+than the BACE-frozen $\lambda{=}300$.  The induced regularisation is
+too weak; cross-sample churn essentially does not move.  Empirically,
+the consistency loss must \emph{dominate} task loss by $\sim$$100\times$
+to bite.
+
+\paragraph{Hard-subset meta-Reptile.}
+We tried Reptile-style meta-learning where the inner loop trains on the
+hard half (top $50\%$ of per-example losses) of the data and the outer
+loop pulls toward an init from which both halves converge.  This
+reduces churn modestly ($\sim$$1\text{pp}$) at a meaningful accuracy
+cost ($\sim$$3\text{pp}$) and is dominated by twin-indep.
+
+\paragraph{Adversarial partitions.}
+The original adversarial-data-splitting idea
+(\citealp{TODO_krueger2021}-style worst-case partition learned by an
+inner adversary) does not produce divergent twin training in the
+small-$N$ from-scratch regime: the adversary tends to assign hard
+examples consistently to the same head, which makes the heads
+\emph{agree more}, not less, on average.
+
+\section{Reproducibility}
+\label{app:repro}
+
+(Stub.)  Pointer to the canonical-data-seed protocol, dataset-by-dataset
+hyperparameters table, and Makefile targets that regenerate every
+table from saved NPZ predictions.

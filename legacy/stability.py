@@ -1,84 +1,27 @@
+"""Per-example stability and uncertainty scoring — moved out of evaluate.py.
+
+This module collects the stability-score helpers we built early in the
+project. They were intended to support the secondary contribution of
+"instance-level stability scores that predict OOD prediction flips," but
+empirically they only beat ERM's plain confidence under strong synthetic
+confounding (CMNIST corr=0.9).  On natural data (Waterbirds, TADF) ERM's
+softmax confidence already tracks difficulty as well as or better than
+anything we built, so the stability-score story was deprioritised.
+
+The functions are kept here for two reasons:
+    1. Reviewer questions ("did you try X?" — yes, here is the code)
+    2. Possible appendix table or follow-up paper
+
+If you call these from a script, import them as:
+
+    from legacy.stability import compute_stability_scores, ...
+
+Nothing on the critical path for the paper imports this module.
+"""
 from __future__ import annotations
 
 import torch
 import torch.nn.functional as F
-
-
-def compute_assignment_correlation(
-    assignment_logits: torch.Tensor,
-    dataset,
-) -> dict[str, float]:
-    """Measure how well the learned soft assignment tracks the spurious attribute.
-
-    For a perfect adversarial partition we expect the adversary to have discovered
-    the spurious feature — examples with one attribute value routed to head A,
-    the other to head B.  This is quantified by Pearson correlation between
-    s_i = sigmoid(logit_i) and spurious_i ∈ {0, 1}.
-
-    High |corr| → adversary found the spurious-correlated split.
-    |corr| ≈ 0  → partition is orthogonal to the spurious feature.
-
-    The sign is arbitrary (which head gets which group depends on random init),
-    so we report both raw and absolute values.
-
-    Args:
-        assignment_logits: (N,) learned logits from train_adversarial_split.
-        dataset: dataset with a ``.spurious`` attribute of shape (N,).
-
-    Returns:
-        dict with:
-          "assignment_color_corr"      — signed Pearson r ∈ [-1, 1]
-          "assignment_color_abs_corr"  — |r|, the discrimination metric
-    """
-    with torch.no_grad():
-        s = assignment_logits.cpu().float().sigmoid()   # (N,) ∈ (0, 1)
-
-    spurious = dataset.spurious.float().cpu()   # (N,) ∈ {0.0, 1.0}
-
-    # torch.corrcoef expects (n_variables, n_observations)
-    corr_matrix = torch.corrcoef(torch.stack([s, spurious]))
-    corr = corr_matrix[0, 1].item()
-
-    return {
-        "assignment_color_corr": corr,
-        "assignment_color_abs_corr": abs(corr),
-    }
-
-
-def compute_assignment_correlation_multi(
-    assignment_logits: torch.Tensor,
-    dataset,
-) -> dict[str, float]:
-    """Per-head spurious correlation for K>2 assignments (softmax parameterisation).
-
-    For each head k, computes |Pearson r| between s_ik = softmax(logits_i)[k]
-    and spurious_i.  Reports the maximum over heads — the head that most strongly
-    captures the spurious feature.
-
-    Args:
-        assignment_logits: (N, K) learned logits from train_adversarial_split_multi.
-        dataset: dataset with a ``.spurious`` attribute of shape (N,).
-
-    Returns:
-        dict with:
-          "assignment_color_max_abs_corr" — max |r| over all K heads
-          "assignment_color_mean_abs_corr" — mean |r| over all K heads
-    """
-    with torch.no_grad():
-        s = assignment_logits.cpu().float().softmax(dim=1)   # (N, K)
-
-    spurious = dataset.spurious.float().cpu()   # (N,)
-    K = s.shape[1]
-
-    abs_corrs = []
-    for k in range(K):
-        corr_matrix = torch.corrcoef(torch.stack([s[:, k], spurious]))
-        abs_corrs.append(abs(corr_matrix[0, 1].item()))
-
-    return {
-        "assignment_color_max_abs_corr": max(abs_corrs),
-        "assignment_color_mean_abs_corr": sum(abs_corrs) / K,
-    }
 
 
 def compute_stability_scores(
@@ -174,13 +117,6 @@ def disagreement_stability_scores(
     This doesn't require our model to be more accurate — just different in
     the right way (avoiding shortcuts the ERM uses).
     """
-    # Confidence is max(softmax), which for binary = max(P(0), P(1)).
-    # We need P(class1) specifically. For binary: P(1) = 1 - P(0).
-    # But we have entropy and confidence. Let's use predictions and confidence.
-    # Actually, the simplest: |confidence_ours - confidence_erm| weighted by
-    # whether they predict the same class.
-
-    # Better: use the raw probability of class 1.
     # For binary classifier: P(1) = 1 - confidence if prediction is 0, else confidence.
     p1_ours = torch.where(
         scores_ours["predictions"] == 1,
@@ -224,7 +160,6 @@ def adaptive_stability_scores(
             # Normalise both to [0, 1] range before blending.
             s_ours = scores_ours[key]
             s_erm = scores_erm[key]
-            # Min-max normalise.
             s_ours_n = (s_ours - s_ours.min()) / (s_ours.max() - s_ours.min() + 1e-8)
             s_erm_n = (s_erm - s_erm.min()) / (s_erm.max() - s_erm.min() + 1e-8)
             blended[key] = reliability * s_ours_n + (1 - reliability) * s_erm_n
@@ -274,7 +209,6 @@ def evaluate_stability_discrimination(
 
     # For each score type, compute AUROC for predicting ERM flips.
     score_types = ["entropy", "loss", "mc_dropout_var"]
-    # 1 - confidence is equivalent to using entropy direction, but include both.
     score_types_with_conf = ["confidence_inv"] + score_types
 
     auroc = torchmetrics.AUROC(task="binary")
@@ -287,7 +221,6 @@ def evaluate_stability_discrimination(
             continue
 
         for model_name, scores in [("ours", scores_ours), ("erm", scores_erm)]:
-            # 1 - confidence
             auroc.reset()
             results[f"auroc_{model_name}_confidence_inv_vs_{target_name}"] = auroc(
                 1.0 - scores["confidence"], flips

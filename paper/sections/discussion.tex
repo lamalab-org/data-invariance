@@ -1,0 +1,31 @@
+\section{Discussion}
+\label{sec:discussion}
+
+\paragraph{What practitioners should do.}
+For deployed scientific machine learning at $N \lesssim 5000$ from
+scratch, run $K$-bootstrap bagging with $K{=}5$ as the default.  This
+removes about half of the per-example prediction churn that retraining
+would otherwise produce, at a $5\times$ training-time cost and zero
+accuracy cost.  When more stability is needed and the fivefold
+training cost is acceptable, twin-indep at the BACE-frozen
+$\lambda{=}300$ removes the next layer of churn at a $2\times$ cost.
+
+\paragraph{Position relative to prior work.}
+Cross-sample fragility is the missing axis in the standard uncertainty
+toolkit.  Deep ensembles, MC dropout, conformal prediction, and the
+group-robustness literature each address a different axis of prediction
+uncertainty.  Cross-sample fragility is the one that corresponds to
+the deployment quantity practitioners actually care about: whether a
+prediction will change at the next retraining.
+
+\paragraph{Future work.}
+A natural next step is regression: cross-sample fragility extends with
+an MAE or covered-interval metric in place of argmax disagreement,
+and the consistency loss becomes an MSE or Huber penalty.  Connecting
+twin-indep to influence-function-based data attribution is also
+natural: per-example fragility is a soft measure of how influential
+the most-influential training examples are.  Finally, replacing the
+fixed $\lambda$ with a principled scaling
+$\lambda_N \propto 1/N$ derived from algorithmic stability would
+remove even the single hyperparameter we currently set on the
+development dataset.

@@ -1,0 +1,73 @@
+\section{Introduction}
+\label{sec:introduction}
+
+A toxicity classifier is retrained after a new batch of assay results
+lands.  Aggregate accuracy is unchanged, yet predictions flip class
+for $8\text{--}17\%$ of candidate molecules---some already in
+synthesis queues.  We call this \emph{cross-sample prediction
+fragility}: the fraction of test predictions that change class
+between two models trained on independent bootstraps of the same
+population.
+
+Chemistry machine learning has built architectures around invariances
+--- to atom indexing, rotation, conformational degrees of freedom
+--- and architectures that respect them are now standard.  A further
+invariance has gone unspoken: that a model's prediction on a given
+molecule should not depend on which subset of the available data the
+model trained on.  In a deployment-driven domain where training sets
+evolve continuously, this \emph{cross-sample invariance} is plausibly
+the property that most directly governs whether a deployed prediction
+can be trusted at the next retraining.
+
+Cross-sample fragility is motivated theoretically by algorithmic
+stability~\citep{TODO_bousquet2002}, large empirically in small-$N$
+scientific machine learning, and missed by the standard uncertainty
+toolkit---deep ensembles vary model parameters at fixed data and
+remove only ${\sim}2$pp of churn on average.  We measure cross-sample
+fragility on eight standard chemistry benchmarks (BACE, BBBP, three
+materials-science datasets, three TDC ADME/Tox benchmarks), then
+introduce two methods that reduce it under a strict no-test-tuning
+protocol: $K$-bootstrap bagging at no accuracy cost, and a
+twin-network bootstrap-consistency objective at matched compute.
+
+\paragraph{Contributions.}
+\begin{itemize}\itemsep0pt
+  \item \textbf{Cross-sample prediction fragility} --- the fraction of
+        test predictions that change class between two models trained on
+        independent bootstraps of the same population --- defines a
+        measurable analogue of uniform algorithmic
+        stability~\citep{TODO_bousquet2002}.  On eight standard chemistry
+        benchmarks (MoleculeNet, TDC ADME/Tox, materials science),
+        $8\text{--}17\%$ of test predictions flip across retrainings, an
+        order of magnitude larger than deep-ensemble disagreement; deep
+        ensembles remove only ${\sim}2$pp of churn.
+  \item \textbf{Two methods}, hyperparameters frozen on a single
+        development dataset (BACE) and applied unchanged to every
+        held-out benchmark.  $K$-bootstrap bagging reduces argmax churn
+        $47\text{--}49\%$ at zero accuracy cost.  \textbf{Twin-indep} ---
+        two networks on independent bootstraps with a sym-KL consistency
+        penalty between heads --- reduces argmax churn $69\text{--}72\%$
+        at matched compute against bagging-$K{=}2$, and distributional
+        sym-KL by roughly an additional order of magnitude beyond
+        bagging.
+  \item \textbf{Per-example fragility from one additional bootstrap}
+        captures $68\text{--}94\%$ of the predictions that retraining
+        will flip in its top decile, giving a deployment-time triage at
+        the cost of one extra model.
+  \item \textbf{Regime characterisation.}  Twin-indep applies in the
+        small-$N$ from-scratch setting that scientific machine learning
+        inhabits.  On pretrained-backbone benchmarks (Waterbirds) the
+        consistency loss over-regularises features the backbone already
+        encodes ($-27$pp accuracy at the chemistry-tuned $\lambda$);
+        bagging extends across all settings tested.  Every reported
+        delta carries a paired-bootstrap $95\%$ confidence interval over
+        seed pairs.
+\end{itemize}
+
+\paragraph{Contribution type (NeurIPS 2026).}
+Use-Inspired.  The methods are designed for and evaluated on a specific
+real-world setting (small-$N$ from-scratch scientific machine learning,
+with deployment-time prediction churn as the practitioner pain).  The
+algorithmic-stability connection and the twin-bootstrap-consistency
+objective generalise beyond that setting; their honest scope is
+documented in Section~\ref{sec:scope}.

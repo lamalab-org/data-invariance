@@ -1,0 +1,19 @@
+\begin{abstract}
+Retraining a chemistry classifier on a fresh draw of the same training
+population flips predictions for $8\text{--}17\%$ of test molecules
+with no change in aggregate accuracy.  We name this \emph{cross-sample
+prediction fragility} --- the fraction of test predictions that change
+class between two models trained on independent bootstraps --- and
+show it dominates the parameter-variance axis that deep ensembles
+capture by an order of magnitude on eight standard chemistry
+benchmarks (MoleculeNet, TDC ADME/Tox, materials science).  Two
+methods reduce it under a strict no-test-tuning protocol.
+$K$-bootstrap bagging cuts churn $47\text{--}49\%$ at zero accuracy
+cost.  \emph{Twin-indep}, a sym-KL consistency penalty between two
+networks trained on independent bootstraps, cuts churn
+$69\text{--}72\%$ at matched compute and distributional disagreement
+by roughly an additional order of magnitude.  Twin-indep applies in
+the small-$N$ from-scratch regime that scientific ML inhabits; on
+pretrained-backbone benchmarks like Waterbirds the consistency loss
+over-regularises features the backbone already encodes.
+\end{abstract}

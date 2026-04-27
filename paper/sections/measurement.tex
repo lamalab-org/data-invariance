@@ -1,0 +1,70 @@
+\section{The phenomenon}
+\label{sec:measurement}
+
+\subsection{Datasets}
+\label{sec:datasets}
+We measure cross-sample fragility across twelve standard
+small-$N$ chemistry benchmarks spanning ${\sim}500$ to ${\sim}20\,000$
+training examples.
+
+\begin{itemize}\itemsep0pt
+  \item \textbf{MoleculeNet} (via TDC): BACE, BBBP.
+  \item \textbf{TDC ADME}: HIA\_Hou, Bioavailability\_Ma,
+    Pgp\_Broccatelli, BBB\_Martins.
+  \item \textbf{TDC Tox}: hERG, DILI, AMES, Skin\_Reaction.
+  \item \textbf{Materials science}: TADF (organic light-emission),
+    MOF-thermal-stability, MOF-solvent-removal, perovskite formation
+    energy, battery capacity.
+\end{itemize}
+Featurisation is Morgan fingerprints (radius 2, 2048 bits) for
+molecular datasets and dataset-specific descriptors for materials.
+Architecture is a 256-unit MLP trained from scratch in all cases.
+
+\subsection{Fragility magnitudes are large and dataset-specific}
+\label{sec:fragility-magnitudes}
+
+Table~\ref{tab:fragility-magnitudes} reports mean cross-bootstrap
+fragility (sym-KL between two ERM bootstraps on the canonical id-test)
+and argmax churn for each dataset, alongside training-set size $N$ and
+ERM accuracy.  Argmax churn ranges from $8.0\%$ (BBB-Martins) to
+$16.8\%$ (DILI); sym-KL varies by ${\sim}4\times$ across datasets at
+similar $N$ (TADF $0.27$ vs.\ BACE $0.75$ at $N \approx 1000$),
+reflecting intrinsic differences in feature dimension, label noise,
+and task difficulty rather than a single $N$-dependent rate.  We
+therefore do not fit a cross-dataset $1/N$ curve; algorithmic stability
+is the \emph{motivation} for fragility decreasing with $N$, not an
+empirical claim we verify across heterogeneous tasks.
+
+\input{sections/tables/fragility_magnitudes.tex}
+
+Within a single task (BACE), subsampling the training set to
+$M \in \{200, 400, 600, 800, 968\}$ shows fragility decreasing
+monotonically up to $M \approx 800$ before plateauing at an irreducible
+floor (Appendix~\ref{app:nscaling}).  The empirical within-dataset rate
+is shallower than the theoretical $1/N$, consistent with the bootstrap
+protocol perturbing many examples simultaneously rather than one.
+
+\subsection{Fragility predicts which predictions will flip}
+\label{sec:churn-decile}
+
+Per-example fragility identifies the predictions that retraining will
+flip.  Figure~\ref{fig:decile} ranks every test example by its mean
+cross-bootstrap fragility across all ERM seed pairs, then bins into
+deciles and reports the average argmax-flip rate within each decile.
+On every dataset we tested, the bottom $50\%$-fragility examples flip
+at $0\%$; deciles $6$--$8$ rise sharply; the top decile flips at
+$41\text{--}47\%$.  A deployed system can therefore flag the most
+fragile predictions for re-review without retraining a cascade of
+models---one additional bootstrap suffices to compute per-example
+fragility.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/fig3_decile.pdf}
+  \caption{Top-decile fragility predicts which test predictions flip
+    on retraining.  Bars give the mean argmax-flip rate per
+    bootstrap-pair within each fragility decile, on the eight
+    chemistry datasets in scope.  Bottom 50\% of examples flip at
+    $0\%$; the top decile flips at $41\text{--}47\%$.}
+  \label{fig:decile}
+\end{figure}
