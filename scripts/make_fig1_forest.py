@@ -102,11 +102,6 @@ def main() -> None:
     row_spacing = 1.0
     yticks, yticklabels = [], []
 
-    ax_l.axvspan(x_lo_l, 0, color="#e6f0e6", alpha=0.55, zorder=0)
-    for i in range(len(HEADLINE_DATASETS)):
-        if i % 2 == 1:
-            ax_l.axhspan(i - 0.5, i + 0.5, color="0.97", zorder=0)
-
     for i, ds in enumerate(reversed(HEADLINE_DATASETS)):
         y_centre = i * row_spacing
         for j, method in enumerate(METHOD_ORDER):
@@ -150,11 +145,6 @@ def main() -> None:
     ax_l.grid(axis="x", linestyle="-", linewidth=0.4, alpha=0.35, zorder=0)
 
     # ---------- Right: Δ vs Bagging K=2, Twin-indep only ----------
-    ax_r.axvspan(x_lo_r, 0, color="#e6f0e6", alpha=0.55, zorder=0)
-    for i in range(len(HEADLINE_DATASETS)):
-        if i % 2 == 1:
-            ax_r.axhspan(i - 0.5, i + 0.5, color="0.97", zorder=0)
-
     twin_means = []
     for i, ds in enumerate(reversed(HEADLINE_DATASETS)):
         y = i * row_spacing
