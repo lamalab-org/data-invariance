@@ -34,7 +34,7 @@ Every comparison in Table~\ref{tab:main} is paired across the
 ${10 \choose 2} = 45$ seed pairs; the $95\%$ confidence intervals
 shown come from $10{,}000$-sample bootstrap on the seed-pair
 distribution.  Section~\ref{sec:dev} reports the development analysis
-on BACE (Pareto curve, Table~\ref{tab:pareto}).
+on BACE (Pareto curve, Figure~\ref{fig:pareto}).
 
 \paragraph{Compute-matched comparison: twin-indep vs.\ bagging $K{=}2$.}
 Both methods train two networks.  At matched compute, twin-indep
@@ -58,7 +58,7 @@ than the argmax-churn delta suggests.
 Combining the deployed model with a single additional bootstrap suffices
 to identify the $10\%$ most fragile predictions, which contain
 $68\text{--}94\%$ of the test predictions that would flip on
-retraining (Table~\ref{tab:churn-decile}).  This is a deployment
+retraining (Figure~\ref{fig:decile}).  This is a deployment
 recipe: compute fragility, route the top decile for re-review.
 
 \subsection{Development analysis (BACE)}

@@ -32,6 +32,9 @@ from _analysis_lib import (
     GLOBS, bootstrap_ci, bootstrap_paired, fmt_ci, get_probs, load_runs,
     pairwise_metrics, per_run_accuracies,
 )
+from paper_constants import (
+    DEV_DATASET, FROZEN_LAM, HEADLINE_DATASETS, N_TRAIN, display,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -90,15 +93,71 @@ METHODS = [
 ]
 
 
+def _fmt_delta_pp(t: tuple[float, float, float]) -> str:
+    """Format a paired-Δ id-churn (mean, lo, hi) tuple as `m [lo, hi]` in pp."""
+    m, lo, hi = t
+    return f"${m*100:+.1f}$ [{lo*100:+.1f}, {hi*100:+.1f}]"
+
+
+def write_latex_table(rows, path, frozen_lam):
+    """Emit `paper/sections/tables/main.tex`: per-dataset paired Δ id-churn vs ERM."""
+    methods = ["Deep Ensemble K=5", "Bagging K=2", "Bagging K=5",
+               f"Twin_indep λ={frozen_lam} (frozen)"]
+    headers = ["Deep Ens.\\ $K{=}5$", "Bagging $K{=}2$",
+               "Bagging $K{=}5$", "Twin-indep $\\lambda{=}300$"]
+    by_ds: dict[str, dict[str, str]] = {}
+    for r in rows:
+        by_ds.setdefault(r["dataset"], {})[r["method"]] = r
+
+    lines = [
+        r"\begin{table}[t]",
+        r"  \centering",
+        r"  \caption{Paired $\Delta$ in-distribution argmax churn vs.\ ERM "
+        r"on the eight headline chemistry benchmarks (in percentage points; "
+        r"negative is better).  Each cell is the mean over "
+        r"$\binom{10}{2}=45$ seed pairs with paired-bootstrap $95\%$ "
+        r"confidence intervals from $10{,}000$ resamples.  "
+        r"Twin-indep $\lambda{=}300$ is frozen on the BACE development "
+        r"dataset and applied unchanged to every held-out benchmark.}",
+        r"  \label{tab:main}",
+        r"  \scriptsize",
+        r"  \begin{tabular}{lr" + "l" * len(methods) + "}",
+        r"    \toprule",
+        r"    Dataset & $N$ & " + " & ".join(headers) + r" \\",
+        r"    \midrule",
+    ]
+    ds_order = sorted(by_ds.keys(), key=lambda d: N_TRAIN.get(d, 10**9))
+    for ds in ds_order:
+        cells = []
+        for m in methods:
+            r = by_ds[ds].get(m)
+            cells.append(_fmt_delta_pp_from_row(r) if r else "---")
+        lines.append(f"    {display(ds)} & {N_TRAIN.get(ds, '---')} & "
+                     + " & ".join(cells) + r" \\")
+    lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text("\n".join(lines))
+    print(f"Wrote {path}")
+
+
+def _fmt_delta_pp_from_row(r):
+    if r.get("delta_id_churn_mean") is None:
+        return "---"
+    return _fmt_delta_pp((r["delta_id_churn_mean"],
+                          r["delta_id_churn_lo"],
+                          r["delta_id_churn_hi"]))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", default="outputs/cross_sample")
     ap.add_argument("--datasets", nargs="+",
-                    default=["bbbp", "tadf", "mof_solvent", "mof_thermal"])
-    ap.add_argument("--frozen_lam", type=float, default=300.0,
+                    default=[DEV_DATASET] + HEADLINE_DATASETS)
+    ap.add_argument("--frozen_lam", type=float, default=FROZEN_LAM,
                     help="Twin_indep λ frozen on dev dataset (BACE).")
     ap.add_argument("--csv", default="outputs/main_table.csv")
+    ap.add_argument("--latex", default="paper/sections/tables/main.tex")
     args = ap.parse_args()
     root = Path(args.root)
 
@@ -124,6 +183,13 @@ def main():
             for k in ("id_acc", "ood_acc", "id_churn", "ood_churn",
                       "id_sym_kl", "ood_sym_kl"):
                 row[f"{k}_mean"], row[f"{k}_lo"], row[f"{k}_hi"] = m[k]
+            # Paired Δ id-churn vs ERM (used by the LaTeX table).
+            res = paired_delta_vs(GLOBS["erm"], glob, ds_dir, "id_churn")
+            if res is not None:
+                (dm, dlo, dhi), _ = res
+                row["delta_id_churn_mean"] = dm
+                row["delta_id_churn_lo"] = dlo
+                row["delta_id_churn_hi"] = dhi
             rows.append(row)
         print()
 
@@ -162,11 +228,17 @@ def main():
     # Save tidy CSV.
     Path(args.csv).parent.mkdir(parents=True, exist_ok=True)
     if rows:
+        all_keys = sorted({k for r in rows for k in r.keys()})
         with open(args.csv, "w", newline="") as fh:
-            writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
+            writer = csv.DictWriter(fh, fieldnames=all_keys)
             writer.writeheader()
-            writer.writerows(rows)
+            for r in rows:
+                writer.writerow({k: r.get(k, "") for k in all_keys})
         print(f"\nWrote {args.csv}")
+
+    # Emit the LaTeX table that experiments.tex \input's.
+    if rows:
+        write_latex_table(rows, args.latex, args.frozen_lam)
 
 
 if __name__ == "__main__":

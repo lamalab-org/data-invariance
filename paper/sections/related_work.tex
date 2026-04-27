@@ -1,53 +1,107 @@
 \section{Related work}
 \label{sec:related}
 
-We organise prior work by what it does \emph{not} address.
+We position cross-sample prediction fragility against four bodies of
+prior work: deployment-driven prediction-churn studies, predictive
+multiplicity in the Rashomon sense, parameter-side uncertainty
+quantification, and methods for two-network training with a
+disagreement loss.
 
-\paragraph{Algorithmic stability.}
-\citet{TODO_bousquet2002} bound the generalisation gap by uniform
-stability $\beta = O(1/N)$ but treat $\beta$ as an analytical quantity.
-We measure it as a per-example, deployment-relevant signal and use it
-as a training objective.
+\paragraph{Prediction churn (the closest precedent).}
+\citet{TODO_milani2016} introduced the term \emph{prediction churn} for
+the disagreement between two classifiers trained on the same task with
+different runs or data updates, and proposed an MCMC stabilisation
+operator that regularises a new model toward a deployed one.
+\citet{TODO_bhojanapalli2021} dissect the sources of churn empirically
+on CIFAR and ImageNet, isolating initialisation and data-order
+randomness; the data-resample axis is mentioned but not the focus.
+\citet{TODO_jiang2022} prove an equivalence between distillation from
+a fixed reference model and an explicit churn constraint, and report
+that distillation is the strongest churn-reduction mechanism in the
+deployment setting.  We adopt the term and the per-example framing,
+and extend the literature in three directions: (i)~from deployment
+churn against an incumbent model to the population-level fragility
+between two equally weighted retrainings on independent samples,
+(ii)~from web-scale settings to small-$N$ from-scratch scientific
+machine learning, and (iii)~from aggregate churn rates to per-example
+fragility usable as a deployment-time triage signal.
 
-\paragraph{Parameter-distribution uncertainty.}
+\paragraph{Predictive multiplicity and underspecification.}
+\citet{TODO_marx2020} define \emph{predictive multiplicity} as the
+existence of equally accurate models that disagree on individual
+predictions, and \citet{TODO_damour2022} argue that under-specified
+ML pipelines routinely produce such disagreeing predictors.
+\citet{TODO_black2022} operationalise this at deployment time, using
+ensemble disagreement to abstain on contested predictions.  These
+works study disagreement across the loss-equivalent model class at a
+fixed dataset; cross-sample fragility studies disagreement across
+independent draws of the dataset.  The two are complementary slices of
+the same epistemic uncertainty
+question~\citep{TODO_huellermeier2021}.
+
+\paragraph{Parameter-side uncertainty and bagging.}
 Deep ensembles~\citep{TODO_lakshminarayanan2017} and MC
 dropout~\citep{TODO_gal2016} sample over model parameters at a
-\emph{fixed} dataset.  Our measurements (Section~\ref{sec:measurement})
-show this is the wrong axis: deep ensembles reduce per-example churn by
-${\sim}9\%$ on average, while the data axis we measure has
-$10\text{--}100\times$ more variance.
+\emph{fixed} dataset; we measure (Section~\ref{sec:measurement}) that
+the data-resample axis they miss accounts for an order of magnitude
+more per-example variability than their parameter axis.  Bagging, the
+classical bootstrap variance-reduction estimator
+of~\citet{TODO_breiman1996} and the conceptual lineage of stability
+selection~\citep{TODO_meinshausen2010}, has been argued to be a
+\emph{worse} accuracy estimator for neural networks than full-data
+ensembles because each member sees only ${\sim}63\%$ unique
+indices~\citep{TODO_nixon2020}.  Our results are consistent with their
+bound on accuracy in some regimes, but for the deliverable that
+matters here --- per-example stability across retrainings --- bagging
+is exactly the right intervention; on the small-$N$ chemistry
+benchmarks we additionally find that bagging-$K{=}5$ improves
+accuracy over ERM (mean $+1.6$pp, $95\%$ CI $[+1.1, +2.1]$).
+Bootstrapped DQN~\citep{TODO_osband2016} uses a closely related
+multi-head bootstrap construction for exploration in reinforcement
+learning.
 
-\paragraph{Bagging.}
-\citet{TODO_breiman1996} introduced bootstrap aggregation as a
-variance-reduction estimator.  In modern deep-learning practice it has
-been displaced by deep ensembling (same compute, no resampling).  We
-revisit bagging and show it is the strongest no-cost baseline for
-cross-sample stability; the data-resampling axis is precisely the one
-deep ensembles miss.
+\paragraph{Two-network training with a disagreement loss.}
+\citet{TODO_anil2018_codistillation} train two (or more) networks on
+typically \emph{disjoint} data shards with a mutual KL agreement loss
+to accelerate large-scale training, and report churn reduction as a
+side benefit.  Co-teaching~\citep{TODO_han2018_coteaching} uses a
+two-network construction with disagreement-driven sample selection
+for label-noise robustness.  Mean Teacher and
+$\Pi$-model~\citep{TODO_tarvainen2017} penalise disagreement under
+\emph{input augmentation}, not training-data resampling.  Twin-indep
+shares mechanics with codistillation --- two networks, KL agreement
+loss --- but differs in motivation, regime, and protocol: the data
+splits are bootstraps with replacement (rather than disjoint shards),
+the target setting is small-$N$ from-scratch (rather than web-scale),
+and per-example fragility is the deliverable rather than a side
+metric.  We do not claim this combination is novel as an architecture;
+we claim it is the right form of the data-side regulariser for
+small-$N$ scientific machine learning.
 
-\paragraph{Consistency regularisation.}
-Mean Teacher and $\Pi$-model~\citep{TODO_tarvainen2017} penalise
-disagreement under \emph{input augmentation}.  We penalise disagreement
-under \emph{training-data resampling}, which is a different axis.
-The two are complementary.
+\paragraph{Clinical-biostatistics precedent.}
+\citet{TODO_riley2023} develop a stability-interval program for
+clinical prediction models, arguing that bootstrap-based per-individual
+stability plots reveal predictions whose point estimates span $0.1$ to
+$0.8$ across resamples and are consequently unreliable for
+patient-level decisions.  The framing is the closest published
+precedent for our deployment-driven argument, in a different domain
+and without a deep-learning treatment.
 
-\paragraph{Conformal prediction.}
-\citet{TODO_vovk2005} provide marginal coverage guarantees but
-make no statement about per-example prediction stability under
-retraining.
+\paragraph{Conformal prediction, group robustness, and data attribution.}
+Conformal prediction~\citep{TODO_vovk2005} provides marginal coverage
+under a fixed training set rather than stability across resamples of
+it.  Worst-group methods~\citep{TODO_sagawa2020,
+TODO_arjovsky2019, TODO_krueger2021} target accuracy on rare
+subpopulations, a different axis from per-example retraining churn.
+Influence functions~\citep{TODO_koh2017_influence,
+TODO_pruthi2020_tracin} and datamodels~\citep{TODO_ilyas2022_datamodels}
+identify the training examples whose inclusion most affects a given
+prediction; per-example fragility is the corresponding output-side
+diagnostic and requires only one additional model rather than the
+${\sim}10^5$ models a datamodel surrogate is fit on.
 
-\paragraph{Worst-group robustness.}
-Group DRO~\citep{TODO_sagawa2020},
-IRM~\citep{TODO_arjovsky2019}, and
-V-REx~\citep{TODO_krueger2021} address worst-group accuracy under
-distribution shift.  Cross-sample fragility is orthogonal: a perfectly
-group-invariant model can still flip individual predictions on
-retraining of the same population.
-
-\paragraph{Prediction churn.}
-Industry studies~\citep{TODO_milani2016, TODO_anil2023} document
-prediction churn as a deployment problem and propose ad-hoc remedies
-(warm-starting, distillation against the previous model).  We provide
-a principled definition tied to algorithmic stability, a measurement
-protocol with paired confidence intervals, and a training-time
-intervention that does not require access to the previous model.
+\paragraph{Evaluation methodology.}
+We follow the multi-source variance accounting argued for
+by~\citet{TODO_bouthillier2021}: every reported delta is paired across
+$\binom{10}{2}=45$ seed pairs, and confidence intervals are computed
+by $10{,}000$-sample bootstrap on the seed-pair distribution.

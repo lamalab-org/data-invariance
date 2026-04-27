@@ -19,37 +19,52 @@ evolve continuously, this \emph{cross-sample invariance} is plausibly
 the property that most directly governs whether a deployed prediction
 can be trusted at the next retraining.
 
-Cross-sample fragility is motivated theoretically by algorithmic
-stability~\citep{TODO_bousquet2002}, large empirically in small-$N$
-scientific machine learning, and missed by the standard uncertainty
-toolkit---deep ensembles vary model parameters at fixed data and
-remove only ${\sim}2$pp of churn on average.  We measure cross-sample
-fragility on eight standard chemistry benchmarks (BACE, BBBP, three
-materials-science datasets, three TDC ADME/Tox benchmarks), then
-introduce two methods that reduce it under a strict no-test-tuning
-protocol: $K$-bootstrap bagging at no accuracy cost, and a
-twin-network bootstrap-consistency objective at matched compute.
+Cross-sample fragility is the population-level analogue of the
+deployment ``prediction churn'' studied
+by~\citet{TODO_milani2016, TODO_bhojanapalli2021, TODO_jiang2022} and
+of the bootstrap-stability-interval program developed in clinical
+biostatistics by~\citet{TODO_riley2023}; we extend that thread to the
+small-$N$ from-scratch setting that scientific machine learning
+inhabits.  It is motivated theoretically by algorithmic
+stability~\citep{TODO_bousquet2002}, and missed by the standard
+uncertainty toolkit: deep ensembles vary model parameters at fixed
+data and remove only ${\sim}2$pp of churn on average.  We measure
+cross-sample fragility on eight standard chemistry benchmarks (BACE,
+BBBP, three materials-science datasets, three TDC ADME/Tox
+benchmarks), then introduce two methods that reduce it under a strict
+no-test-tuning protocol: $K$-bootstrap bagging at no accuracy cost,
+and a twin-network bootstrap-consistency objective at matched
+compute.
 
 \paragraph{Contributions.}
 \begin{itemize}\itemsep0pt
-  \item \textbf{Cross-sample prediction fragility} --- the fraction of
-        test predictions that change class between two models trained on
-        independent bootstraps of the same population --- defines a
-        measurable analogue of uniform algorithmic
+  \item \textbf{Population-level prediction fragility for small-$N$
+        scientific ML.}  We bring the deployment-driven prediction-churn
+        literature~\citep{TODO_milani2016, TODO_bhojanapalli2021,
+        TODO_jiang2022} and the clinical-biostatistics
+        stability-interval program~\citep{TODO_riley2023} into the
+        small-$N$ from-scratch regime that scientific ML inhabits.
+        Cross-sample fragility, measured between two models trained on
+        independent bootstraps of the same population, is a measurable
+        analogue of uniform algorithmic
         stability~\citep{TODO_bousquet2002}.  On eight standard chemistry
         benchmarks (MoleculeNet, TDC ADME/Tox, materials science),
         $8\text{--}17\%$ of test predictions flip across retrainings, an
         order of magnitude larger than deep-ensemble disagreement; deep
         ensembles remove only ${\sim}2$pp of churn.
-  \item \textbf{Two methods}, hyperparameters frozen on a single
-        development dataset (BACE) and applied unchanged to every
-        held-out benchmark.  $K$-bootstrap bagging reduces argmax churn
-        $47\text{--}49\%$ at zero accuracy cost.  \textbf{Twin-indep} ---
-        two networks on independent bootstraps with a sym-KL consistency
-        penalty between heads --- reduces argmax churn $69\text{--}72\%$
-        at matched compute against bagging-$K{=}2$, and distributional
-        sym-KL by roughly an additional order of magnitude beyond
-        bagging.
+  \item \textbf{Two methods} under a strict no-test-tuning protocol;
+        hyperparameters frozen on a single development dataset (BACE)
+        and applied unchanged to every held-out benchmark.
+        $K$-bootstrap bagging reduces argmax churn $47\text{--}49\%$ at
+        zero accuracy cost (mean $+1.6$pp; $95\%$ CI $[+1.1, +2.1]$).
+        \textbf{Twin-indep} --- two networks on independent bootstraps
+        with a sym-KL consistency penalty between heads --- reduces
+        argmax churn $69\text{--}72\%$ at matched compute against
+        bagging-$K{=}2$, and distributional sym-KL by roughly an
+        additional order of magnitude beyond bagging.  The construction
+        shares mechanics with codistillation~\citep{TODO_anil2018_codistillation};
+        we discuss the differences in motivation, regime and protocol in
+        Section~\ref{sec:related}.
   \item \textbf{Per-example fragility from one additional bootstrap}
         captures $68\text{--}94\%$ of the predictions that retraining
         will flip in its top decile, giving a deployment-time triage at

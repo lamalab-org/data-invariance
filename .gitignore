@@ -33,3 +33,14 @@ wandb/
 .idea/
 .vscode/
 .claude/
+
+# LaTeX build artefacts
+paper/main.aux
+paper/main.log
+paper/main.out
+paper/main.toc
+paper/main.bbl
+paper/main.blg
+paper/main.synctex.gz
+paper/main.pdf
+paper/build*.log

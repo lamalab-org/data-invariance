@@ -6,7 +6,7 @@ We test the BACE-frozen recipe on Waterbirds, a vision benchmark with
 ImageNet-pretrained ResNet-50.  Bagging $K{=}5$ improves both
 accuracy ($+2$pp) and cross-sample churn ($-51\%$ relative).
 Twin-indep at the same $\lambda{=}300$ collapses accuracy by $27$pp
-while still reducing churn (Table~\ref{tab:waterbirds}).
+while still reducing churn.
 Reducing $\lambda$ to a principled scaled value $\lambda_N
 = \lambda_{\mathrm{dev}} \cdot N_{\mathrm{dev}}/N \approx 60$ recovers
 some accuracy but does not return to the Pareto frontier of bagging.

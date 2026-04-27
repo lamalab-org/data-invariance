@@ -18,7 +18,14 @@ $K$ models trained on $K$ \emph{independent} bootstraps of the canonical
 training set, predictions averaged at deployment.  This is the classic
 \citet{TODO_breiman1996} estimator.  The inductive bias is purely
 averaging---no auxiliary loss---but, critically, the data axis is
-varied along with parameters.
+varied along with parameters.  \citet{TODO_nixon2020} caution that
+bootstrap neural-network ensembles can underperform full-data ensembles
+on accuracy because each member sees only ${\sim}63\%$ unique indices;
+on the eight headline chemistry datasets we observe the opposite
+(bagging-$K{=}5$ improves accuracy over ERM by mean $+1.6$pp, $95\%$
+CI $[+1.1, +2.1]$), consistent with bootstrap aggregation being well
+suited to the small-$N$, high-variance regime that scientific ML
+inhabits.
 
 \paragraph{Twin-indep with bootstrap-consistency loss.}
 Two networks $\theta_A, \theta_B$ are trained jointly on independent
