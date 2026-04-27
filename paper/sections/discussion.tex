@@ -3,22 +3,21 @@
 
 \paragraph{What practitioners should do.}
 For deployed scientific machine learning at $N \lesssim 5000$ from
-scratch, run $K$-bootstrap bagging with $K{=}5$ as the default.  This
-removes about half of the per-example prediction churn that retraining
-would otherwise produce, at a $5\times$ training-time cost and a
-small accuracy improvement on average ($+1.6$pp pooled across the
-eight headline benchmarks; $95\%$ CI $[+1.1, +2.1]$, excludes zero).
-When more stability is needed, twin-indep at the BACE-frozen
-$\lambda{=}300$ removes the next layer of churn at $2\times$ ERM
-training cost (matched compute against bagging-$K{=}2$).
+scratch, run $K$-bootstrap bagging with $K{=}5$ as the default: it
+removes roughly half of the per-example retraining churn at a
+$5\times$ training cost, with no accuracy regression
+(Table~\ref{tab:main}).  When stability matters more than compute,
+twin-indep at $\lambda{=}300$ removes the next layer of churn at
+$2\times$ ERM training cost, matched against bagging-$K{=}2$.
 
 \paragraph{Position relative to prior work.}
-Cross-sample fragility is the missing axis in the standard uncertainty
-toolkit.  Deep ensembles, MC dropout, conformal prediction, and the
-group-robustness literature each address a different axis of prediction
-uncertainty.  Cross-sample fragility is the one that corresponds to
-the deployment quantity practitioners actually care about: whether a
-prediction will change at the next retraining.
+Deep ensembles, MC dropout, conformal prediction, and the
+group-robustness literature each track a different axis of prediction
+uncertainty (parameter variance at fixed data, marginal coverage
+under a fixed training set, worst-group accuracy under shift).
+Cross-sample fragility tracks the axis that varies under retraining
+on a fresh sample of the same population, which is the quantity
+practitioners observe between deployments.
 
 \paragraph{Future work.}
 The fragility definition extends to regression with an MAE or
