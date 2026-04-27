@@ -133,8 +133,10 @@ def main() -> None:
 
     for k, idx in enumerate(picked):
         r, c = k // n_cols, k % n_cols
+        # Larger struct:trace height ratio gives the molecule more room
+        # now that the title bar is gone.
         gs_inner = gs_outer[r, c].subgridspec(
-            2, 1, height_ratios=[3, 0.5], hspace=0.10,
+            2, 1, height_ratios=[5, 0.5], hspace=0.04,
         )
         ax_struct = fig.add_subplot(gs_inner[0])
         ax_trace = fig.add_subplot(gs_inner[1])
@@ -143,12 +145,6 @@ def main() -> None:
         if img is not None:
             ax_struct.imshow(img)
         ax_struct.axis("off")
-        ax_struct.set_title(
-            f"ERM {erm_churn[idx]*100:.0f}%  to  "
-            f"Twin-indep {twin_churn[idx]*100:.0f}%   "
-            f"(class {int(test_labels[idx])})",
-            fontsize=8, pad=3,
-        )
 
         # Insert a 2-cell white gap between the ERM and Twin-indep blocks
         # so the two methods read as separate groups, not a single strip.
@@ -162,7 +158,11 @@ def main() -> None:
         ax_trace.imshow(masked, aspect="auto", cmap=cmap_with_nan,
                         vmin=0, vmax=1, interpolation="nearest")
         ax_trace.set_xticks([4.5, 16.5])
-        ax_trace.set_xticklabels(["ERM", "Twin-indep"], fontsize=7)
+        ax_trace.set_xticklabels(
+            [f"ERM {erm_churn[idx]*100:.0f}%",
+             f"Twin-indep {twin_churn[idx]*100:.0f}%"],
+            fontsize=7.5,
+        )
         ax_trace.set_yticks([])
         for spine in ax_trace.spines.values():
             spine.set_visible(False)
