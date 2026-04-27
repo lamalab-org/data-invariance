@@ -129,7 +129,21 @@ def main() -> None:
         png = d.GetDrawingText()
         from io import BytesIO
         from PIL import Image
-        return np.asarray(Image.open(BytesIO(png)))
+        img = Image.open(BytesIO(png)).convert("RGB")
+        # Crop to the non-white bounding box so matplotlib fills the subplot
+        # with the molecule, not the surrounding canvas whitespace.  A small
+        # margin keeps edge atom labels from being clipped.
+        arr = np.asarray(img)
+        non_white = (arr < 250).any(axis=-1)
+        if non_white.any():
+            ys, xs = np.where(non_white)
+            margin = 14
+            t = max(0, ys.min() - margin)
+            b = min(arr.shape[0], ys.max() + margin + 1)
+            l = max(0, xs.min() - margin)
+            r = min(arr.shape[1], xs.max() + margin + 1)
+            arr = arr[t:b, l:r]
+        return arr
 
     for k, idx in enumerate(picked):
         r, c = k // n_cols, k % n_cols

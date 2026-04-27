@@ -35,9 +35,8 @@ Chemistry machine learning has built architectures around invariances
 invariance has gone unspoken: that a model's prediction on a given
 molecule should not depend on which subset of the available data the
 model trained on.  In a deployment-driven domain where training sets
-evolve continuously, this \emph{cross-sample invariance} is plausibly
-the property that most directly governs whether a deployed prediction
-can be trusted at the next retraining.
+evolve continuously, this \emph{cross-sample invariance} governs
+whether a deployed prediction survives the next retraining.
 
 Cross-sample fragility is the population-level analogue of the
 deployment ``prediction churn'' studied
@@ -100,9 +99,5 @@ compute.
 \end{itemize}
 
 \paragraph{Contribution type (NeurIPS 2026).}
-Use-Inspired.  The methods are designed for and evaluated on a specific
-real-world setting (small-$N$ from-scratch scientific machine learning,
-with deployment-time prediction churn as the practitioner pain).  The
-algorithmic-stability connection and the twin-bootstrap-consistency
-objective generalise beyond that setting; their honest scope is
-documented in Section~\ref{sec:scope}.
+Use-Inspired.  Section~\ref{sec:scope} documents where the methods
+apply and where they do not.
