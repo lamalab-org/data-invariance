@@ -79,8 +79,12 @@ def main() -> None:
     erm_churn = _per_example_churn(erm_preds)
     twin_churn = _per_example_churn(twin_preds)
 
-    # Sort molecules by ERM churn (most-fragile first), keep top-N.
-    order = np.argsort(-erm_churn)
+    # Sort molecules by the contrast (ERM churn - twin churn): largest
+    # stabilisation at the top.  This makes the visual gap between the
+    # left and right panels maximal — the rows at the top are flippy
+    # under ERM and uniform under twin-indep, which is the message.
+    contrast = erm_churn - twin_churn
+    order = np.argsort(-contrast)
     keep = order[:args.n_examples]
     erm_panel = erm_preds[:, keep].T   # (N_examples, S)
     twin_panel = twin_preds[:, keep].T
