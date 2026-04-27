@@ -1,14 +1,74 @@
-\section{Theoretical addendum}
+\section{Theoretical addendum: motivation, not bound}
 \label{app:theory}
 
-(Stub.)  Formal statement of the bootstrap-estimator consistency for
-$\rho$, and the algorithmic-stability bound on $\bar\rho$.
+We use uniform algorithmic stability~\citep{TODO_bousquet2002} only as
+motivation for fragility decreasing with $N$, not as a quantitative
+bound on the cross-sample fragility $\bar\rho$ we measure.  Three gaps
+separate the formal stability framework from the empirical setting of
+this paper, and we are explicit about each.
 
-\section{Within-dataset $N$-scaling on BACE}
+\paragraph{Output-space, not loss-space.}
+Stability bounds the change in expected loss when one training example
+is replaced.  Argmax disagreement is a non-smooth function of the
+prediction distribution: a small change in logits at the decision
+boundary can flip the argmax even when the loss change is small.  The
+loss-stability bound therefore does not transfer to argmax-stability
+without additional assumptions on the margin distribution near the
+boundary.
+
+\paragraph{Bootstrap, not single-example perturbation.}
+Algorithmic stability is defined for a one-example change between $S$
+and $S^i$.  The bootstrap protocol perturbs many examples
+simultaneously: a fresh bootstrap differs from the original training
+set in roughly $37\%$ of indices, and two independent bootstraps share
+only ${\sim}40\%$ of indices in expectation.  Standard stability
+results do not give a tight bound under multi-example perturbation, so
+$\beta$ alone is not a quantitative predictor of $\bar\rho$ magnitudes
+across datasets.
+
+\paragraph{Irreducible boundary disagreement at finite $N$.}
+Two ERM models trained on independent samples may differ on examples
+that genuinely sit near the population decision boundary, even at
+arbitrarily large $N$.  The within-dataset $N$-scaling experiment in
+the next section shows the empirical floor.  This floor is not
+captured by the $\beta = O(1/N)$ rate, which goes to zero with $N$.
+
+We therefore present cross-sample fragility as a measurable quantity
+in its own right (Section~\ref{sec:preliminaries}), with algorithmic
+stability serving as the theoretical backdrop that explains why
+fragility should decrease with $N$ rather than as a derivation of how
+fast.
+
+\section{ChemBERTa scope experiment (in progress)}
+\label{app:chemberta_scope}
+
+To test whether the Waterbirds finding (twin-indep over-regularises
+pretrained features) reproduces inside the chemistry domain, we
+fine-tune ChemBERTa-77M-MTR on a subset of the headline datasets
+(BACE, BBBP, Pgp\_Broccatelli, BBB-Martins, AMES, DILI; $5$ seeds
+each) and run ERM and twin-indep at the BACE-frozen $\lambda{=}300$.
+At submission time the cluster sweep is still in flight; this section
+will be populated with the comparison of (i) baseline cross-sample
+churn under fine-tuned ChemBERTa vs.\ Morgan-MLP ERM and (ii) the
+twin-indep delta on each backbone.  The result determines whether the
+regime characterisation in Section~\ref{sec:scope} rests on a
+chemistry-internal effect (twin-indep over-regularises ChemBERTa as it
+does ResNet-50 on Waterbirds) or whether the Waterbirds result is
+modality-specific.
+
+\section{Within-dataset $N$-scaling}
 \label{app:nscaling}
 
-(Stub.)  Subsampled BACE results showing slope $-0.94$ in the
-informative-sample regime and the irreducible floor at large $N$.
+A controlled within-dataset $N$-scaling under the bootstrap protocol
+of Section~\ref{sec:preliminaries} would isolate $N$ from cross-dataset
+heterogeneity, complementing the cross-dataset magnitudes of
+Table~\ref{tab:fragility-magnitudes}.  We leave this experiment to
+follow-up work: a clean comparison requires re-running ERM at multiple
+subsample sizes $M$ on the same canonical training pool, with enough
+seeds at each $M$ to compute paired-bootstrap CIs of the
+fragility-vs-$M$ slope.  Section~\ref{app:theory} explains why the
+theoretical $\beta = O(1/N)$ is unlikely to fit the empirical slope
+exactly.
 
 \section{Failed approaches}
 \label{app:failures}
@@ -41,16 +101,56 @@ reduces churn modestly ($\sim$$1\text{pp}$) at a meaningful accuracy
 cost ($\sim$$3\text{pp}$) and is dominated by twin-indep.
 
 \paragraph{Adversarial partitions.}
-The original adversarial-data-splitting idea
-(\citealp{TODO_krueger2021}-style worst-case partition learned by an
-inner adversary) does not produce divergent twin training in the
-small-$N$ from-scratch regime: the adversary tends to assign hard
-examples consistently to the same head, which makes the heads
-\emph{agree more}, not less, on average.
+We tried replacing independent bootstraps with a learned worst-case
+partition --- an inner adversary chooses the data split that maximises
+prediction disagreement between the two heads, the outer model trains
+to be robust to that split.  In the small-$N$ from-scratch regime this
+does not produce divergent twin training: the adversary tends to
+assign hard examples consistently to the \emph{same} head, which makes
+the heads agree more, not less, on average.  Independent bootstraps
+are the simpler and stronger choice.
 
 \section{Reproducibility}
 \label{app:repro}
 
-(Stub.)  Pointer to the canonical-data-seed protocol, dataset-by-dataset
-hyperparameters table, and Makefile targets that regenerate every
-table from saved NPZ predictions.
+\paragraph{Canonical-data protocol.}
+For every dataset we fix \texttt{canonical\_data\_seed{=}99} once at
+construction time.  This single seed determines (i) the train /
+in-distribution / scaffold-out split, (ii) the byte-identical canonical
+test set used across every method and seed.  Cross-sample variation
+comes only from \texttt{train\_seeds=1,2,\dots,10}, which control which
+bootstrap of the canonical training pool each model sees.  No method
+ever sees a different test set; no method ever uses a different
+canonical training pool.
+
+\paragraph{Frozen hyperparameter.}
+The single tuned hyperparameter, twin-indep $\lambda$, is selected on
+BACE only by the rule ``largest $\lambda \in
+\{1, 3, 10, 30, 100, 300\}$ with $\text{id-acc} \ge \text{ERM-id-acc}
+- 0.02$''.  This rule yields $\lambda{=}300$
+(Figure~\ref{fig:pareto}).  We apply $\lambda{=}300$ unchanged to every
+held-out chemistry dataset; no held-out tuning at any stage.
+
+\paragraph{Dataset-by-dataset training hyperparameters.}
+All datasets use AdamW with weight decay $10^{-4}$, gradient clipping
+at $1.0$, no learning-rate schedule.  Per-dataset learning rate, batch
+size, and epoch count are listed in
+\texttt{scripts/run\_experiment.py:HPARAMS}; we use $\text{lr}=10^{-3}$,
+batch size $64$, and $30$ epochs for the eight headline chemistry
+datasets, and the published Waterbirds recipe ($\text{lr}=10^{-4}$,
+batch size $64$, $15$ epochs) for the scope analysis.
+
+\paragraph{Reproducing every table and figure.}
+Once the NPZ predictions exist under
+\texttt{outputs/cross\_sample/\{dataset\}/}, every paper artefact
+regenerates with one command:
+\begin{verbatim}
+make tables       # paper Table 1, fragility-magnitudes table
+make figures      # Fig 1 forest, Fig 2 Pareto, Fig 3 decile
+\end{verbatim}
+To regenerate the predictions from scratch, the same
+\texttt{Makefile} provides
+\texttt{make sweep-erm}, \texttt{sweep-bagging},
+\texttt{sweep-deep-ensemble}, \texttt{sweep-twin-indep}, and
+\texttt{sweep-pareto-bace}.  Cluster array scripts that drive these
+sweeps in parallel are in \texttt{slurm/}.

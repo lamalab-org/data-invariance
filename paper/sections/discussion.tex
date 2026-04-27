@@ -5,10 +5,12 @@
 For deployed scientific machine learning at $N \lesssim 5000$ from
 scratch, run $K$-bootstrap bagging with $K{=}5$ as the default.  This
 removes about half of the per-example prediction churn that retraining
-would otherwise produce, at a $5\times$ training-time cost and zero
-accuracy cost.  When more stability is needed and the fivefold
-training cost is acceptable, twin-indep at the BACE-frozen
-$\lambda{=}300$ removes the next layer of churn at a $2\times$ cost.
+would otherwise produce, at a $5\times$ training-time cost and a
+small accuracy improvement on average ($+1.6$pp pooled across the
+eight headline benchmarks; $95\%$ CI $[+1.1, +2.1]$, excludes zero).
+When more stability is needed, twin-indep at the BACE-frozen
+$\lambda{=}300$ removes the next layer of churn at $2\times$ ERM
+training cost (matched compute against bagging-$K{=}2$).
 
 \paragraph{Position relative to prior work.}
 Cross-sample fragility is the missing axis in the standard uncertainty
@@ -19,13 +21,13 @@ the deployment quantity practitioners actually care about: whether a
 prediction will change at the next retraining.
 
 \paragraph{Future work.}
-A natural next step is regression: cross-sample fragility extends with
-an MAE or covered-interval metric in place of argmax disagreement,
-and the consistency loss becomes an MSE or Huber penalty.  Connecting
-twin-indep to influence-function-based data attribution is also
-natural: per-example fragility is a soft measure of how influential
-the most-influential training examples are.  Finally, replacing the
-fixed $\lambda$ with a principled scaling
-$\lambda_N \propto 1/N$ derived from algorithmic stability would
-remove even the single hyperparameter we currently set on the
-development dataset.
+The fragility definition extends to regression with an MAE or
+covered-interval metric in place of class-flip rate, and the
+consistency loss becomes an MSE or Huber penalty.  Per-example
+fragility is also a candidate signal for influence-function-style
+data attribution: examples whose inclusion or exclusion most flips
+predictions on others are operationally the most-influential
+examples.  An $N$-aware scaling $\lambda_N \propto 1/N$, motivated by
+the algorithmic-stability rate, is the natural attempt at removing the
+single tuned hyperparameter; whether such a scaling generalises beyond
+the dev dataset is an empirical question we do not settle here.

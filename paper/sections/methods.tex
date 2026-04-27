@@ -59,21 +59,17 @@ mini-batches.  At deployment, predictions are averaged.
 
 \paragraph{Mechanism.}
 Without the consistency term ($\lambda{=}0$) the procedure reduces to
-$K{=}2$ bagging: each network fits its own bootstrap and they are
+$K{=}2$ bagging: each network fits its own bootstrap and the two are
 averaged at deployment.  Adding the consistency term penalises
 divergence on every example seen in either mini-batch, including the
-$\sim 40\%$ of indices that appear in both bootstraps in
-expectation.\footnote{Bootstrap-with-replacement at size $N$ covers
-${\sim}63\%$ of unique indices.  Two independent bootstraps share
-${\sim}0.63 \times 0.63 \approx 0.40$ in expectation.}  The objective
-is therefore an explicit pull toward decision functions that are
-invariant to the specific bootstrap.  We measure empirically
-(Section~\ref{sec:experiments}) that this bias transfers to invariance
-under \emph{fresh} bootstraps: cross-sample fragility on held-out
-bootstrap pairs is reduced by a factor not captured by bagging alone.
-We do not claim that bootstrap-invariance \emph{implies}
-cross-sample-invariance in general; the connection is theoretical
-motivation, not a proof.
+$\sim 40\%$ of indices that appear in both
+bootstraps.\footnote{Bootstrap-with-replacement at size $N$ covers
+${\sim}63\%$ of unique indices in expectation.  Two independent
+bootstraps share ${\sim}0.63 \times 0.63 \approx 0.40$.}  The
+objective is an explicit pull toward decision functions that are
+invariant to the specific bootstrap, with cross-sample invariance as
+the theoretical motivation
+(Section~\ref{sec:preliminaries}, Appendix~\ref{app:theory}).
 
 \paragraph{Hyperparameter selection (no test-set tuning).}
 A single development dataset (BACE) is used to select $\lambda$ via
