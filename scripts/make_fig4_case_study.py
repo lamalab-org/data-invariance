@@ -102,23 +102,26 @@ def main() -> None:
     from rdkit.Chem.Draw import rdMolDraw2D
     from rdkit.Chem import AllChem
 
-    def _render_mol(smiles: str, size: int = 1500) -> np.ndarray | None:
-        """Render a molecule at high resolution with tight bounds.
+    def _render_mol(smiles: str, canvas: int = 2200, bond_px: int = 56) -> np.ndarray | None:
+        """Render a molecule at fixed bond-length so atoms have the same
+        visual size across structures of different complexity.
 
-        Computes 2D coords explicitly, draws with no per-canvas padding so
-        all molecules fill the same fraction of their canvas; visible bond
-        thickness then ends up roughly uniform when imshow scales each PNG
-        to the same matplotlib subplot size.
+        We draw on a generously sized canvas (large enough for the biggest
+        molecule in the figure) and pin the bond length in pixels.  RDKit
+        then leaves the molecule centred and at the same scale regardless
+        of how many atoms it has; the surrounding white space differs but
+        atom labels and bonds do not.
         """
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
             return None
         AllChem.Compute2DCoords(mol)
-        d = rdMolDraw2D.MolDraw2DCairo(size, size)
+        d = rdMolDraw2D.MolDraw2DCairo(canvas, canvas)
         opts = d.drawOptions()
-        opts.bondLineWidth = 3.0
-        opts.baseFontSize = 0.6
-        opts.padding = 0.05
+        opts.fixedBondLength = bond_px        # px per bond, identical across molecules
+        opts.bondLineWidth = 3.5
+        opts.baseFontSize = 0.55
+        opts.padding = 0.0                    # no per-molecule padding; canvas absorbs it
         opts.clearBackground = True
         opts.useBWAtomPalette()
         d.DrawMolecule(mol)
@@ -147,11 +150,18 @@ def main() -> None:
             fontsize=8, pad=3,
         )
 
-        trace = np.concatenate([erm_preds[:, idx], twin_preds[:, idx]])
-        ax_trace.imshow(trace.reshape(1, -1), aspect="auto", cmap=cmap,
+        # Insert a 2-cell white gap between the ERM and Twin-indep blocks
+        # so the two methods read as separate groups, not a single strip.
+        gap = np.full(2, np.nan)
+        trace = np.concatenate([
+            erm_preds[:, idx].astype(float), gap, twin_preds[:, idx].astype(float),
+        ])
+        cmap_with_nan = ListedColormap(["#3a6ea5", "#d97757"]).copy()
+        cmap_with_nan.set_bad(color="white")
+        masked = np.ma.masked_invalid(trace.reshape(1, -1))
+        ax_trace.imshow(masked, aspect="auto", cmap=cmap_with_nan,
                         vmin=0, vmax=1, interpolation="nearest")
-        ax_trace.axvline(9.5, color="white", linewidth=1.2)  # divider
-        ax_trace.set_xticks([4.5, 14.5])
+        ax_trace.set_xticks([4.5, 16.5])
         ax_trace.set_xticklabels(["ERM", "Twin-indep"], fontsize=7)
         ax_trace.set_yticks([])
         for spine in ax_trace.spines.values():
@@ -166,7 +176,7 @@ def main() -> None:
                handletextpad=0.4, columnspacing=1.5, fontsize=7.5)
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(args.out, bbox_inches="tight", dpi=300)
+    fig.savefig(args.out, bbox_inches="tight", dpi=600)
     print(f"\nWrote {args.out}")
 
 
