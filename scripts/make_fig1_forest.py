@@ -71,11 +71,29 @@ def main() -> None:
         "Twin-indep":    dict(marker="D", mfc="#d62728", mec="#7a1313", ms=8.5,  zorder=5),
     }
 
+    # Determine sensible x-ranges from the data (CI extents) plus padding.
+    def _x_range(deltas: dict) -> tuple[float, float]:
+        lows, highs = [], []
+        for v in deltas.values():
+            if v is None:
+                continue
+            _, lo, hi = v
+            lows.append(lo * 100)
+            highs.append(hi * 100)
+        if not lows:
+            return -10.0, 1.0
+        lo, hi = min(lows), max(highs)
+        span = max(hi - lo, 1.0)
+        return lo - 0.06 * span, hi + 0.06 * span
+
+    x_lo_l, x_hi_l = _x_range(deltas_vs_erm)
+    x_lo_r, x_hi_r = _x_range({k: v for k, v in deltas_vs_bag2.items()})
+
     fig_w = lama_aesthetics.TWO_COL_WIDTH
     fig_h = 0.45 * len(HEADLINE_DATASETS) + 1.2
     fig, (ax_l, ax_r) = plt.subplots(
         1, 2, figsize=(fig_w, fig_h), sharey=True,
-        gridspec_kw=dict(width_ratios=[2.2, 1.0], wspace=0.05),
+        gridspec_kw=dict(width_ratios=[2.0, 1.0], wspace=0.10),
     )
 
     # ---------- Left: Δ vs ERM, all 4 methods ----------
@@ -84,7 +102,7 @@ def main() -> None:
     row_spacing = 1.0
     yticks, yticklabels = [], []
 
-    ax_l.axvspan(-100, 0, color="#e6f0e6", alpha=0.55, zorder=0)
+    ax_l.axvspan(x_lo_l, 0, color="#e6f0e6", alpha=0.55, zorder=0)
     for i in range(len(HEADLINE_DATASETS)):
         if i % 2 == 1:
             ax_l.axhspan(i - 0.5, i + 0.5, color="0.97", zorder=0)
@@ -101,8 +119,8 @@ def main() -> None:
             ax_l.errorbar(
                 mean * 100, y,
                 xerr=[[(mean - lo) * 100], [(hi - mean) * 100]],
-                fmt="none",
-                elinewidth=1.4 if method == "Twin-indep" else 0.9,
+                fmt="none", capsize=2.0,
+                elinewidth=1.6 if method == "Twin-indep" else 1.0,
                 ecolor=method_styles[method]["mec"],
                 zorder=method_styles[method]["zorder"] - 0.5,
             )
@@ -125,13 +143,14 @@ def main() -> None:
     ax_l.axvline(0, color="0.25", linewidth=1.0, zorder=1)
     ax_l.set_yticks(yticks)
     ax_l.set_yticklabels(yticklabels)
-    ax_l.set_xlabel(r"Paired $\Delta$ id-churn vs.\ ERM (pp; $<0$ better)")
+    ax_l.set_xlim(x_lo_l, x_hi_l)
+    ax_l.set_xlabel("Paired Δ id-churn vs. ERM (pp; <0 better)")
     ax_l.set_ylim(-0.6, len(HEADLINE_DATASETS) - 0.4)
     ax_l.set_title("(a) every method beats ERM", fontsize=9, pad=4, loc="left")
     ax_l.grid(axis="x", linestyle="-", linewidth=0.4, alpha=0.35, zorder=0)
 
     # ---------- Right: Δ vs Bagging K=2, Twin-indep only ----------
-    ax_r.axvspan(-100, 0, color="#e6f0e6", alpha=0.55, zorder=0)
+    ax_r.axvspan(x_lo_r, 0, color="#e6f0e6", alpha=0.55, zorder=0)
     for i in range(len(HEADLINE_DATASETS)):
         if i % 2 == 1:
             ax_r.axhspan(i - 0.5, i + 0.5, color="0.97", zorder=0)
@@ -147,7 +166,7 @@ def main() -> None:
         ax_r.errorbar(
             mean * 100, y,
             xerr=[[(mean - lo) * 100], [(hi - mean) * 100]],
-            fmt="none", elinewidth=1.4,
+            fmt="none", elinewidth=1.6, capsize=2.0,
             ecolor=method_styles["Twin-indep"]["mec"],
             zorder=4,
         )
@@ -159,8 +178,10 @@ def main() -> None:
                      color=method_styles["Twin-indep"]["mec"],
                      linewidth=1.2, alpha=0.85, zorder=1)
     ax_r.axvline(0, color="0.25", linewidth=1.0, zorder=1)
-    ax_r.set_xlabel(r"$\Delta$ vs.\ Bagging $K{=}2$ (pp)")
-    ax_r.set_title("(b) matched-compute gain", fontsize=9, pad=4, loc="left")
+    ax_r.set_xlim(x_lo_r, x_hi_r)
+    ax_r.set_xlabel("Δ vs. Bagging K=2 (pp)")
+    ax_r.set_title("(b) matched-compute gain over bagging $K{=}2$",
+                   fontsize=9, pad=4, loc="left")
     ax_r.grid(axis="x", linestyle="-", linewidth=0.4, alpha=0.35, zorder=0)
     ax_r.tick_params(left=False)
 
