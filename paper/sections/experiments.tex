@@ -61,6 +61,31 @@ $68\text{--}94\%$ of the test predictions that would flip on
 retraining (Figure~\ref{fig:decile}).  This is a deployment
 recipe: compute fragility, route the top decile for re-review.
 
+\paragraph{Per-molecule stabilisation (BACE case study).}
+The aggregate reductions resolve at the per-molecule level
+(Figure~\ref{fig:case_study}).  We pick six BACE id-test molecules
+where ERM flips class on $\geq 30\%$ of seed pairs and twin-indep
+flips on $0\%$.  These are drug-discovery candidates that the
+deployed pipeline would route to synthesis differently across
+retrainings if ERM is used --- and consistently to the same arm
+under twin-indep.  The same canonical training pool was used for
+both methods; the difference is the consistency loss alone.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/fig4_case_study.pdf}
+  \caption{\textbf{Per-molecule stabilisation on BACE.}  Six
+    id-test molecules with high ERM cross-sample churn ($\geq 36\%$)
+    and zero twin-indep churn (every retraining agrees).  The
+    sub-panel under each structure shows ten ERM and ten twin-indep
+    seed predictions: each cell is the predicted class at one
+    retraining.  ERM stripes flip class across retrainings;
+    twin-indep collapses to a single colour.  Headline above each
+    structure is per-pair argmax churn (ERM $\to$ twin-indep) and
+    the molecule's true class.}
+  \label{fig:case_study}
+\end{figure}
+
 \subsection{Development analysis (BACE)}
 \label{sec:dev}
 
