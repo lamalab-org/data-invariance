@@ -102,12 +102,13 @@ def main() -> None:
     from rdkit.Chem.Draw import rdMolDraw2D
     from rdkit.Chem import AllChem
 
-    def _render_mol(smiles: str, size: int = 1000) -> np.ndarray | None:
-        """Render a molecule at high resolution with consistent bond width.
+    def _render_mol(smiles: str, size: int = 1500) -> np.ndarray | None:
+        """Render a molecule at high resolution with tight bounds.
 
-        Uses 2D coords with a fixed bond length so that molecules of
-        different sizes render with bonds of the same visual thickness when
-        embedded at the same matplotlib subplot size.
+        Computes 2D coords explicitly, draws with no per-canvas padding so
+        all molecules fill the same fraction of their canvas; visible bond
+        thickness then ends up roughly uniform when imshow scales each PNG
+        to the same matplotlib subplot size.
         """
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
@@ -115,12 +116,11 @@ def main() -> None:
         AllChem.Compute2DCoords(mol)
         d = rdMolDraw2D.MolDraw2DCairo(size, size)
         opts = d.drawOptions()
-        opts.fixedBondLength = 30.0     # px; enforces consistent bond visual size
-        opts.bondLineWidth = 2.4
-        opts.baseFontSize = 0.55
-        opts.padding = 0.10
+        opts.bondLineWidth = 3.0
+        opts.baseFontSize = 0.6
+        opts.padding = 0.05
         opts.clearBackground = True
-        opts.useBWAtomPalette()        # high-contrast for print
+        opts.useBWAtomPalette()
         d.DrawMolecule(mol)
         d.FinishDrawing()
         png = d.GetDrawingText()
@@ -141,9 +141,9 @@ def main() -> None:
             ax_struct.imshow(img)
         ax_struct.axis("off")
         ax_struct.set_title(
-            f"ERM {erm_churn[idx]*100:.0f}%  $\\to$  "
+            f"ERM {erm_churn[idx]*100:.0f}%  to  "
             f"Twin-indep {twin_churn[idx]*100:.0f}%   "
-            f"(true class {int(test_labels[idx])})",
+            f"(class {int(test_labels[idx])})",
             fontsize=8, pad=3,
         )
 
@@ -166,7 +166,7 @@ def main() -> None:
                handletextpad=0.4, columnspacing=1.5, fontsize=7.5)
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(args.out, bbox_inches="tight")
+    fig.savefig(args.out, bbox_inches="tight", dpi=300)
     print(f"\nWrote {args.out}")
 
 
