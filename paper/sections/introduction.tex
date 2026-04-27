@@ -3,53 +3,21 @@
 
 \begin{figure}[t]
   \centering
-  \begin{tikzpicture}[
-    font=\sffamily\footnotesize,
-    block/.style={rectangle, rounded corners=2pt, draw=black!55,
-                  line width=0.4pt, fill=#1, inner sep=3pt,
-                  align=center, minimum height=0.55cm},
-    flow/.style={-{Stealth[length=4pt]}, draw=black!60, line width=0.4pt},
-    >=Stealth,
-  ]
-    %% Top: protocol schematic.
-    \node[block={blue!6}] (pool) {Canonical training pool $S$};
-    \node[block={blue!6}, below left=0.45cm and 0.4cm of pool] (sa)
-      {bootstrap $S_A$};
-    \node[block={blue!6}, below right=0.45cm and 0.4cm of pool] (sb)
-      {bootstrap $S_B$};
-    \node[block={red!6}, below=0.40cm of sa] (ma) {Model $A$};
-    \node[block={red!6}, below=0.40cm of sb] (mb) {Model $B$};
-    \node[block={gray!8}, below=0.40cm of pool, yshift=-1.05cm] (test)
-      {same canonical test set};
-    \node[right=0.25cm of test, font=\sffamily\scriptsize\itshape,
-          text=black!70, align=left, anchor=west]
-      {fraction of test predictions where\\
-       $\arg\max f_A(x) \neq \arg\max f_B(x)$\\
-       $=$ cross-sample fragility};
-
-    \draw[flow] (pool) -- (sa);
-    \draw[flow] (pool) -- (sb);
-    \draw[flow] (sa) -- (ma);
-    \draw[flow] (sb) -- (mb);
-    \draw[flow] (ma) -- (test.west);
-    \draw[flow] (mb) -- (test.east);
-
-    %% Bottom: heatmap.
-    \node[below=0.55cm of test, anchor=north]
-      {\includegraphics[width=\linewidth]{figures/fig0_overview.pdf}};
-  \end{tikzpicture}
-  \caption{\textbf{Top:} the cross-sample fragility protocol --- two
-    models trained on independent bootstraps of the same canonical
-    training pool, evaluated on the same canonical test set; fragility
-    is the fraction of test predictions whose class disagrees.
-    \textbf{Bottom:} the phenomenon and its removal on BACE.  Each row
-    is a test molecule, each column is one of ten retrainings; cells
-    are coloured by predicted class.  Vertical stripes in the left
-    (ERM) panel are predictions that flip class across retrainings
-    --- $16.1\%$ averaged over all test molecules and up to $43\%$ on
-    the most fragile decile.  The same ten retrainings under
-    twin-indep (right) collapse most of these flips at the same compute
-    as bagging $K{=}2$ ($6.4\%$ averaged across the test set).}
+  \includegraphics[width=\linewidth]{figures/fig0_overview.pdf}
+  \caption{\textbf{Cross-sample prediction churn on BACE, and its
+    removal by twin-indep at matched compute.}  Protocol: ten models
+    are trained on ten independent bootstraps of the canonical
+    training pool and evaluated on the same canonical test set; under
+    ERM each model is trained independently (left), under twin-indep
+    each \emph{pair} is trained jointly with a sym-KL consistency
+    loss between their outputs (right, $\lambda{=}300$, matched
+    compute against bagging $K{=}2$).  Each row is a test molecule
+    (top $80$ by ERM argmax churn shown), each column is one
+    retraining; cells are coloured by predicted class.  Vertical
+    stripes in the left panel are predictions that flip class across
+    retrainings --- $16.1\%$ averaged over the test set and up to
+    $43\%$ on the most fragile decile; under twin-indep the flips
+    largely disappear ($6.4\%$ across the test set).}
   \label{fig:overview}
 \end{figure}
 

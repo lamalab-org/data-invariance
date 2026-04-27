@@ -85,57 +85,51 @@ def main() -> None:
     erm_panel = erm_preds[:, keep].T   # (N_examples, S)
     twin_panel = twin_preds[:, keep].T
 
-    # Visual.
+    # Visual.  Wider-than-tall panels: 30 most-fragile rows × 10 retrainings,
+    # rendered with a small horizontal stretch so each cell is rectangular and
+    # the vertical-stripe pattern in the ERM panel is unmistakable.
     lama_aesthetics.get_style("main")
     plt.rcParams["axes.unicode_minus"] = False
 
     fig_w = lama_aesthetics.TWO_COL_WIDTH
-    fig_h = fig_w * 0.55
+    fig_h = fig_w * 0.32  # squat, banner-shaped
     fig, (ax_l, ax_r) = plt.subplots(1, 2, figsize=(fig_w, fig_h),
                                      sharey=True,
                                      gridspec_kw=dict(wspace=0.06))
     cmap = ListedColormap(["#3a6ea5", "#d97757"])  # cool / warm; readable in print
 
-    for ax, panel, title in [
-        (ax_l, erm_panel, "ERM"),
-        (ax_r, twin_panel, f"Twin-indep ($\\lambda={int(FROZEN_LAM)}$)"),
-    ]:
-        ax.imshow(panel, aspect="auto", cmap=cmap, interpolation="nearest",
-                  vmin=0, vmax=1)
-        ax.set_title(title, fontsize=10, pad=4)
-        ax.set_xlabel("Retraining (train\\_seed)")
-        ax.set_xticks(np.arange(panel.shape[1]))
-        ax.set_xticklabels([str(i + 1) for i in range(panel.shape[1])],
-                           fontsize=7)
-        ax.tick_params(left=False, right=False, length=2)
-
-    ax_l.set_ylabel(f"Test molecules (top {args.n_examples} by ERM argmax churn)")
-    ax_l.set_yticks([])
-
-    # Aggregate annotation: pairwise argmax churn per panel.
     erm_overall = float(erm_churn.mean()) * 100
     twin_overall = float(twin_churn.mean()) * 100
     erm_top = float(erm_churn[keep].mean()) * 100
     twin_top = float(twin_churn[keep].mean()) * 100
 
-    fig.suptitle(
-        f"BACE: cross-sample prediction fragility (left) and its removal "
-        f"by twin-indep (right).\n"
-        f"Mean argmax churn across all test molecules: "
-        f"ERM {erm_overall:.1f}\\% vs twin-indep {twin_overall:.1f}\\%; "
-        f"on the top-{args.n_examples} most fragile molecules shown: "
-        f"{erm_top:.1f}\\% vs {twin_top:.1f}\\%.",
-        fontsize=8, y=1.02,
-    )
+    panels = [
+        (ax_l, erm_panel,
+         f"ERM  —  {erm_overall:.1f}% of test predictions flip across retrainings"),
+        (ax_r, twin_panel,
+         f"Twin-indep ($\\lambda={int(FROZEN_LAM)}$)  —  {twin_overall:.1f}% flip"),
+    ]
+    for ax, panel, title in panels:
+        ax.imshow(panel, aspect="auto", cmap=cmap, interpolation="nearest",
+                  vmin=0, vmax=1)
+        ax.set_title(title, fontsize=9, pad=4)
+        ax.set_xlabel("retraining (train_seed 1–10)", fontsize=8)
+        ax.set_xticks(np.arange(panel.shape[1]))
+        ax.set_xticklabels([str(i + 1) for i in range(panel.shape[1])],
+                           fontsize=7)
+        ax.tick_params(left=False, right=False, length=2)
 
-    # Single legend below: class assignments.
+    ax_l.set_ylabel(f"Top {args.n_examples} test molecules\n(by ERM argmax churn)",
+                    fontsize=8)
+    ax_l.set_yticks([])
+
     legend_handles = [
         plt.Rectangle((0, 0), 1, 1, fc="#3a6ea5", ec="none", label="class 0"),
         plt.Rectangle((0, 0), 1, 1, fc="#d97757", ec="none", label="class 1"),
     ]
     fig.legend(handles=legend_handles, loc="lower center",
-               bbox_to_anchor=(0.5, -0.02), ncol=2, frameon=False,
-               handletextpad=0.4, columnspacing=1.5)
+               bbox_to_anchor=(0.5, -0.06), ncol=2, frameon=False,
+               handletextpad=0.4, columnspacing=1.5, fontsize=8)
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.out, bbox_inches="tight")
