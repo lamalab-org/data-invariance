@@ -31,6 +31,8 @@ _MOLNET_URLS = {
     "muv":     "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/muv.csv.gz",
     "pcba":    "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/pcba.csv.gz",
     "esol":    "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/delaney-processed.csv",
+    "freesolv": "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/SAMPL.csv",
+    "lipo":    "https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/Lipophilicity.csv",
 }
 
 # Column names for SMILES and target in each dataset.
@@ -49,6 +51,8 @@ _MOLNET_COLS = {
     # PCBA: PCBA-686978 — well-studied bioassay (sigma-1 receptor binding)
     "pcba":    {"smiles": "smiles", "target": "PCBA-686978", "task": "classification"},
     "esol":    {"smiles": "smiles", "target": "measured log solubility in mols per litre", "task": "regression"},
+    "freesolv": {"smiles": "smiles", "target": "expt", "task": "regression"},
+    "lipo":    {"smiles": "smiles", "target": "exp", "task": "regression"},
 }
 
 
@@ -159,6 +163,7 @@ class MolNetDataset(Dataset):
         seed: int = 42,
         data_dir: str = "./data/molnet",
         n_bits: int = 2048,
+        regression: bool = False,
     ) -> None:
         import pandas as pd
 
@@ -197,9 +202,12 @@ class MolNetDataset(Dataset):
         df = df.iloc[valid_idx].reset_index(drop=True)
         smiles_list = [smiles_list[i] for i in valid_idx]
 
-        # Target: binary for classification, median-binarized for regression
+        # Target: binary for classification, float for regression (or
+        # median-binarized regression when classifying a continuous target).
         if info["task"] == "classification":
             labels = df[target_col].astype(int).values
+        elif regression:
+            labels = df[target_col].astype(float).values
         else:
             vals = df[target_col].astype(float).values
             labels = (vals >= np.median(vals)).astype(int)
@@ -224,7 +232,11 @@ class MolNetDataset(Dataset):
             raise ValueError(f"Unknown split: {split}")
 
         self.images = torch.tensor(features[idx], dtype=torch.float32)
-        self.labels = torch.tensor(labels[idx], dtype=torch.long)
+        if regression:
+            self.labels = torch.tensor(labels[idx], dtype=torch.float32)
+        else:
+            self.labels = torch.tensor(labels[idx], dtype=torch.long)
+        self.regression = regression
 
         # Spurious attribute: scaffold membership (in-distribution vs novel)
         # For train: all examples are "in-distribution" (spurious=0)

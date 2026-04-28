@@ -1,0 +1,4 @@
+name: freesolv_reg
+arch: mlp
+data_dir: ./data/molnet
+task: regression

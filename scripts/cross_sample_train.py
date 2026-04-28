@@ -65,6 +65,24 @@ def _predict(model, loader, device):
     return np.concatenate(probs), np.concatenate(labels), np.concatenate(idx)
 
 
+def _predict_reg(model, loader, device):
+    """Regression analogue: returns (preds_1d, labels_1d, indices_1d)."""
+    model.eval()
+    preds, labels, idx = [], [], []
+    with torch.no_grad():
+        for batch in loader:
+            x = _move_x(batch["image"], device)
+            preds.append(model(x).squeeze(-1).cpu().numpy())
+            labels.append(batch["label"].numpy())
+            idx.append(batch["index"].numpy())
+    return np.concatenate(preds), np.concatenate(labels), np.concatenate(idx)
+
+
+def _is_regression(cfg) -> bool:
+    """True if the dataset config declares task=regression."""
+    return getattr(cfg.dataset, "task", "classification") == "regression"
+
+
 def _build_mc_dropout_mlp(cfg, canonical_loaders, device, p=0.2):
     """MLP backbone with dropout layers inserted after each ReLU.
 
@@ -146,19 +164,31 @@ def _make_loader(base_dataset, indices, cfg, canonical_loaders, pool_idx=None):
 
 def _train_one_model(cfg, train_loader, canonical_loaders, device,
                      model_seed, epochs):
-    """Train a single model with cross-entropy on `train_loader`. Returns model."""
+    """Train a single model on `train_loader`. Returns model.
+
+    Cross-entropy for classification; MSE for regression (cfg.dataset.task).
+    """
     set_seed(model_seed)
     model = _build_model(cfg, canonical_loaders, device)
     opt = torch.optim.AdamW(model.parameters(),
                             lr=cfg.training.lr,
                             weight_decay=cfg.training.weight_decay)
+    regression = _is_regression(cfg)
     for _ in range(epochs):
         model.train()
         for batch in train_loader:
             x = _move_x(batch["image"], device)
-            y = batch["label"].to(device)
+            if regression:
+                # MPS does not support float64; collate yields float64 from
+                # Python-float labels, so cast at load time.
+                y = batch["label"].to(device=device, dtype=torch.float32)
+            else:
+                y = batch["label"].to(device)
             opt.zero_grad()
-            F.cross_entropy(model(x), y).backward()
+            if regression:
+                F.mse_loss(model(x).squeeze(-1), y).backward()
+            else:
+                F.cross_entropy(model(x), y).backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()
     return model
@@ -240,6 +270,7 @@ def _train_twin_indep(cfg, canonical_loaders, device, train_seed, epochs, lam,
     loader_A = _make_loader(base, boot_A, cfg, canonical_loaders, pool_idx=pool_idx)
     loader_B = _make_loader(base, boot_B, cfg, canonical_loaders, pool_idx=pool_idx)
 
+    regression = _is_regression(cfg)
     for _ in range(epochs):
         model_A.train(); model_B.train()
         it_A, it_B = iter(loader_A), iter(loader_B)
@@ -249,17 +280,31 @@ def _train_twin_indep(cfg, canonical_loaders, device, train_seed, epochs, lam,
             try:    bb = next(it_B)
             except StopIteration: it_B = iter(loader_B); bb = next(it_B)
 
-            x_a, y_a = _move_x(ba["image"], device), ba["label"].to(device)
-            x_b, y_b = _move_x(bb["image"], device), bb["label"].to(device)
+            x_a = _move_x(ba["image"], device)
+            x_b = _move_x(bb["image"], device)
+            if regression:
+                y_a = ba["label"].to(device=device, dtype=torch.float32)
+                y_b = bb["label"].to(device=device, dtype=torch.float32)
+            else:
+                y_a = ba["label"].to(device)
+                y_b = bb["label"].to(device)
 
-            logits_a_on_a, logits_b_on_a = model_A(x_a), model_B(x_a)
-            logits_a_on_b, logits_b_on_b = model_A(x_b), model_B(x_b)
+            out_a_on_a, out_b_on_a = model_A(x_a), model_B(x_a)
+            out_a_on_b, out_b_on_b = model_A(x_b), model_B(x_b)
 
-            ce = (F.cross_entropy(logits_a_on_a, y_a)
-                  + F.cross_entropy(logits_b_on_b, y_b))
-            cons = 0.5 * (_sym_kl_loss(logits_a_on_a, logits_b_on_a)
-                          + _sym_kl_loss(logits_a_on_b, logits_b_on_b))
-            loss = ce + lam * cons
+            if regression:
+                # MSE task loss + MSE consistency between the two networks'
+                # raw predictions on each batch.
+                pa_a, pb_a = out_a_on_a.squeeze(-1), out_b_on_a.squeeze(-1)
+                pa_b, pb_b = out_a_on_b.squeeze(-1), out_b_on_b.squeeze(-1)
+                task_loss = (F.mse_loss(pa_a, y_a) + F.mse_loss(pb_b, y_b))
+                cons = 0.5 * (F.mse_loss(pa_a, pb_a) + F.mse_loss(pa_b, pb_b))
+            else:
+                task_loss = (F.cross_entropy(out_a_on_a, y_a)
+                             + F.cross_entropy(out_b_on_b, y_b))
+                cons = 0.5 * (_sym_kl_loss(out_a_on_a, out_b_on_a)
+                              + _sym_kl_loss(out_a_on_b, out_b_on_b))
+            loss = task_loss + lam * cons
 
             opt_A.zero_grad(); opt_B.zero_grad()
             loss.backward()
@@ -295,6 +340,7 @@ def _train_codistillation(cfg, canonical_loaders, device, train_seed, epochs,
     loader_A = _make_loader(base, shard_A, cfg, canonical_loaders, pool_idx=pool_idx)
     loader_B = _make_loader(base, shard_B, cfg, canonical_loaders, pool_idx=pool_idx)
 
+    regression = _is_regression(cfg)
     for _ in range(epochs):
         model_A.train(); model_B.train()
         it_A, it_B = iter(loader_A), iter(loader_B)
@@ -303,8 +349,14 @@ def _train_codistillation(cfg, canonical_loaders, device, train_seed, epochs,
             except StopIteration: it_A = iter(loader_A); ba = next(it_A)
             try:    bb = next(it_B)
             except StopIteration: it_B = iter(loader_B); bb = next(it_B)
-            x_a, y_a = _move_x(ba["image"], device), ba["label"].to(device)
-            x_b, y_b = _move_x(bb["image"], device), bb["label"].to(device)
+            x_a = _move_x(ba["image"], device)
+            x_b = _move_x(bb["image"], device)
+            if regression:
+                y_a = ba["label"].to(device=device, dtype=torch.float32)
+                y_b = bb["label"].to(device=device, dtype=torch.float32)
+            else:
+                y_a = ba["label"].to(device)
+                y_b = bb["label"].to(device)
             la_a, lb_a = model_A(x_a), model_B(x_a)
             la_b, lb_b = model_A(x_b), model_B(x_b)
             ce = F.cross_entropy(la_a, y_a) + F.cross_entropy(lb_b, y_b)
@@ -398,6 +450,7 @@ def _train_twin_indep_shared(cfg, canonical_loaders, device, train_seed, epochs,
     loader_A = _make_loader(base, boot, cfg, canonical_loaders, pool_idx=pool_idx)
     loader_B = _make_loader(base, boot, cfg, canonical_loaders, pool_idx=pool_idx)
 
+    regression = _is_regression(cfg)
     for _ in range(epochs):
         model_A.train(); model_B.train()
         it_A, it_B = iter(loader_A), iter(loader_B)
@@ -406,8 +459,14 @@ def _train_twin_indep_shared(cfg, canonical_loaders, device, train_seed, epochs,
             except StopIteration: it_A = iter(loader_A); ba = next(it_A)
             try:    bb = next(it_B)
             except StopIteration: it_B = iter(loader_B); bb = next(it_B)
-            x_a, y_a = _move_x(ba["image"], device), ba["label"].to(device)
-            x_b, y_b = _move_x(bb["image"], device), bb["label"].to(device)
+            x_a = _move_x(ba["image"], device)
+            x_b = _move_x(bb["image"], device)
+            if regression:
+                y_a = ba["label"].to(device=device, dtype=torch.float32)
+                y_b = bb["label"].to(device=device, dtype=torch.float32)
+            else:
+                y_a = ba["label"].to(device)
+                y_b = bb["label"].to(device)
             la_a, lb_a = model_A(x_a), model_B(x_a)
             la_b, lb_b = model_A(x_b), model_B(x_b)
             ce = F.cross_entropy(la_a, y_a) + F.cross_entropy(lb_b, y_b)
@@ -454,6 +513,7 @@ def _train_twin_gradnorm(cfg, canonical_loaders, device, train_seed, epochs,
     loader_B = _make_loader(base, boot_B, cfg, canonical_loaders, pool_idx=pool_idx)
 
     lam = 1.0  # initial value before the first balanced update
+    regression = _is_regression(cfg)
     for _ in range(epochs):
         model_A.train(); model_B.train()
         it_A, it_B = iter(loader_A), iter(loader_B)
@@ -463,8 +523,14 @@ def _train_twin_gradnorm(cfg, canonical_loaders, device, train_seed, epochs,
             try:    bb = next(it_B)
             except StopIteration: it_B = iter(loader_B); bb = next(it_B)
 
-            x_a, y_a = _move_x(ba["image"], device), ba["label"].to(device)
-            x_b, y_b = _move_x(bb["image"], device), bb["label"].to(device)
+            x_a = _move_x(ba["image"], device)
+            x_b = _move_x(bb["image"], device)
+            if regression:
+                y_a = ba["label"].to(device=device, dtype=torch.float32)
+                y_b = bb["label"].to(device=device, dtype=torch.float32)
+            else:
+                y_a = ba["label"].to(device)
+                y_b = bb["label"].to(device)
 
             logits_a_on_a, logits_b_on_a = model_A(x_a), model_B(x_a)
             logits_a_on_b, logits_b_on_b = model_A(x_b), model_B(x_b)
@@ -542,16 +608,28 @@ def run(args):
                 cfg, canonical_loaders, pool_idx=pool_idx)
             model = _train_one_model(cfg, boot_loader, canonical_loaders,
                                      device, train_seed, epochs)
-            id_p, id_y, id_i = _predict(model, canonical_loaders["id_test"], device)
-            ood_p, ood_y, ood_i = _predict(model, canonical_loaders["ood_test"], device)
-            print(f"  id_acc={(id_p.argmax(1)==id_y).mean():.4f}  "
-                  f"ood_acc={(ood_p.argmax(1)==ood_y).mean():.4f}")
-            np.savez_compressed(
-                out_root / f"erm_train{train_seed}.npz",
-                id_probs=id_p, id_labels=id_y, id_indices=id_i,
-                ood_probs=ood_p, ood_labels=ood_y, ood_indices=ood_i,
-                canonical_data_seed=args.canonical_data_seed,
-                train_seed=train_seed, mode="erm")
+            if _is_regression(cfg):
+                id_p, id_y, id_i = _predict_reg(model, canonical_loaders["id_test"], device)
+                ood_p, ood_y, ood_i = _predict_reg(model, canonical_loaders["ood_test"], device)
+                print(f"  id_mae={np.abs(id_p-id_y).mean():.4f}  "
+                      f"ood_mae={np.abs(ood_p-ood_y).mean():.4f}")
+                np.savez_compressed(
+                    out_root / f"erm_train{train_seed}.npz",
+                    id_preds=id_p, id_labels=id_y, id_indices=id_i,
+                    ood_preds=ood_p, ood_labels=ood_y, ood_indices=ood_i,
+                    canonical_data_seed=args.canonical_data_seed,
+                    train_seed=train_seed, mode="erm", task="regression")
+            else:
+                id_p, id_y, id_i = _predict(model, canonical_loaders["id_test"], device)
+                ood_p, ood_y, ood_i = _predict(model, canonical_loaders["ood_test"], device)
+                print(f"  id_acc={(id_p.argmax(1)==id_y).mean():.4f}  "
+                      f"ood_acc={(ood_p.argmax(1)==ood_y).mean():.4f}")
+                np.savez_compressed(
+                    out_root / f"erm_train{train_seed}.npz",
+                    id_probs=id_p, id_labels=id_y, id_indices=id_i,
+                    ood_probs=ood_p, ood_labels=ood_y, ood_indices=ood_i,
+                    canonical_data_seed=args.canonical_data_seed,
+                    train_seed=train_seed, mode="erm")
 
         elif args.mode == "mc_dropout":
             # Train one MLP-with-dropout per train_seed on a bootstrap of the
@@ -593,41 +671,76 @@ def run(args):
                 cfg, canonical_loaders, device, train_seed, epochs,
                 K=args.K, independent_bootstraps=(args.mode == "bagging"),
                 pool_idx=pool_idx, n_train=n_train)
-            id_probs, ood_probs = [], []
-            for m in models:
-                ip, iy, ii = _predict(m, canonical_loaders["id_test"], device)
-                op, oy, oi = _predict(m, canonical_loaders["ood_test"], device)
-                id_probs.append(ip); ood_probs.append(op)
-            id_avg = np.mean(id_probs, axis=0)
-            ood_avg = np.mean(ood_probs, axis=0)
-            print(f"  id_acc={(id_avg.argmax(1)==iy).mean():.4f}  "
-                  f"ood_acc={(ood_avg.argmax(1)==oy).mean():.4f}  K={args.K}")
-            np.savez_compressed(
-                out_root / f"{args.mode}_train{train_seed}_K{args.K}.npz",
-                id_probs_avg=id_avg, id_labels=iy, id_indices=ii,
-                ood_probs_avg=ood_avg, ood_labels=oy, ood_indices=oi,
-                canonical_data_seed=args.canonical_data_seed,
-                train_seed=train_seed, K=args.K, mode=args.mode)
+            if _is_regression(cfg):
+                id_preds, ood_preds = [], []
+                for m in models:
+                    ip, iy, ii = _predict_reg(m, canonical_loaders["id_test"], device)
+                    op, oy, oi = _predict_reg(m, canonical_loaders["ood_test"], device)
+                    id_preds.append(ip); ood_preds.append(op)
+                id_avg = np.mean(id_preds, axis=0)
+                ood_avg = np.mean(ood_preds, axis=0)
+                print(f"  id_mae={np.abs(id_avg-iy).mean():.4f}  "
+                      f"ood_mae={np.abs(ood_avg-oy).mean():.4f}  K={args.K}")
+                np.savez_compressed(
+                    out_root / f"{args.mode}_train{train_seed}_K{args.K}.npz",
+                    id_preds_avg=id_avg, id_labels=iy, id_indices=ii,
+                    ood_preds_avg=ood_avg, ood_labels=oy, ood_indices=oi,
+                    canonical_data_seed=args.canonical_data_seed,
+                    train_seed=train_seed, K=args.K, mode=args.mode, task="regression")
+            else:
+                id_probs, ood_probs = [], []
+                for m in models:
+                    ip, iy, ii = _predict(m, canonical_loaders["id_test"], device)
+                    op, oy, oi = _predict(m, canonical_loaders["ood_test"], device)
+                    id_probs.append(ip); ood_probs.append(op)
+                id_avg = np.mean(id_probs, axis=0)
+                ood_avg = np.mean(ood_probs, axis=0)
+                print(f"  id_acc={(id_avg.argmax(1)==iy).mean():.4f}  "
+                      f"ood_acc={(ood_avg.argmax(1)==oy).mean():.4f}  K={args.K}")
+                np.savez_compressed(
+                    out_root / f"{args.mode}_train{train_seed}_K{args.K}.npz",
+                    id_probs_avg=id_avg, id_labels=iy, id_indices=ii,
+                    ood_probs_avg=ood_avg, ood_labels=oy, ood_indices=oi,
+                    canonical_data_seed=args.canonical_data_seed,
+                    train_seed=train_seed, K=args.K, mode=args.mode)
 
         elif args.mode == "twin_indep":
             mA, mB = _train_twin_indep(
                 cfg, canonical_loaders, device, train_seed, epochs, args.lam,
                 pool_idx=pool_idx, n_train=n_train)
-            id_pA, id_y, id_i = _predict(mA, canonical_loaders["id_test"], device)
-            id_pB, _, _      = _predict(mB, canonical_loaders["id_test"], device)
-            ood_pA, ood_y, ood_i = _predict(mA, canonical_loaders["ood_test"], device)
-            ood_pB, _, _        = _predict(mB, canonical_loaders["ood_test"], device)
-            id_avg, ood_avg = 0.5 * (id_pA + id_pB), 0.5 * (ood_pA + ood_pB)
-            print(f"  id_acc={(id_avg.argmax(1)==id_y).mean():.4f}  "
-                  f"ood_acc={(ood_avg.argmax(1)==ood_y).mean():.4f}  λ={args.lam}")
-            np.savez_compressed(
-                out_root / f"twin_indep_train{train_seed}_lam{args.lam}.npz",
-                id_probs_A=id_pA, id_probs_B=id_pB, id_probs_avg=id_avg,
-                id_labels=id_y, id_indices=id_i,
-                ood_probs_A=ood_pA, ood_probs_B=ood_pB, ood_probs_avg=ood_avg,
-                ood_labels=ood_y, ood_indices=ood_i,
-                canonical_data_seed=args.canonical_data_seed,
-                train_seed=train_seed, lam=args.lam, mode="twin_indep")
+            if _is_regression(cfg):
+                id_pA, id_y, id_i = _predict_reg(mA, canonical_loaders["id_test"], device)
+                id_pB, _, _      = _predict_reg(mB, canonical_loaders["id_test"], device)
+                ood_pA, ood_y, ood_i = _predict_reg(mA, canonical_loaders["ood_test"], device)
+                ood_pB, _, _        = _predict_reg(mB, canonical_loaders["ood_test"], device)
+                id_avg, ood_avg = 0.5 * (id_pA + id_pB), 0.5 * (ood_pA + ood_pB)
+                print(f"  id_mae={np.abs(id_avg-id_y).mean():.4f}  "
+                      f"ood_mae={np.abs(ood_avg-ood_y).mean():.4f}  λ={args.lam}")
+                np.savez_compressed(
+                    out_root / f"twin_indep_train{train_seed}_lam{args.lam}.npz",
+                    id_preds_A=id_pA, id_preds_B=id_pB, id_preds_avg=id_avg,
+                    id_labels=id_y, id_indices=id_i,
+                    ood_preds_A=ood_pA, ood_preds_B=ood_pB, ood_preds_avg=ood_avg,
+                    ood_labels=ood_y, ood_indices=ood_i,
+                    canonical_data_seed=args.canonical_data_seed,
+                    train_seed=train_seed, lam=args.lam, mode="twin_indep",
+                    task="regression")
+            else:
+                id_pA, id_y, id_i = _predict(mA, canonical_loaders["id_test"], device)
+                id_pB, _, _      = _predict(mB, canonical_loaders["id_test"], device)
+                ood_pA, ood_y, ood_i = _predict(mA, canonical_loaders["ood_test"], device)
+                ood_pB, _, _        = _predict(mB, canonical_loaders["ood_test"], device)
+                id_avg, ood_avg = 0.5 * (id_pA + id_pB), 0.5 * (ood_pA + ood_pB)
+                print(f"  id_acc={(id_avg.argmax(1)==id_y).mean():.4f}  "
+                      f"ood_acc={(ood_avg.argmax(1)==ood_y).mean():.4f}  λ={args.lam}")
+                np.savez_compressed(
+                    out_root / f"twin_indep_train{train_seed}_lam{args.lam}.npz",
+                    id_probs_A=id_pA, id_probs_B=id_pB, id_probs_avg=id_avg,
+                    id_labels=id_y, id_indices=id_i,
+                    ood_probs_A=ood_pA, ood_probs_B=ood_pB, ood_probs_avg=ood_avg,
+                    ood_labels=ood_y, ood_indices=ood_i,
+                    canonical_data_seed=args.canonical_data_seed,
+                    train_seed=train_seed, lam=args.lam, mode="twin_indep")
 
         elif args.mode in ("codistillation", "twin_indep_shared"):
             train_fn = (_train_codistillation if args.mode == "codistillation"
@@ -696,7 +809,7 @@ def run(args):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--dataset", required=True, choices=list(HPARAMS.keys()))
+    ap.add_argument("--dataset", required=True)
     ap.add_argument("--canonical_data_seed", type=int, default=99,
                     help="Seed for canonical (test-set-fixed) dataset construction.")
     ap.add_argument("--train_seeds", default="1,2,3,4,5",

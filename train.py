@@ -96,26 +96,31 @@ def _eval_metrics(prefix: str, m: dict[str, float]) -> dict[str, float]:
 
 
 def _build_model(cfg, loaders, device):
-    """Build a fresh model for the given architecture."""
+    """Build a fresh model for the given architecture.
+
+    Regression heads (num_classes=1) are used when cfg.dataset.task is
+    'regression'; otherwise the default 2-class classifier head.
+    """
+    n_out = 1 if getattr(cfg.dataset, "task", "classification") == "regression" else 2
     if cfg.dataset.arch == "resnet":
         backbone, out_dim = make_resnet_backbone()
-        return MLP(backbone=backbone, backbone_out_dim=out_dim).to(device)
+        return MLP(backbone=backbone, backbone_out_dim=out_dim, num_classes=n_out).to(device)
     if cfg.dataset.arch == "distilbert":
         from models import make_distilbert_backbone
         backbone, out_dim = make_distilbert_backbone()
-        return MLP(backbone=backbone, backbone_out_dim=out_dim).to(device)
+        return MLP(backbone=backbone, backbone_out_dim=out_dim, num_classes=n_out).to(device)
     if cfg.dataset.arch == "chemberta":
         from models import make_chemberta_backbone
         backbone, out_dim = make_chemberta_backbone()
-        return MLP(backbone=backbone, backbone_out_dim=out_dim).to(device)
+        return MLP(backbone=backbone, backbone_out_dim=out_dim, num_classes=n_out).to(device)
     if cfg.dataset.arch == "gin":
         from models import make_gin_backbone
         in_dim = loaders["train"].dataset.atom_feature_dim
         backbone, out_dim = make_gin_backbone(in_dim=in_dim,
                                               hidden_dim=cfg.model.hidden_dim)
-        return MLP(backbone=backbone, backbone_out_dim=out_dim).to(device)
+        return MLP(backbone=backbone, backbone_out_dim=out_dim, num_classes=n_out).to(device)
     input_dim = loaders["train"].dataset.input_dim
-    return MLP(input_dim=input_dim, hidden_dim=cfg.model.hidden_dim).to(device)
+    return MLP(input_dim=input_dim, hidden_dim=cfg.model.hidden_dim, num_classes=n_out).to(device)
 
 
 def _build_discovery_model(cfg, loaders, device):
@@ -223,6 +228,18 @@ def make_dataloaders(cfg: DictConfig) -> dict[str, DataLoader]:
         train_ds = MolNetDataset(name=name, split="train", seed=seed, data_dir=data_dir)
         id_test_ds = MolNetDataset(name=name, split="test", seed=seed, data_dir=data_dir)
         ood_test_ds = MolNetDataset(name=name, split="test_scaffold", seed=seed, data_dir=data_dir)
+
+    elif name in ("esol_reg", "freesolv_reg", "lipo_reg"):
+        # Regression variant: keeps continuous target instead of median-binarizing.
+        from data_molnet import MolNetDataset
+        data_dir = getattr(cfg.dataset, "data_dir", "./data/molnet")
+        molnet_name = name.replace("_reg", "")
+        train_ds = MolNetDataset(name=molnet_name, split="train", seed=seed,
+                                 data_dir=data_dir, regression=True)
+        id_test_ds = MolNetDataset(name=molnet_name, split="test", seed=seed,
+                                   data_dir=data_dir, regression=True)
+        ood_test_ds = MolNetDataset(name=molnet_name, split="test_scaffold",
+                                    seed=seed, data_dir=data_dir, regression=True)
 
     elif name in ("bace_chemberta", "bbbp_chemberta"):
         # ChemBERTa-tokenised twin of bace / bbbp; same scaffold split as Morgan.
