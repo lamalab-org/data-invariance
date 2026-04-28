@@ -10,58 +10,30 @@ $5\times$ training cost, with no accuracy regression
 twin-indep at $\lambda{=}300$ removes the next layer of churn at
 $2\times$ ERM training cost, matched against bagging-$K{=}2$.
 
-\paragraph{Cross-sample fragility belongs alongside accuracy.}
-Two ERM models with identical aggregate accuracy can disagree on a
-fifth of the test set.  None of the standard report columns ---
-accuracy, AUROC, calibration, ECE, worst-group accuracy --- captures
-that disagreement, because each fixes the dataset and varies something
-else (architecture, threshold, group).  Cross-sample fragility is
-the column that varies the dataset and fixes everything else, and it
-is the column that tracks the deployment quantity practitioners
-observe between retrainings.  The clinical-biostatistics
+\paragraph{Stability is a property of the training procedure.}
+A model's cross-sample churn is not a fact about the trained weights;
+it is a fact about the procedure that produced them --- the
+optimiser, the schedule, the data-resampling protocol.  The
+codistillation-vs.\ twin-indep comparison
+(Appendix~\ref{app:overlap_spectrum}) makes this concrete: a single
+hyperparameter on the procedure --- the fraction of data the two
+networks share --- separates a method that catastrophically fails on
+TADF from a method that does not.  None of the standard report
+columns (accuracy, AUROC, calibration, worst-group accuracy) varies
+the dataset; cross-sample fragility does, and it is the column that
+tracks what practitioners observe between retrainings on a refreshed
+sample.  The clinical-biostatistics
 literature~\citep{TODO_riley2023} already reports per-individual
-stability intervals as a model-development standard; the same case
-extends to scientific machine learning.
+stability intervals; the case for the same in scientific ML
+benchmarks rests on the magnitudes we measure
+(Section~\ref{sec:measurement}).
 
-\paragraph{Stability is a property of the procedure, not the model.}
-A model's churn under retraining is not a fact about the trained
-weights; it is a fact about the entire training procedure that
-produced them, including the choice of optimiser, schedule, and
-data-resampling protocol.  This has three consequences worth naming.
-
-First, the natural target for stability research is the procedure,
-not the model.  Twin-indep is one such procedure, but the
-bootstrap-overlap analysis (Section~\ref{sec:related}) shows that
-even a single hyperparameter on the procedure --- how much data the
-two networks share --- makes the difference between catastrophic
-failure and the best result we measured.  Procedure design has more
-slack than model design at fixed compute.
-
-Second, this changes what reporting standards should look like.
-Existing leaderboards report a model card: accuracy, AUROC, sometimes
-calibration.  A procedure card would also report churn at fixed-$N$
-retraining, with a paired-bootstrap CI.  In a domain where training
-sets evolve --- drug discovery, materials discovery, clinical risk
-modelling, recommendation systems with continuous data refresh ---
-the procedure card is the operationally relevant document.  The
-clinical-biostatistics literature~\citep{TODO_riley2023} already
-reports per-individual stability intervals; nothing prevents
-extending the same to ML benchmarks beyond requiring multiple
-retrainings.
-
-Third, the analogy to architectural invariances is informative.
-Equivariant networks built rotation, permutation, and translation
-invariance into the architecture once and never tuned them again.
-Cross-sample invariance is statistical, not architectural, but the
-analogy holds: once the bias is in the procedure, it does not have
-to be re-derived per model.  We expect bootstrap-aware data
-augmentation, subbagging schedules, and training-set diversity
-penalties to act on the same axis as twin-indep; whether any of them
-match twin-indep at matched compute is open.
-
-The fragility definition extends unchanged to regression (MAE or
-covered-interval metric in place of class-flip rate) and to
-multi-class; we verify neither.  An $N$-aware scaling
-$\lambda_N \propto 1/N$, motivated by the algorithmic-stability rate
-but unverified beyond BACE, is the obvious follow-up for removing
-the one tuned hyperparameter.
+\paragraph{Future work.}
+Bootstrap-aware data augmentation, subbagging schedules, and
+training-set diversity penalties would act on the same axis as
+twin-indep; matched-compute comparisons against any of them are open.
+An $N$-aware scaling $\lambda_N \propto 1/N$ is the obvious
+follow-up for removing the one tuned hyperparameter; we have not
+verified it beyond BACE.  The fragility definition extends unchanged
+to regression (with an MAE or covered-interval metric in place of
+class-flip rate) and to multi-class.

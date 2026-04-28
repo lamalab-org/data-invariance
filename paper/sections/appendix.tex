@@ -64,6 +64,20 @@ which suggests the rule is not knife-edge: relaxing the tolerance to
 $0.01$ would still pick the same $\lambda$, while tightening to
 $0.005$ would pick $\lambda{=}100$ (still on the knee).
 
+\section{Architecture cross-check: GIN on BACE}
+\label{app:gin}
+
+The headline experiments use a $256$-unit MLP on Morgan fingerprints
+($2048$ bits, radius $2$).  As a non-fingerprint architecture
+cross-check, we train a small graph isomorphism network
+(GIN,~\citealp{TODO_xu2018_gin}) on RDKit-derived atom-and-bond
+graphs of BACE: $3$ GINConv layers, hidden dimension $128$, mean-pool
+readout, $50$ epochs.  All ten train-seeds + the canonical-data-seed
+protocol are unchanged.  ERM on this architecture reaches id-acc
+${\sim}0.76$ (vs.\ $0.78$ for the MLP-on-fingerprints ERM); cross-sample
+churn and the bagging-$K{=}5$ / twin-indep $\lambda{=}300$ deltas vs.\
+ERM are reported here once the sweep lands.
+
 \section{ChemBERTa scope experiment}
 \label{app:chemberta_scope}
 

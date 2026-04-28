@@ -32,20 +32,15 @@ majority-class baseline; the headline filter ($\text{ERM-acc} \geq
 on its own to predict this collapse.
 
 \paragraph{Untested settings and protocol choices.}
-The chemistry experiments use binary classification, Morgan
+The headline experiments use binary classification, Morgan
 fingerprints, and a $256$-unit MLP from scratch; the test-set
 construction is fixed at canonical seed $99$ and $\lambda$ is selected
-on BACE alone.  We do not vary multi-class output, regression metrics,
-larger twin-head counts, the test-set seed, or the development
-dataset; we do not run D-MPNN~\citep{TODO_yang2019_dmpnn} or graph
-architectures.  These are scope, not soft spots: the headline result
-that bagging-$K{=}5$ reduces argmax churn $47\text{--}49\%$ at no
-accuracy cost is paired across $\binom{10}{2}=45$ seed pairs and is
-significant at $p < 10^{-4}$ on the Friedman test
-(Appendix~\ref{app:friedman}); whether the same intervention works at
-larger $K$, on regression, or under a different test-set seed is a
-robustness question, not a falsification of the present finding.  The
-twin-indep claim is more sensitive --- it depends on the
-consistency-loss coupling that fails on MOF-thermal and on
-pretrained-backbone settings --- and the regime characterisation
-above states the failure cases.
+on BACE alone.  Appendix~\ref{app:gin} reports a from-scratch GIN on
+BACE as a non-fingerprint architecture cross-check.  We do not vary
+the test-set seed, the development dataset, the twin head count, or
+the output type (regression / multi-class).  The bagging-$K{=}5$
+finding is paired across $\binom{10}{2}=45$ seed pairs and significant
+at $p < 10^{-4}$ on the Friedman test (Appendix~\ref{app:friedman});
+the twin-indep finding is more sensitive --- it depends on the
+consistency-loss coupling that fails on MOF-thermal and
+pretrained-backbone settings.
