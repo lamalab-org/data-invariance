@@ -8,11 +8,11 @@ deployment-loop work measures churn between a new model and an
 incumbent on web-scale data, we measure it between two equally
 weighted bootstraps of the training pool, in the small-$N$ from-scratch
 regime that scientific machine learning inhabits and where no incumbent
-exists.  On eight chemistry benchmarks (MoleculeNet, TDC ADME/Tox,
+exists.  On nine chemistry benchmarks (MoleculeNet, TDC ADME/Tox,
 materials science) fragility exceeds the parameter-variance axis
-captured by deep ensembles by an order of magnitude.  $K$-bootstrap
-bagging cuts argmax churn $47\text{--}49\%$ with no accuracy
-regression.  A sym-KL consistency loss between two networks trained
+captured by deep ensembles and MC dropout by an order of magnitude.  $K$-bootstrap
+bagging cuts argmax churn $40\text{--}54\%$ on every dataset with no
+accuracy regression.  A sym-KL consistency loss between two networks trained
 on independent bootstraps (\emph{twin-indep}) cuts it $69\text{--}72\%$
 at matched compute against bagging-$K{=}2$, and reduces distributional
 disagreement by an additional order of magnitude.  Twin-indep is the

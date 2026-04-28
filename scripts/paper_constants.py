@@ -35,11 +35,29 @@ DEV_DATASET = "bace"
 # Sorted by N (training-set size).
 HEADLINE_DATASETS = [
     "dili",
+    "cyp2d6_substrate",
     "pgp_broccatelli",
     "bbb_martins",
     "bbbp",
     "tadf",
     "ames",
+]
+
+# Datasets included in the magnitudes table (Table 2) but not in the
+# methods comparison: ERM passes the +5pp / N≥60 filter so the cross-bootstrap
+# fragility metric is well-defined, but consistency methods catastrophically
+# fail at the frozen λ (documented in the scope section).
+MAGNITUDES_EXTRA = [
+    "mof_thermal",
+]
+
+# Datasets we tried but that failed the +5pp health filter on ERM
+# (id-acc within 5pp of majority-class baseline). Kept for transparency in
+# an appendix paragraph rather than thrown away silently.
+NEW_FAILED_FILTER = [
+    "cyp2c9_substrate",
+    "cyp3a4_substrate",
+    "clintox",
 ]
 
 # Borderline datasets: small test set or accuracy-collapse failure mode under
@@ -134,6 +152,10 @@ DATASET_DISPLAY_NAMES = {
     "ames":               "AMES",
     "skin_reaction":      "SkinReact",
     "waterbirds":         "Waterbirds",
+    "cyp2c9_substrate":   "CYP2C9-Sub",
+    "cyp2d6_substrate":   "CYP2D6-Sub",
+    "cyp3a4_substrate":   "CYP3A4-Sub",
+    "clintox":            "ClinTox",
 }
 
 
@@ -158,6 +180,10 @@ N_TRAIN = {
     "pgp_broccatelli":    780,
     "bbb_martins":        1300,
     "waterbirds":         4795,
+    "cyp2c9_substrate":   428,
+    "cyp2d6_substrate":   427,
+    "cyp3a4_substrate":   429,
+    "clintox":            948,
 }
 
 

@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 
 from _analysis_lib import bootstrap_ci, load_runs, pairwise_metrics, per_run_accuracies
-from paper_constants import DEV_DATASET, HEADLINE_DATASETS, N_TRAIN, display
+from paper_constants import DEV_DATASET, HEADLINE_DATASETS, MAGNITUDES_EXTRA, N_TRAIN, display
 
 
 # Per-dataset citation key (TODO_ until references.bib is wired).
@@ -33,6 +33,10 @@ _CITE = {
     "herg":            "TODO_huang2021_tdc",
     "hia_hou":         "TODO_huang2021_tdc",
     "skin_reaction":   "TODO_huang2021_tdc",
+    "cyp2c9_substrate":"TODO_huang2021_tdc",
+    "cyp2d6_substrate":"TODO_huang2021_tdc",
+    "cyp3a4_substrate":"TODO_huang2021_tdc",
+    "clintox":         "TODO_wu2018_moleculenet",
 }
 
 
@@ -71,7 +75,7 @@ def _fmt_ci(t: tuple[float, float, float]) -> str:
 def main() -> None:
     root = Path("outputs/cross_sample")
     out_path = Path("paper/sections/tables/fragility_magnitudes.tex")
-    datasets = [DEV_DATASET] + HEADLINE_DATASETS
+    datasets = [DEV_DATASET] + HEADLINE_DATASETS + MAGNITUDES_EXTRA
     rows = [r for r in (_row(ds, root) for ds in datasets) if r is not None]
     if not rows:
         print("No ERM runs found under outputs/cross_sample/.")

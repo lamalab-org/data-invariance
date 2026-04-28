@@ -2,14 +2,21 @@
 \label{sec:experiments}
 
 \paragraph{Cross-sample reduction across benchmarks.}
-Across the seven chemistry benchmarks (BACE plus six held-out), every
-method beats ERM on cross-sample id-churn with $95\%$ paired-bootstrap
-CIs that exclude zero (Table~\ref{tab:main}, Figure~\ref{fig:main}).
-At matched compute against bagging-$K{=}2$, twin-indep wins on every
-dataset (left panel of Figure~\ref{fig:main}, all CIs exclude zero);
-against the $5\times$-compute bagging-$K{=}5$, twin-indep wins on
-$3/6$ held-out datasets and trails on three (DILI, Pgp, TADF).
-The aggregate Friedman test rejects equal-ranks at $\chi^2 = 24.34$,
+Across the eight chemistry benchmarks where the methods apply (BACE
+plus seven held-out; MOF-thermal is reported in
+Section~\ref{sec:scope}), bagging-$K{=}5$ and twin-indep both beat
+ERM on cross-sample id-churn with $95\%$ paired-bootstrap CIs that
+exclude zero (Table~\ref{tab:main}, Figure~\ref{fig:main}).  MC
+dropout, in contrast, leaves argmax churn essentially unchanged
+($\Delta$ ranges $-2.2\%$ to $+12.5\%$ relative to ERM, median
+$+1\%$): training a single model with dropout and averaging $T{=}20$
+stochastic forward passes does not address the data-resampling axis
+that bagging and twin-indep operate on.  At matched compute against
+bagging-$K{=}2$, twin-indep wins on every dataset (left panel of
+Figure~\ref{fig:main}, all CIs exclude zero); against the
+$5\times$-compute bagging-$K{=}5$, twin-indep wins on $4/7$ held-out
+datasets and trails on three (DILI, Pgp, TADF).  The aggregate
+Friedman test rejects equal-ranks at $\chi^2 = 24.34$,
 $p = 6.8 \times 10^{-5}$; twin-indep ranks first, indistinguishable
 from bagging-$K{=}5$ at less than half the compute
 (Appendix~\ref{app:friedman}).

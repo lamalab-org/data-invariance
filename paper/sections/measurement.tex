@@ -3,19 +3,19 @@
 
 \subsection{Datasets}
 \label{sec:datasets}
-We measure cross-sample fragility on thirteen chemistry benchmarks
-($N \in [\,304, 4658\,]$) drawn from MoleculeNet
-(BACE, BBBP), TDC ADME (HIA\_Hou, Bioavailability\_Ma,
-Pgp\_Broccatelli, BBB\_Martins), TDC Tox (hERG, DILI, AMES,
-Skin\_Reaction), and materials science (TADF, MOF-thermal-stability,
-MOF-solvent-removal).  A pre-registered health filter
-(Appendix~\ref{app:repro}) keeps the eight datasets on which ERM
-exceeds the majority-class baseline by at least $5$pp and the
-canonical id-test set has at least $60$ examples; these form the
-headline (BACE as development; the other seven held-out).  Three
-borderline datasets are reported only in an appendix table
-(Skin\_Reaction, hERG, HIA\_Hou); two are excluded entirely
-(Bioavailability\_Ma, MOF\_solvent --- ERM matches majority).
+We measure cross-sample fragility on seventeen chemistry benchmarks
+($N \in [\,304, 4658\,]$) drawn from MoleculeNet (BACE, BBBP,
+ClinTox), TDC ADME (HIA\_Hou, Bioavailability\_Ma, Pgp\_Broccatelli,
+BBB\_Martins, CYP2C9-Sub, CYP2D6-Sub, CYP3A4-Sub), TDC Tox (hERG,
+DILI, AMES, Skin\_Reaction), and materials science (TADF,
+MOF-thermal-stability, MOF-solvent-removal).  A pre-registered health
+filter (Appendix~\ref{app:repro}) keeps the nine datasets on which
+ERM exceeds the majority-class baseline by at least $5$pp and the
+canonical id-test set has at least $60$ examples (Table~\ref{tab:fragility-magnitudes}).
+Three small-test-set datasets are reported only in an appendix table
+(Skin\_Reaction, hERG, HIA\_Hou); five are excluded entirely because
+ERM does not exceed majority at the $5$pp threshold (Bioavailability\_Ma,
+MOF\_solvent, CYP2C9-Sub, CYP3A4-Sub, ClinTox).
 Featurisation is Morgan fingerprints (radius 2, 2048 bits) for
 molecular datasets and dataset-specific descriptors for materials;
 the architecture is a 256-unit MLP trained from scratch in all
@@ -25,14 +25,14 @@ cases.
 \label{sec:fragility-magnitudes}
 
 Table~\ref{tab:fragility-magnitudes} reports the cross-bootstrap
-fragility and argmax churn for each dataset alongside training-set
-size $N$ and ERM accuracy.  Argmax churn ranges from $8.0\%$
-(BBB-Martins) to $16.8\%$ (DILI).  Sym-KL varies by ${\sim}4\times$
-across datasets at similar $N$ (TADF $0.27$ vs.\ BACE $0.75$ at
-$N \approx 1000$), so we do not fit a cross-dataset $1/N$ curve;
-algorithmic stability motivates the decrease of fragility with $N$
-within a single task, not an asymptotic relation across heterogeneous
-ones.
+fragility and argmax churn for each of the nine health-passing
+datasets alongside training-set size $N$ and ERM accuracy.  Argmax
+churn ranges from $8.0\%$ (BBB-Martins) to $16.8\%$ (DILI).  Sym-KL
+varies by ${\sim}4\times$ across datasets at similar $N$ (TADF $0.27$
+vs.\ BACE $0.75$ at $N \approx 1000$), so we do not fit a
+cross-dataset $1/N$ curve; algorithmic stability motivates the
+decrease of fragility with $N$ within a single task, not an
+asymptotic relation across heterogeneous ones.
 
 \input{sections/tables/fragility_magnitudes.tex}
 
