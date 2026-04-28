@@ -21,47 +21,38 @@ molecular datasets and dataset-specific descriptors for materials;
 the architecture is a 256-unit MLP trained from scratch in all
 cases.
 
-\subsection{Fragility magnitudes are large and dataset-specific}
+\subsection{Magnitudes}
 \label{sec:fragility-magnitudes}
 
-Table~\ref{tab:fragility-magnitudes} reports mean cross-bootstrap
-fragility (sym-KL between two ERM bootstraps on the canonical id-test)
-and argmax churn for each dataset, alongside training-set size $N$ and
-ERM accuracy.  Argmax churn ranges from $8.0\%$ (BBB-Martins) to
-$16.8\%$ (DILI); sym-KL varies by ${\sim}4\times$ across datasets at
-similar $N$ (TADF $0.27$ vs.\ BACE $0.75$ at $N \approx 1000$),
-reflecting intrinsic differences in feature dimension, label noise,
-and task difficulty rather than a single $N$-dependent rate.  We
-therefore do not fit a cross-dataset $1/N$ curve; algorithmic stability
-is the \emph{motivation} for fragility decreasing with $N$, not an
-empirical claim we verify across heterogeneous tasks.
+Table~\ref{tab:fragility-magnitudes} reports the cross-bootstrap
+fragility and argmax churn for each dataset alongside training-set
+size $N$ and ERM accuracy.  Argmax churn ranges from $8.0\%$
+(BBB-Martins) to $16.8\%$ (DILI).  Sym-KL varies by ${\sim}4\times$
+across datasets at similar $N$ (TADF $0.27$ vs.\ BACE $0.75$ at
+$N \approx 1000$), so we do not fit a cross-dataset $1/N$ curve;
+algorithmic stability motivates the decrease of fragility with $N$
+within a single task, not an asymptotic relation across heterogeneous
+ones.
 
 \input{sections/tables/fragility_magnitudes.tex}
 
-Within a single task (BACE), subsampling the training pool to $M \in
-\{200, 400, 600, 800, 968\}$ traces a within-dataset $N$-scaling curve
-(Appendix~\ref{app:nscaling}, Table~\ref{tab:nscaling}): fragility
-decreases over $M=200 \to 800$ with a log-log slope of $-0.22$, then
-levels off at an irreducible floor.  This is shallower than the
-theoretical $\beta = O(1/N)$ rate ($-1$); Appendix~\ref{app:theory}
-enumerates the gaps that prevent the bound from transferring
-quantitatively.
+The within-task $N$-scaling on BACE (Appendix~\ref{app:nscaling}) is
+monotone decreasing for $M \in \{200, 400, 600, 800\}$ with a log-log
+slope of $-0.22$ and an irreducible floor.  The empirical slope is
+shallower than the algorithmic-stability rate of $-1$;
+Appendix~\ref{app:theory} accounts for the gap.
 
 \subsection{Fragility predicts which predictions will flip}
 \label{sec:churn-decile}
 
-Per-example fragility identifies the predictions that retraining will
-flip, and does so better than a single-model softmax-confidence
-baseline (Appendix~\ref{app:entropy}).  Figure~\ref{fig:decile} ranks
-every test example by its mean
-cross-bootstrap fragility across all ERM seed pairs, then bins into
-deciles and reports the average argmax-flip rate within each decile.
-On every dataset we tested, the bottom $50\%$-fragility examples flip
-at $0\%$; deciles $6$--$8$ rise sharply; the top decile flips at
-$41\text{--}47\%$.  A deployed system can therefore flag the most
-fragile predictions for re-review without retraining a cascade of
-models---one additional bootstrap suffices to compute per-example
-fragility.
+Per-example fragility, computed across pairs of ERM bootstraps, ranks
+test examples by how likely they are to flip class on retraining.
+Figure~\ref{fig:decile} bins test examples by fragility decile and
+reports the per-decile flip rate.  The bottom-$50\%$-fragility
+examples flip at $0\%$ on every dataset we test, deciles $6$--$8$
+rise sharply, and the top decile flips at $41\text{--}47\%$.
+Predictive entropy from a single ERM model ranks worse on this task
+(Appendix~\ref{app:entropy}).
 
 \begin{figure}[t]
   \centering
