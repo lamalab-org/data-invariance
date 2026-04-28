@@ -70,17 +70,47 @@ for label-noise robustness.  Mean Teacher and
 $\Pi$-model~\citep{TODO_tarvainen2017} penalise disagreement under
 \emph{input augmentation}, not training-data resampling.  Twin-indep
 shares mechanics with codistillation --- two networks, KL agreement
-loss --- but differs in motivation, regime, and protocol: the data
-splits are bootstraps with replacement (rather than disjoint shards),
-the target setting is small-$N$ from-scratch (rather than web-scale),
-and per-example fragility is the deliverable rather than a side
-metric.  We compare empirically: codistillation matches twin-indep on
-three of the four datasets where we ran it, but flips sign on TADF
-(paired $\Delta = +3.0$pp $[+1.3, +5.0]$ vs.\ ERM, i.e.\ \emph{worse}
-than ERM), where the disjoint-shard protocol leaves each network
-with only $N/2 \approx 500$ unique training examples.  Twin-indep's
-overlapping bootstraps ($\sim 63\%$ unique per network, $\sim 40\%$
-shared between the pair) appear more robust at this scale.
+loss --- but differs in protocol: bootstraps with replacement
+($\sim$$40\%$ overlap between the pair) rather than disjoint shards
+($0\%$ overlap), small-$N$ from-scratch rather than web-scale, and
+per-example fragility as the deliverable rather than a side metric.
+The protocol difference is a single hyperparameter, the
+inter-network bootstrap-overlap fraction, on which the two methods
+sit at opposite ends.  Adding the twin-indep-with-shared-bootstrap
+ablation ($100\%$ overlap; only initialisation differs between the
+two networks) gives us three operating points on this spectrum and
+their churn-reduction CIs (Figure~\ref{fig:overlap}).
+Codistillation matches or beats twin-indep on $4$ of $5$ datasets
+that pass the consistency-loss filter; on the fifth (TADF)
+codistillation flips sign to $+3.0$pp $[+1.3, +5.0]$ versus ERM
+--- $i.e.$\ \emph{worse} than no method --- where the disjoint-shard
+protocol leaves each network with only $N/2 {\approx} 500$ unique
+training examples.  Twin-indep matches or beats ERM on every
+dataset.  The bootstrap-overlap fraction is therefore a
+robustness-vs-best-case trade-off; twin-indep's overlapping
+bootstraps sit at the safe operating point that never catastrophically
+fails.  Whether dataset-adaptive overlap can recover codistillation's
+gains without TADF's failure is open.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.6\linewidth]{figures/fig5_overlap.pdf}
+  \caption{\textbf{Bootstrap-overlap fraction as a hyperparameter.}
+    Three operating points: codistillation ($0\%$ overlap, disjoint
+    shards), twin-indep ($\sim$$40\%$ overlap, bootstraps with
+    replacement), twin-indep with shared bootstrap
+    ($100\%$ overlap, only init differs).  Each line is one chemistry
+    dataset (BACE highlighted); markers show paired $\Delta$ id-churn
+    vs.\ ERM (lower = better) with $95\%$ paired-bootstrap CIs across
+    the $\binom{10}{2}=45$ seed pairs.  Codistillation tends to win at
+    the low-overlap end on most datasets but \emph{flips sign on
+    TADF}: $+3.0$pp $[+1.3, +5.0]$ vs.\ ERM, worse than no method.
+    Twin-indep at $\sim$$40\%$ overlap is the robust default.
+    Datasets on which any of the three methods drop id-acc by more
+    than $5$pp (MOF-thermal; Pgp under codistillation) are excluded;
+    see Appendix~\ref{app:borderline}.}
+  \label{fig:overlap}
+\end{figure}
 
 \paragraph{Clinical-biostatistics precedent.}
 \citet{TODO_riley2023} develop a stability-interval program for
