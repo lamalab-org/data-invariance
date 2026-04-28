@@ -108,10 +108,8 @@ def main() -> None:
     twin_top = float(twin_churn[keep].mean()) * 100
 
     panels = [
-        (ax_l, erm_panel,
-         f"ERM  —  {erm_overall:.1f}% of test predictions flip across retrainings"),
-        (ax_r, twin_panel,
-         f"Twin-indep ($\\lambda={int(FROZEN_LAM)}$)  —  {twin_overall:.1f}% flip"),
+        (ax_l, erm_panel, "ERM"),
+        (ax_r, twin_panel, f"Twin-indep ($\\lambda={int(FROZEN_LAM)}$)"),
     ]
     for ax, panel, title in panels:
         ax.imshow(panel, aspect="auto", cmap=cmap, interpolation="nearest",

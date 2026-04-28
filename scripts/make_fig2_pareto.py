@@ -133,6 +133,10 @@ def main():
     ax.set_xlabel("id-churn (%)")
     ax.set_ylabel("id-accuracy (%)")
 
+    # Pad upper ylim so K=5 CI does not clip the plot border.
+    y_lo, y_hi = ax.get_ylim()
+    ax.set_ylim(y_lo, y_hi + 0.5)
+
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.out, bbox_inches="tight")
     print(f"Wrote {args.out}")

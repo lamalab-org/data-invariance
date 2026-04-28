@@ -58,9 +58,10 @@ Predictive entropy from a single ERM model ranks worse on this task
   \centering
   \includegraphics[width=0.6\linewidth]{figures/fig3_decile.pdf}
   \caption{Top-decile fragility predicts which test predictions flip
-    on retraining.  Bars give the mean argmax-flip rate per
-    bootstrap-pair within each fragility decile, on the eight
-    chemistry datasets in scope.  Bottom 50\% of examples flip at
-    $0\%$; the top decile flips at $41\text{--}47\%$.}
+    on retraining.  Each line is one of the eight chemistry datasets
+    in scope (BACE in red, held-out in grey); the $y$-axis is the
+    mean argmax-flip rate per bootstrap-pair within each fragility
+    decile.  Bottom $50\%$ of examples flip at $0\%$ on every dataset;
+    the top decile flips at $41\text{--}47\%$.}
   \label{fig:decile}
 \end{figure}

@@ -142,7 +142,6 @@ def main() -> None:
     ax_l.set_xlim(x_lo_l, x_hi_l)
     ax_l.set_xlabel("Paired Δ id-churn vs. ERM (pp; <0 better)")
     ax_l.set_ylim(-0.6, len(HEADLINE_DATASETS) - 0.4)
-    ax_l.set_title("(a) every method beats ERM", fontsize=9, pad=4, loc="left")
     ax_l.grid(axis="x", linestyle="-", linewidth=0.4, alpha=0.35, zorder=0)
 
     # ---------- Right: Δ vs Bagging K=2, Twin-indep only ----------
@@ -171,8 +170,6 @@ def main() -> None:
     ax_r.axvline(0, color="0.25", linewidth=1.0, zorder=1)
     ax_r.set_xlim(x_lo_r, x_hi_r)
     ax_r.set_xlabel("Δ vs. Bagging K=2 (pp)")
-    ax_r.set_title("(b) matched-compute gain over bagging $K{=}2$",
-                   fontsize=9, pad=4, loc="left")
     ax_r.grid(axis="x", linestyle="-", linewidth=0.4, alpha=0.35, zorder=0)
     ax_r.tick_params(left=False)
 

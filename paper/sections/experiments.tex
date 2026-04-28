@@ -25,14 +25,17 @@ from bagging-$K{=}5$ at less than half the compute
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/fig1_forest.pdf}
-  \caption{\textbf{Twin-indep beats ERM on every chemistry benchmark
-    and beats matched-compute bagging-$K{=}2$ on every dataset.}
-    Left: paired $\Delta$ id-churn vs.\ ERM for the four methods,
-    one row per dataset (smallest $N$ at top), $95\%$ paired-bootstrap
-    CIs across $\binom{10}{2}=45$ seed pairs.  Right: $\Delta$ vs.\
-    matched-compute bagging-$K{=}2$, twin-indep only.  Frozen
-    $\lambda{=}300$ is selected on the BACE development dataset
-    alone; no held-out tuning.}
+  \caption{\textbf{Bagging and twin-indep beat ERM on every chemistry
+    benchmark; MC dropout and deep ensembles do not.}  Left: paired
+    $\Delta$ id-churn vs.\ ERM for five methods, one row per dataset
+    (smallest $N$ at top), $95\%$ paired-bootstrap CIs across
+    $\binom{10}{2}=45$ seed pairs.  Vertical reference lines mark
+    each method's across-dataset mean (twin-indep solid, others
+    dashed; colours match markers); the solid black line is parity
+    with ERM.  Right: $\Delta$ vs.\ matched-compute bagging-$K{=}2$,
+    twin-indep only; CI excludes zero on $7/8$ datasets and ties on
+    DILI.  Frozen $\lambda{=}300$ is selected on the BACE development
+    dataset alone; no held-out tuning.}
   \label{fig:main}
 \end{figure}
 

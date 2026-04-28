@@ -45,12 +45,14 @@ fast.
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.6\linewidth]{figures/fig2_pareto.pdf}
-  \caption{Development Pareto curve on BACE.  Twin-indep at
-    $\lambda \in \{1, 3, 10, 30, 100, 300\}$ traces an
+  \caption{\textbf{Twin-indep $\lambda{=}300$ sits at the
+    accuracy-preserving end of the BACE Pareto frontier.}  Twin-indep
+    at $\lambda \in \{1, 3, 10, 30, 100, 300\}$ traces an
     accuracy-vs.-churn trajectory; the pre-registered selection rule
     (largest $\lambda$ with id-acc $\ge$ ERM-id-acc $-0.02$) picks
-    $\lambda{=}300$ (filled red).  ERM (open square) and bagging
-    $K{=}5$ (blue) are reference points.  Error bars are bootstrap
+    $\lambda{=}300$ (filled red).  Bagging-$K{=}5$ (blue circle)
+    achieves a similar accuracy at higher churn; ERM (open square,
+    upper-right) at the highest churn.  Error bars are bootstrap
     $95\%$ CIs.}
   \label{fig:pareto}
 \end{figure}
