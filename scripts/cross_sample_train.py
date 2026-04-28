@@ -65,6 +65,44 @@ def _predict(model, loader, device):
     return np.concatenate(probs), np.concatenate(labels), np.concatenate(idx)
 
 
+def _build_mc_dropout_mlp(cfg, canonical_loaders, device, p=0.2):
+    """MLP backbone with dropout layers inserted after each ReLU.
+
+    Only supports the default-MLP branch of `_build_model` (i.e. Morgan-
+    fingerprint chemistry datasets); raises for resnet/distilbert/chemberta/gin.
+    The MC-dropout baseline is reported on the headline architecture only.
+    """
+    if cfg.dataset.arch in ("resnet", "distilbert", "chemberta", "gin"):
+        raise ValueError(
+            f"mc_dropout mode supports MLP backbones only; got arch={cfg.dataset.arch}")
+    import torch.nn as nn
+    from models import MLP
+    input_dim = canonical_loaders["train"].dataset.input_dim
+    h = cfg.model.hidden_dim
+    backbone = nn.Sequential(
+        nn.Flatten(1),
+        nn.Linear(input_dim, h), nn.ReLU(), nn.Dropout(p),
+        nn.Linear(h, h),         nn.ReLU(), nn.Dropout(p),
+    )
+    return MLP(backbone=backbone, backbone_out_dim=h).to(device)
+
+
+def _predict_mc(model, loader, device, T=20):
+    """T stochastic forward passes with dropout active; return averaged softmax."""
+    # Keep dropout active. Our MLP has no BatchNorm, so model.train() is safe.
+    model.train()
+    probs, labels, idx = [], [], []
+    with torch.no_grad():
+        for batch in loader:
+            x = _move_x(batch["image"], device)
+            stack = torch.stack(
+                [F.softmax(model(x), dim=1) for _ in range(T)], dim=0)
+            probs.append(stack.mean(0).cpu().numpy())
+            labels.append(batch["label"].numpy())
+            idx.append(batch["index"].numpy())
+    return np.concatenate(probs), np.concatenate(labels), np.concatenate(idx)
+
+
 def _bootstrap_indices(n_train, seed, size=None):
     """`size` (or `n_train` if None) samples with replacement from {0,..,n_train-1}.
 
@@ -515,6 +553,41 @@ def run(args):
                 canonical_data_seed=args.canonical_data_seed,
                 train_seed=train_seed, mode="erm")
 
+        elif args.mode == "mc_dropout":
+            # Train one MLP-with-dropout per train_seed on a bootstrap of the
+            # canonical pool (same data protocol as ERM); at test time average
+            # T stochastic forward passes with dropout active.
+            boot_loader = _make_loader(
+                canonical_loaders["train"].dataset,
+                _bootstrap_indices(n_train, train_seed),
+                cfg, canonical_loaders, pool_idx=pool_idx)
+            set_seed(train_seed)
+            model = _build_mc_dropout_mlp(cfg, canonical_loaders, device)
+            opt = torch.optim.AdamW(model.parameters(),
+                                    lr=cfg.training.lr,
+                                    weight_decay=cfg.training.weight_decay)
+            for _ in range(epochs):
+                model.train()
+                for batch in boot_loader:
+                    x = _move_x(batch["image"], device)
+                    y = batch["label"].to(device)
+                    opt.zero_grad()
+                    F.cross_entropy(model(x), y).backward()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                    opt.step()
+            id_p, id_y, id_i = _predict_mc(
+                model, canonical_loaders["id_test"], device, T=args.K)
+            ood_p, ood_y, ood_i = _predict_mc(
+                model, canonical_loaders["ood_test"], device, T=args.K)
+            print(f"  id_acc={(id_p.argmax(1)==id_y).mean():.4f}  "
+                  f"ood_acc={(ood_p.argmax(1)==ood_y).mean():.4f}  T={args.K}")
+            np.savez_compressed(
+                out_root / f"mc_dropout_train{train_seed}_T{args.K}.npz",
+                id_probs=id_p, id_labels=id_y, id_indices=id_i,
+                ood_probs=ood_p, ood_labels=ood_y, ood_indices=ood_i,
+                canonical_data_seed=args.canonical_data_seed,
+                train_seed=train_seed, T=args.K, mode="mc_dropout")
+
         elif args.mode in ("deep_ensemble", "bagging"):
             models = _train_ensemble(
                 cfg, canonical_loaders, device, train_seed, epochs,
@@ -629,8 +702,8 @@ if __name__ == "__main__":
     ap.add_argument("--train_seeds", default="1,2,3,4,5",
                     help="Comma-separated list of train_seeds (one bootstrap per seed).")
     ap.add_argument("--mode", required=True,
-                    choices=["erm", "deep_ensemble", "bagging", "twin_indep",
-                             "twin_gradnorm", "codistillation",
+                    choices=["erm", "mc_dropout", "deep_ensemble", "bagging",
+                             "twin_indep", "twin_gradnorm", "codistillation",
                              "distillation_anchor", "twin_indep_shared"])
     ap.add_argument("--K", type=int, default=5,
                     help="Ensemble size (deep_ensemble/bagging only).")
