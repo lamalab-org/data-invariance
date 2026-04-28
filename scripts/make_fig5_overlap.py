@@ -105,71 +105,58 @@ def main() -> None:
     lama_aesthetics.get_style("main")
     plt.rcParams["axes.unicode_minus"] = False
 
+    # Grouped horizontal bars: rows = datasets, three bars per row
+    # (overlap fractions). The x=0 vertical line is the ERM baseline;
+    # bars to its left = improvement, bars to its right = regression.
+    # The figure's load-bearing observation is that exactly one bar in
+    # the entire plot crosses to the right of zero (TADF, 0% overlap).
     fig_w = lama_aesthetics.TWO_COL_WIDTH * 0.55
-    fig_h = fig_w * 0.85
+    fig_h = 0.55 * len(keep) + 1.0
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
 
-    # Visual hierarchy carries the caption claim: TADF is the only
-    # dataset that "catastrophically fails" at 0% overlap, so it must
-    # dominate the figure. The other five datasets are all monotone
-    # improvements toward less overlap and read as a single bundle.
-    HIGHLIGHT = "tadf"
-    grey = "0.65"
+    overlap_colors = {
+        0:   "#7a1313",   # codistillation — dark red
+        40:  "#d62728",   # twin-indep — bright red
+        100: "#9bb6cf",   # shared boot — muted blue
+    }
+    overlap_labels = {
+        0:   "codistillation (0% overlap)",
+        40:  "twin-indep (~40%)",
+        100: "shared boot (100%)",
+    }
 
-    # Light pink band above y=0 marks "worse than ERM"; the only line
-    # that crosses into it is TADF at 0% overlap — that is the figure.
-    ax.axhspan(0, 100, color="#fde6e6", alpha=0.45, zorder=0)
-    ax.axhline(0, color="0.25", linewidth=0.9, zorder=1)
+    n_ds = len(keep)
+    bar_h = 0.22
+    y_centres = np.arange(n_ds)[::-1]
 
-    bundle_handle = None
-    for ds in keep:
-        if ds == HIGHLIGHT:
-            continue
-        xs = [ov for ov, _, _ in points[ds]]
-        ys = [m * 100 for _, _, (m, _, _) in points[ds]]
-        los = [(m - lo) * 100 for _, _, (m, lo, _) in points[ds]]
-        his = [(hi - m) * 100 for _, _, (m, _, hi) in points[ds]]
-        line, _, _ = ax.errorbar(xs, ys, yerr=[los, his], color=grey,
-                                 linewidth=0.9, marker="o", markersize=2.8,
-                                 capsize=1.8, alpha=0.85, zorder=2)
-        bundle_handle = line
+    for di, ds in enumerate(keep):
+        for j, (ov, _, (m, lo, hi)) in enumerate(points[ds]):
+            offset = (j - 1) * bar_h * 1.05
+            y = y_centres[di] + offset
+            ax.barh(
+                y, m * 100, height=bar_h,
+                color=overlap_colors[ov],
+                edgecolor="none",
+                xerr=[[(m - lo) * 100], [(hi - m) * 100]],
+                error_kw=dict(elinewidth=0.8, ecolor="0.3"),
+                zorder=3,
+            )
 
-    if HIGHLIGHT in points:
-        xs = [ov for ov, _, _ in points[HIGHLIGHT]]
-        ys = [m * 100 for _, _, (m, _, _) in points[HIGHLIGHT]]
-        los = [(m - lo) * 100 for _, _, (m, lo, _) in points[HIGHLIGHT]]
-        his = [(hi - m) * 100 for _, _, (m, _, hi) in points[HIGHLIGHT]]
-        tadf_line, _, _ = ax.errorbar(xs, ys, yerr=[los, his],
-                                      color="#d62728", linewidth=2.0,
-                                      marker="o", markersize=5.5,
-                                      capsize=2.5, zorder=4)
-        # Annotate the codistillation failure point
-        ax.annotate(
-            "codistillation\nworse than ERM",
-            xy=(xs[0], ys[0]), xytext=(20, ys[0] + 1.8),
-            fontsize=7, color="#7a1313", ha="left",
-            arrowprops=dict(arrowstyle="-", color="#7a1313",
-                            linewidth=0.6),
-        )
+    ax.axvline(0, color="0.2", linewidth=1.0, zorder=2)
+    ax.set_yticks(y_centres)
+    ax.set_yticklabels([display(ds) for ds in keep])
+    ax.set_xlabel("Paired Δ id-churn vs ERM (pp; <0 better)")
+    ax.set_ylim(-0.6, n_ds - 0.4)
+    ax.grid(axis="x", linestyle="-", linewidth=0.4, alpha=0.4, zorder=0)
 
-    ax.set_xticks([0, 40, 100])
-    ax.set_xticklabels(["0%\n(codistillation)", "~40%\n(twin-indep)",
-                        "100%\n(shared boot)"], fontsize=7.5)
-    ax.set_xlabel("Bootstrap overlap between the two networks")
-    ax.set_ylabel("Paired Δ id-churn vs ERM (pp)")
-
-    # Two-entry legend: TADF and 'other five datasets' (clean).
-    handles = [
-        plt.Line2D([0], [0], color="#d62728", linewidth=2.0, marker="o",
-                   markersize=5.5, label=display(HIGHLIGHT)),
-    ]
-    if bundle_handle is not None:
-        other_labels = ", ".join(display(ds) for ds in keep if ds != HIGHLIGHT)
-        handles.append(plt.Line2D([0], [0], color=grey, linewidth=0.9,
-                                  marker="o", markersize=2.8,
-                                  label=other_labels))
-    ax.legend(handles=handles, loc="lower right", frameon=False,
-              fontsize=7, handletextpad=0.4, labelspacing=0.4)
+    # Legend below figure
+    handles = [plt.Rectangle((0, 0), 1, 1, fc=overlap_colors[ov],
+                             ec="none", label=overlap_labels[ov])
+               for ov in [0, 40, 100]]
+    ax.legend(handles=handles, loc="upper center",
+              bbox_to_anchor=(0.5, -0.10), ncol=3,
+              frameon=False, fontsize=7.5, handletextpad=0.4,
+              columnspacing=1.0)
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.out, bbox_inches="tight")

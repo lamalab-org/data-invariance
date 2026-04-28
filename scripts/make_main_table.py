@@ -132,12 +132,14 @@ def write_latex_table(rows, path, frozen_lam):
         r"\begin{table}[t]",
         r"  \centering",
         r"  \caption{Paired $\Delta$ in-distribution argmax churn vs.\ ERM "
-        r"on the eight headline chemistry benchmarks (in percentage points; "
+        r"on the headline chemistry benchmarks (in percentage points; "
         r"negative is better).  Each cell is the mean over "
         r"$\binom{10}{2}=45$ seed pairs with paired-bootstrap $95\%$ "
         r"confidence intervals from $10{,}000$ resamples.  "
-        r"Twin-indep $\lambda{=}300$ is frozen on the BACE development "
-        r"dataset and applied unchanged to every held-out benchmark.}",
+        r"\textbf{Best} per dataset in bold; entries whose CI excludes "
+        r"zero are significant at $\alpha{=}0.05$.  Twin-indep "
+        r"$\lambda{=}300$ is selected on BACE only and applied unchanged "
+        r"to every held-out benchmark.}",
         r"  \label{tab:main}",
         r"  \scriptsize",
         r"  \begin{tabular}{lr" + "l" * len(methods) + "}",
@@ -147,10 +149,20 @@ def write_latex_table(rows, path, frozen_lam):
     ]
     ds_order = sorted(by_ds.keys(), key=lambda d: N_TRAIN.get(d, 10**9))
     for ds in ds_order:
-        cells = []
+        # Best (most negative mean) cell gets boldened.
+        means = []
         for m in methods:
             r = by_ds[ds].get(m)
-            cells.append(_fmt_delta_pp_from_row(r) if r else "---")
+            mean = r.get("delta_id_churn_mean") if r else None
+            means.append(mean if mean is not None else float("inf"))
+        best_idx = int(np.argmin(means))
+        cells = []
+        for i, m in enumerate(methods):
+            r = by_ds[ds].get(m)
+            cell = _fmt_delta_pp_from_row(r) if r else "---"
+            if i == best_idx and cell != "---":
+                cell = r"\textbf{" + cell + r"}"
+            cells.append(cell)
         lines.append(f"    {_cited(ds)} & {N_TRAIN.get(ds, '---')} & "
                      + " & ".join(cells) + r" \\")
     lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]

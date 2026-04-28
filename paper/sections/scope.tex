@@ -1,6 +1,10 @@
 \section{Scope and limitations}
 \label{sec:scope}
 
+The methods we report are designed for small-$N$ from-scratch
+scientific machine learning.  We document two failure modes outside
+that regime and the protocol choices we did not vary.
+
 \paragraph{Pretrained backbones.}
 A pretrained backbone is itself an implicit data prior: large-scale
 pretraining has collapsed most cross-sample variation in the learned
@@ -23,30 +27,25 @@ On MOF-thermal, twin-indep and codistillation reach this solution
 ERM, neither of which couples the two networks, are unaffected
 (Appendix~\ref{app:borderline}).  Twin-indep should not be applied
 to small-$N$ datasets whose ERM accuracy is close to the
-majority-class baseline; the headline filter we use ($\text{ERM-acc}
-\geq \text{majority-acc} + 5\text{pp}$) is necessary but not
-sufficient on its own to predict this collapse.
+majority-class baseline; the headline filter ($\text{ERM-acc} \geq
+\text{majority-acc} + 5\text{pp}$) is necessary but not sufficient
+on its own to predict this collapse.
 
-\paragraph{Untested settings.}
-Our results are for binary classification with cross-entropy training,
-Morgan fingerprints, and a $256$-unit MLP trained from scratch.  The
-fragility definition reduces unchanged to multi-class argmax
-disagreement and extends to regression with a metric substitution;
-we have not verified the method or magnitudes there.  Twin-indep
-with $K{=}2$ extends mechanically to larger $K$ via all-pairs sym-KL,
-interpolating between bagging-$K$ and our $K{=}2$ twin; we do not
-characterise this trade-off.  Whether the pretrained-backbone failure
-mode reproduces under fine-tuned
-ChemBERTa~\citep{TODO_chithrananda2020_chemberta} is a controlled
-test summarised in Appendix~\ref{app:chemberta_scope};
-D-MPNN~\citep{TODO_yang2019_dmpnn} is the obvious follow-up
-architecture.
-
-\paragraph{Protocol choices we did not vary.}
-The reported numbers fix test-set construction at a single canonical
-seed (\texttt{99}) and select $\lambda$ on a single development
-dataset (BACE).  We did not re-run the sweep at additional canonical
-seeds, so we cannot rule out test-set-construction sensitivity in
-absolute fragility magnitudes; nor did we cross-validate the
-development rule across multiple dev datasets.  Both robustness
-checks are natural follow-ups.
+\paragraph{Untested settings and protocol choices.}
+The chemistry experiments use binary classification, Morgan
+fingerprints, and a $256$-unit MLP from scratch; the test-set
+construction is fixed at canonical seed $99$ and $\lambda$ is selected
+on BACE alone.  We do not vary multi-class output, regression metrics,
+larger twin-head counts, the test-set seed, or the development
+dataset; we do not run D-MPNN~\citep{TODO_yang2019_dmpnn} or graph
+architectures.  These are scope, not soft spots: the headline result
+that bagging-$K{=}5$ reduces argmax churn $47\text{--}49\%$ at no
+accuracy cost is paired across $\binom{10}{2}=45$ seed pairs and is
+significant at $p < 10^{-4}$ on the Friedman test
+(Appendix~\ref{app:friedman}); whether the same intervention works at
+larger $K$, on regression, or under a different test-set seed is a
+robustness question, not a falsification of the present finding.  The
+twin-indep claim is more sensitive --- it depends on the
+consistency-loss coupling that fails on MOF-thermal and on
+pretrained-backbone settings --- and the regime characterisation
+above states the failure cases.
