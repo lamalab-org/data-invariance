@@ -46,24 +46,27 @@ ${\sim}2$pp of churn on average.
 
 \paragraph{Contributions.}
 \begin{itemize}\itemsep0pt
-  \item We re-target prediction-churn measurement to the small-$N$
-        from-scratch regime and document its magnitude on eight
-        chemistry benchmarks ($8\text{--}17\%$ of predictions flip
-        across retrainings; an order of magnitude larger than the
-        parameter-variance axis deep ensembles capture).
+  \item We define cross-sample prediction fragility, the
+        population-level analogue of prediction churn, and give a
+        measurement protocol for the small-$N$ from-scratch regime
+        where deployment-loop churn measurement does not apply.
+  \item On eight chemistry benchmarks (MoleculeNet, TDC ADME/Tox,
+        materials science) fragility flips $8\text{--}17\%$ of test
+        predictions across retrainings --- an order of magnitude
+        larger than the parameter-variance axis deep ensembles
+        capture.
   \item $K$-bootstrap bagging~\citep{TODO_breiman1996} reduces argmax
-        churn $47\text{--}49\%$ on every held-out dataset under a
-        no-test-tuning protocol, paired-bootstrap CI excludes zero,
-        with no accuracy regression.
-  \item Twin-indep is the codistillation
+        churn $47\text{--}49\%$ on every held-out dataset, paired
+        bootstrap CI excluding zero, with no accuracy regression.
+        Twin-indep --- the codistillation
         family~\citep{TODO_anil2018_codistillation} at $\sim$$40\%$
-        inter-network bootstrap overlap.  At a frozen
-        $\lambda{=}300$ selected on BACE alone, it reduces argmax
-        churn $69\text{--}72\%$ at matched compute against
-        bagging-$K{=}2$, and distributional disagreement by an
-        additional order of magnitude.  On a 10-dataset comparison
-        across the overlap axis, $\sim$$40\%$ is the only operating
-        point with no failure case (Appendix~\ref{app:overlap_spectrum}).
+        inter-network bootstrap overlap --- reduces churn
+        $69\text{--}72\%$ at matched compute against bagging-$K{=}2$
+        at a frozen $\lambda{=}300$ selected on BACE alone, and cuts
+        distributional disagreement by an additional order of
+        magnitude.  On a 10-dataset comparison across the overlap
+        axis, $\sim$$40\%$ is the only operating point with no failure
+        case (Appendix~\ref{app:overlap_spectrum}).
   \item Per-example fragility computed from a single additional
         bootstrap captures $68\text{--}94\%$ of the test predictions
         that retraining will flip in its top decile.
