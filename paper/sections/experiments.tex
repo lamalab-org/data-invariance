@@ -12,10 +12,11 @@ dropout, in contrast, leaves argmax churn essentially unchanged
 $+1\%$): training a single model with dropout and averaging $T{=}20$
 stochastic forward passes does not address the data-resampling axis
 that bagging and twin-indep operate on.  At matched compute against
-bagging-$K{=}2$, twin-indep wins on every dataset (left panel of
-Figure~\ref{fig:main}, all CIs exclude zero); against the
-$5\times$-compute bagging-$K{=}5$, twin-indep wins on $4/7$ held-out
-datasets and trails on three (DILI, Pgp, TADF).  The aggregate
+bagging-$K{=}2$, twin-indep wins on $7/8$ datasets (CI excludes zero;
+the difference is not significant on DILI, where ERM accuracy is
+$0.72$ on a $76$-example test set); against the $5\times$-compute
+bagging-$K{=}5$, twin-indep wins on $4/7$ held-out datasets and
+trails on three (DILI, Pgp, TADF).  The aggregate
 Friedman test rejects equal-ranks at $\chi^2 = 24.34$,
 $p = 6.8 \times 10^{-5}$; twin-indep ranks first, indistinguishable
 from bagging-$K{=}5$ at less than half the compute

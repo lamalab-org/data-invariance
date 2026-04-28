@@ -4,6 +4,11 @@ dili,Bagging K=2,ERM,-0.03947,-0.05439,-0.02456
 dili,Bagging K=5,ERM,-0.08392,-0.09795,-0.06988
 dili,Twin-indep,ERM,-0.02690,-0.04240,-0.01053
 dili,Twin-indep,Bagging K=2,0.01257,-0.00058,0.02661
+cyp2d6_substrate,Deep Ens. K=5,ERM,0.00126,-0.00461,0.00692
+cyp2d6_substrate,Bagging K=2,ERM,-0.06017,-0.07002,-0.05073
+cyp2d6_substrate,Bagging K=5,ERM,-0.07191,-0.08176,-0.06164
+cyp2d6_substrate,Twin-indep,ERM,-0.09308,-0.10189,-0.08512
+cyp2d6_substrate,Twin-indep,Bagging K=2,-0.03291,-0.04109,-0.02537
 pgp_broccatelli,Deep Ens. K=5,ERM,0.00252,-0.00126,0.00619
 pgp_broccatelli,Bagging K=2,ERM,-0.02337,-0.03173,-0.01523
 pgp_broccatelli,Bagging K=5,ERM,-0.04422,-0.05132,-0.03677

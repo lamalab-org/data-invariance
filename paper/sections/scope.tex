@@ -32,15 +32,16 @@ majority-class baseline; the headline filter ($\text{ERM-acc} \geq
 on its own to predict this collapse.
 
 \paragraph{Architecture-dependent $\lambda$.}
-On a non-fingerprint architecture (a $3$-layer GIN on RDKit graphs
-of BACE), bagging-$K{=}5$ transfers cleanly: it cuts argmax churn by
+On a non-fingerprint architecture (a $3$-layer GIN on RDKit graphs of
+BACE), bagging-$K{=}5$ transfers cleanly: it cuts argmax churn by
 $52\%$ ($-11.7$pp [$-12.7$, $-10.7$]) and improves id-accuracy by
-$+3.5$pp.  Twin-indep at the BACE-MLP-frozen $\lambda{=}300$ reduces
-sym-KL by $99\%$ but drops id-accuracy from $0.74$ to $0.59$, well
-outside the $0.02$ tolerance under which $\lambda$ was selected; the
-selection rule transfers but the numerical value does not.  Bagging
-is architecture-agnostic; the twin-indep $\lambda$ requires
-re-selection per architecture (Appendix~\ref{app:gin}).
+$+3.5$pp.  Twin-indep at the BACE-MLP-frozen $\lambda{=}300$ drops
+id-accuracy by $15$pp and is rejected by the same accuracy-tolerance
+rule that selected $\lambda{=}300$ in the first place; re-running
+the rule on BACE-GIN selects $\lambda{=}10$, which cuts argmax
+churn $48\%$ at no accuracy cost (Appendix~\ref{app:gin}).  The
+selection \emph{rule} is architecture-agnostic; the numerical value
+of $\lambda$ is not.  Bagging is unaffected.
 
 \paragraph{Untested settings and protocol choices.}
 The headline experiments use binary classification, Morgan
