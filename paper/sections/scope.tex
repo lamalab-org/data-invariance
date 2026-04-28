@@ -19,18 +19,17 @@ of finetuning, and the two appear to pull the model toward an
 over-averaged solution.  Bagging adds no such second prior and so
 extends to the pretrained-backbone setting unchanged.
 
-\paragraph{Consistency-loss accuracy collapse (MOF-thermal).}
-We initially included MOF-thermal in the headline benchmarks but
-demoted it after observing that twin-indep and codistillation drive
-id-test accuracy from ERM's $0.62$ down to $0.53$ on this dataset
-(chance level on a binary task), while bagging and ERM are unaffected.
-The corresponding ``churn reduction'' is then largely majority-class
-prediction, not stabilisation.  We do not claim MOF-thermal as
-evidence for either method; it is reported in
-Appendix~\ref{app:borderline}.  This is a real failure mode of strong
-inter-network consistency on small-$N$ datasets where the two
-networks can settle into a uniform prior; the same does not occur on
-the seven other chemistry benchmarks we tested.
+\paragraph{Where strong inter-network consistency collapses (MOF-thermal).}
+Strong consistency between two networks has a degenerate solution:
+both predict the majority class everywhere, so they agree trivially.
+On MOF-thermal twin-indep and codistillation reach this solution
+(id-acc $0.53$, chance on a binary task; ERM $0.62$); bagging and
+ERM, neither of which couples the two networks, are unaffected
+(Appendix~\ref{app:borderline}).  Twin-indep should not be applied
+to small-$N$ datasets whose ERM accuracy is close to the
+majority-class baseline; the headline filter we use ($\text{ERM-acc}
+\geq \text{majority-acc} + 5\text{pp}$) is necessary but not
+sufficient on its own to predict this collapse.
 
 \paragraph{Architecture and featurisation.}
 The chemistry experiments use Morgan fingerprints (radius $2$, $2048$
