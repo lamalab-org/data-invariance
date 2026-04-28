@@ -17,11 +17,17 @@ trained on independent bootstraps (\emph{twin-indep}) cuts argmax
 churn by a further median $60\%$ (range $16\text{--}92\%$ across the
 eight datasets) at $2\times$-ERM compute matched against
 bagging-$K{=}2$, and reduces distributional disagreement by another
-factor of ${\sim}8$.  Twin-indep is the
-codistillation family of \citet{TODO_anil2018_codistillation} at
-$\sim$$40\%$ inter-network bootstrap overlap; on a 10-dataset
-comparison it is the only operating point on that family that does
-not catastrophically fail.  The recipe applies in the small-$N$
-from-scratch regime; on pretrained-backbone settings the consistency
-loss over-regularises features the backbone already encodes.
+factor of ${\sim}8$.  Twin-indep is the codistillation family of
+\citet{TODO_anil2018_codistillation} at $\sim$$40\%$ inter-network
+bootstrap overlap; on a 10-dataset comparison across three operating
+points on that family ($0\%$, $\sim$$40\%$, $\sim$$63\%$
+inter-network overlap), only $\sim$$40\%$ holds accuracy on every
+dataset.  The recipe applies in the small-$N$ from-scratch regime;
+on pretrained backbones (Waterbirds with ImageNet ResNet-50;
+ChemBERTa-77M-MTR fine-tuned on six chemistry benchmarks) the
+consistency loss over-regularises features the backbone already
+encodes.  Bagging and codistillation already exist; what this paper
+adds is a measurement protocol that makes their cross-sample effect
+visible, and a regime where the gap they close is large enough to
+demand its own column in the report.
 \end{abstract}

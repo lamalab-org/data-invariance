@@ -70,9 +70,11 @@ axis.
         disagreement by another factor of ${\sim}8$.  On a 10-dataset comparison across the overlap
         axis, $\sim$$40\%$ is the only operating point with no failure
         case (Appendix~\ref{app:overlap_spectrum}).
-  \item Per-example fragility computed from a single additional
-        bootstrap captures $68\text{--}94\%$ of the test predictions
-        that retraining will flip in its top decile.
+  \item A one-bootstrap triage workflow: per-example fragility from
+        a single additional retraining captures $68\text{--}94\%$ of
+        the test predictions retraining will flip in its top decile,
+        letting practitioners route only that decile to a human
+        reviewer at the cost of one extra training run.
   \item The methods apply in the small-$N$ from-scratch regime.  On
         pretrained-backbone settings the consistency loss
         over-regularises features the backbone already encodes; on

@@ -249,10 +249,10 @@ the consistency loss adds a second prior on top of the pretrained
 representation and pulls the model toward an over-averaged solution.
 On chemistry the failure is severe enough that argmax churn
 \emph{rises} on five of six datasets, and BBBP collapses to the
-majority-class predictor entirely.  Pretraining-modality (vision /
-SMILES) does not change the diagnosis: \textbf{twin-indep at the
-from-scratch-tuned $\lambda$ should not be applied unmodified to
-pretrained-backbone settings, on any modality.}  Bagging is
+majority-class predictor entirely.  The two modalities we tested (vision and SMILES) yield the same
+diagnosis: \textbf{twin-indep at the from-scratch-tuned $\lambda$
+should not be applied unmodified to pretrained-backbone settings on
+either modality.}  Bagging is
 unaffected by either prior; we therefore recommend bagging-$K{=}5$
 as the default recipe whenever a pretrained backbone is in use.
 
