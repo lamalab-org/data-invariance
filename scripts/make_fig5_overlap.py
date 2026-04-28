@@ -1,22 +1,15 @@
-"""Paper figure: data-overlap spectrum.
+"""Appendix table: bootstrap-overlap spectrum.
 
-Three operating points on the bootstrap-overlap axis live in our paper:
-  -   0% overlap : codistillation (disjoint shards; Anil 2018-style)
-  -  ~40% overlap: twin-indep λ=300 (overlapping bootstraps with replacement;
-                    two networks each cover ~63% unique indices, share ~40%)
+Reports paired Δ id-churn vs ERM at three operating points on the
+inter-network bootstrap-overlap axis:
+  -   0% overlap : codistillation (disjoint shards; Anil 2018)
+  -  ~40% overlap: twin-indep λ=300
   - 100% overlap : twin-indep with shared bootstrap (ablation)
 
-For every headline dataset where the three methods preserve ERM-level
-accuracy (id-acc decline < 5pp), we plot the paired Δ id-churn vs ERM
-at each of these three overlap fractions, with paired-bootstrap 95% CIs.
-
-The pattern across datasets:
-  - BACE / BBBP   : Δ-churn monotone in less overlap.
-  - TADF          : U-shaped — middle overlap (twin-indep) wins.
-  - MOF-thermal   : excluded (consistency-loss accuracy collapse, see §scope).
-
-Single claim: data-overlap fraction is a meaningful hyperparameter, and
-twin-indep's ~40% is a robust default but not optimal everywhere.
+across every dataset for which all three methods completed.  Cells
+where the method drops id-acc by more than 5pp from ERM are flagged
+as accuracy-collapse (the corresponding churn reduction is then
+largely majority-class prediction).
 """
 from __future__ import annotations
 
@@ -71,6 +64,7 @@ def main() -> None:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", default="outputs/cross_sample")
     ap.add_argument("--out", default="paper/figures/fig5_overlap.pdf")
+    ap.add_argument("--latex", default="paper/sections/tables/overlap_spectrum.tex")
     args = ap.parse_args()
     root = Path(args.root)
 
@@ -177,6 +171,45 @@ def main() -> None:
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.out, bbox_inches="tight")
     print(f"\nWrote {args.out}")
+
+    # Emit appendix LaTeX table (this is the primary artefact; the
+    # figure above is kept only for code-internal QA).
+    lines = [
+        r"\begin{table}[h]",
+        r"  \centering",
+        r"  \caption{Bootstrap-overlap spectrum: paired $\Delta$ id-churn"
+        r" vs.\ ERM at three operating points (codistillation $0\%$,"
+        r" twin-indep ${\sim}40\%$, twin-shared $100\%$ overlap),"
+        r" percentage points (negative is better). Daggers ($^\dagger$)"
+        r" mark cells where the method drops id-accuracy by more than"
+        r" $5$pp from ERM (the corresponding churn reduction is then"
+        r" largely majority-class prediction). Twin-indep at"
+        r" ${\sim}40\%$ overlap is the only column with no failure case"
+        r" (no daggers and no positive entries).}",
+        r"  \label{tab:overlap_spectrum}",
+        r"  \small",
+        r"  \begin{tabular}{lrlll}",
+        r"    \toprule",
+        r"    Dataset & $N$ & Codistillation $0\%$"
+        r" & Twin-indep ${\sim}40\%$ & Twin-shared $100\%$ \\",
+        r"    \midrule",
+    ]
+    from paper_constants import N_TRAIN
+    for ds in sorted(keep, key=lambda d: N_TRAIN.get(d, 10**9)):
+        cells = []
+        for j, (ov, _, (m, lo, hi)) in enumerate(points[ds]):
+            txt = f"{m*100:+.1f} [{lo*100:+.1f}, {hi*100:+.1f}]"
+            if accuracy_collapse[ds][j]:
+                txt = txt + r"$^\dagger$"
+            cells.append(txt)
+        lines.append(
+            f"    {display(ds)} & {N_TRAIN.get(ds, '---')} & "
+            + " & ".join(cells) + r" \\"
+        )
+    lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
+    Path(args.latex).parent.mkdir(parents=True, exist_ok=True)
+    Path(args.latex).write_text("\n".join(lines))
+    print(f"Wrote {args.latex}")
 
 
 if __name__ == "__main__":

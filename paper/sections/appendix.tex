@@ -150,6 +150,28 @@ every value tested).  The effective per-step regularisation under
 AdamW does not constrain the data-resampling sensitivity that drives
 churn.
 
+\section{Bootstrap-overlap spectrum}
+\label{app:overlap_spectrum}
+
+The codistillation~\citep{TODO_anil2018_codistillation},
+twin-indep, and twin-shared variants share the same two-network
+sym-KL consistency objective and differ only in the inter-network
+bootstrap-overlap: $0\%$ (disjoint shards), ${\sim}40\%$ (independent
+bootstraps with replacement), and $100\%$ (the same bootstrap to
+both networks).  Table~\ref{tab:overlap_spectrum} reports paired
+$\Delta$ id-churn vs.\ ERM at each operating point on every dataset
+where all three methods completed.
+
+\input{sections/tables/overlap_spectrum.tex}
+
+Read off the columns: codistillation has the largest mean churn
+reduction on most datasets but flips sign on TADF and triggers
+accuracy collapse on Pgp and MOF-thermal; twin-indep at
+${\sim}40\%$ overlap is the only column with no failure case
+(no daggers, no positive entries).  The bootstrap-overlap fraction
+is therefore a robustness--vs--best-case knob; the choice of
+${\sim}40\%$ is the safe default.
+
 \section{Borderline datasets}
 \label{app:borderline}
 
