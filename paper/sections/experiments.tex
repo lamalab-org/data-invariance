@@ -55,14 +55,13 @@ consistency loss.
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/fig4_case_study.pdf}
-  \caption{\textbf{Per-molecule stabilisation on BACE.}  Six
-    id-test molecules picked by largest ERM-vs-twin-indep churn
-    contrast (ERM flips on $\geq 36\%$ of seed pairs; twin-indep flips
-    on $0\%$).  Below each structure: ten ERM and ten twin-indep seed
-    predictions, each cell is the predicted class at one retraining;
-    the gap separates the two methods.  Per-method per-pair argmax
-    churn is annotated on the cell labels.  ERM stripes flip;
-    twin-indep collapses to a single colour.}
+  \caption{\textbf{Twin-indep eliminates per-molecule retraining
+    flips on BACE.}  Six id-test molecules where ERM flips class on
+    $\geq 36\%$ of seed pairs and twin-indep flips on $0\%$.  Below
+    each structure: ten ERM and ten twin-indep seed predictions,
+    each cell is the predicted class at one retraining; the gap
+    separates the two methods.  ERM stripes flip; twin-indep
+    collapses to a single colour.}
   \label{fig:case_study}
 \end{figure}
 
