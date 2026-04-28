@@ -109,28 +109,67 @@ def main() -> None:
     fig_h = fig_w * 0.85
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
 
-    cmap = plt.cm.viridis(np.linspace(0.15, 0.85, len(keep)))
-    for di, ds in enumerate(keep):
+    # Visual hierarchy carries the caption claim: TADF is the only
+    # dataset that "catastrophically fails" at 0% overlap, so it must
+    # dominate the figure. The other five datasets are all monotone
+    # improvements toward less overlap and read as a single bundle.
+    HIGHLIGHT = "tadf"
+    grey = "0.65"
+
+    # Light pink band above y=0 marks "worse than ERM"; the only line
+    # that crosses into it is TADF at 0% overlap — that is the figure.
+    ax.axhspan(0, 100, color="#fde6e6", alpha=0.45, zorder=0)
+    ax.axhline(0, color="0.25", linewidth=0.9, zorder=1)
+
+    bundle_handle = None
+    for ds in keep:
+        if ds == HIGHLIGHT:
+            continue
         xs = [ov for ov, _, _ in points[ds]]
         ys = [m * 100 for _, _, (m, _, _) in points[ds]]
         los = [(m - lo) * 100 for _, _, (m, lo, _) in points[ds]]
         his = [(hi - m) * 100 for _, _, (m, _, hi) in points[ds]]
-        col = "#d62728" if ds == DEV_DATASET else cmap[di]
-        lw = 1.6 if ds == DEV_DATASET else 1.0
-        ms = 5.0 if ds == DEV_DATASET else 3.5
-        ax.errorbar(xs, ys, yerr=[los, his], color=col,
-                    linewidth=lw, marker="o", markersize=ms,
-                    capsize=2.5, label=display(ds), zorder=3 if ds == DEV_DATASET else 2)
+        line, _, _ = ax.errorbar(xs, ys, yerr=[los, his], color=grey,
+                                 linewidth=0.9, marker="o", markersize=2.8,
+                                 capsize=1.8, alpha=0.85, zorder=2)
+        bundle_handle = line
 
-    ax.axhline(0, color="0.25", linewidth=0.8, zorder=1)
+    if HIGHLIGHT in points:
+        xs = [ov for ov, _, _ in points[HIGHLIGHT]]
+        ys = [m * 100 for _, _, (m, _, _) in points[HIGHLIGHT]]
+        los = [(m - lo) * 100 for _, _, (m, lo, _) in points[HIGHLIGHT]]
+        his = [(hi - m) * 100 for _, _, (m, _, hi) in points[HIGHLIGHT]]
+        tadf_line, _, _ = ax.errorbar(xs, ys, yerr=[los, his],
+                                      color="#d62728", linewidth=2.0,
+                                      marker="o", markersize=5.5,
+                                      capsize=2.5, zorder=4)
+        # Annotate the codistillation failure point
+        ax.annotate(
+            "codistillation\nworse than ERM",
+            xy=(xs[0], ys[0]), xytext=(20, ys[0] + 1.8),
+            fontsize=7, color="#7a1313", ha="left",
+            arrowprops=dict(arrowstyle="-", color="#7a1313",
+                            linewidth=0.6),
+        )
+
     ax.set_xticks([0, 40, 100])
     ax.set_xticklabels(["0%\n(codistillation)", "~40%\n(twin-indep)",
                         "100%\n(shared boot)"], fontsize=7.5)
     ax.set_xlabel("Bootstrap overlap between the two networks")
     ax.set_ylabel("Paired Δ id-churn vs ERM (pp)")
-    ax.legend(loc="upper left", frameon=False, fontsize=7,
-              handletextpad=0.4)
-    ax.grid(axis="y", linestyle="-", linewidth=0.4, alpha=0.35, zorder=0)
+
+    # Two-entry legend: TADF and 'other five datasets' (clean).
+    handles = [
+        plt.Line2D([0], [0], color="#d62728", linewidth=2.0, marker="o",
+                   markersize=5.5, label=display(HIGHLIGHT)),
+    ]
+    if bundle_handle is not None:
+        other_labels = ", ".join(display(ds) for ds in keep if ds != HIGHLIGHT)
+        handles.append(plt.Line2D([0], [0], color=grey, linewidth=0.9,
+                                  marker="o", markersize=2.8,
+                                  label=other_labels))
+    ax.legend(handles=handles, loc="lower right", frameon=False,
+              fontsize=7, handletextpad=0.4, labelspacing=0.4)
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.out, bbox_inches="tight")
