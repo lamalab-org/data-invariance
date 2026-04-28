@@ -79,6 +79,16 @@ CIs, plus paired $\Delta$ vs.\ ERM on the same $45$ seed-pairs.
 
 \begin{table}[h]
 \centering
+\caption{\textbf{GIN on BACE: bagging transfers cleanly; twin-indep
+  $\lambda$ does not.}  ERM-GIN is more fragile than ERM-MLP
+  ($22.5\%$ vs.\ $16.1\%$ argmax churn), making the methods more
+  rather than less relevant on this backbone.  Bagging-$K{=}5$ cuts
+  churn $52\%$ and improves id-accuracy by $3.5$pp.  Twin-indep at
+  the BACE-MLP-frozen $\lambda{=}300$ reduces sym-KL by $99\%$ but
+  drops id-accuracy by $15$pp --- well outside the $0.02$
+  selection-rule tolerance ERM-GIN id-acc would impose.  Bold cells
+  mark the best mean per column among the three methods.}
+\label{tab:gin}
 \small
 \begin{tabular}{lccc}
 \toprule
@@ -93,16 +103,6 @@ Bagging-$K{=}5$           & \multicolumn{1}{c}{$+0.035$ pp} & $-11.7$ [$-12.7$, 
 Twin-indep $\lambda{=}300$ & \multicolumn{1}{c}{$-0.149$ pp} & $-5.9$ [$-8.9$, $-2.8$] ($-26\%$) & $-0.41$ [$-0.44$, $-0.38$] ($-99\%$) \\
 \bottomrule
 \end{tabular}
-\caption{\textbf{GIN on BACE: bagging transfers cleanly; twin-indep
-  $\lambda$ does not.}  ERM-GIN is more fragile than ERM-MLP
-  ($22.5\%$ vs.\ $16.1\%$ argmax churn), making the methods more
-  rather than less relevant on this backbone.  Bagging-$K{=}5$ cuts
-  churn $52\%$ and improves id-accuracy by $3.5$pp.  Twin-indep at
-  the BACE-MLP-frozen $\lambda{=}300$ reduces sym-KL by $99\%$ but
-  drops id-accuracy by $15$pp --- well outside the $0.02$
-  selection-rule tolerance ERM-GIN id-acc would impose.  Bold cells
-  mark the best mean per column among the three methods.}
-\label{tab:gin}
 \end{table}
 
 The honest reading: the consistency loss is real and effective at
@@ -170,7 +170,7 @@ as the plateau between $M=600$ and $M=800$) is not captured by an
 $N$-rate that goes to zero.  We therefore do not extrapolate the slope
 beyond the measured range.
 
-\section{Design choices we tried and rejected}
+\section{Ablations}
 \label{app:failures}
 
 We report alternatives we considered before settling on twin-indep
