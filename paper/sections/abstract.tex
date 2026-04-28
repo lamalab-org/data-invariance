@@ -1,19 +1,25 @@
 \begin{abstract}
 Retraining a chemistry classifier on a fresh draw of the same training
 population flips predictions for $8\text{--}17\%$ of test molecules
-with no change in aggregate accuracy.  We name this \emph{cross-sample
-prediction fragility} --- the fraction of test predictions that change
-class between two models trained on independent bootstraps --- and
-show it dominates the parameter-variance axis that deep ensembles
-capture by an order of magnitude on eight standard chemistry
-benchmarks (MoleculeNet, TDC ADME/Tox, materials science).  Two
-methods reduce it under a strict no-test-tuning protocol.
-$K$-bootstrap bagging cuts churn $47\text{--}49\%$ at zero accuracy
-cost.  \emph{Twin-indep}, a sym-KL consistency penalty between two
-networks trained on independent bootstraps, cuts churn
-$69\text{--}72\%$ at matched compute and distributional disagreement
-by roughly an additional order of magnitude.  Twin-indep applies in
-the small-$N$ from-scratch regime that scientific ML inhabits; on
-pretrained-backbone benchmarks like Waterbirds the consistency loss
-over-regularises features the backbone already encodes.
+with no change in aggregate accuracy.  This is the population-level
+analogue of \emph{prediction churn}~\citep{TODO_milani2016}: where the
+deployment-loop literature measures churn between a new model and a
+fixed incumbent, we measure it between two equally weighted
+retrainings on independent bootstraps of the same training pool, in
+the small-$N$ from-scratch regime where no incumbent model exists.
+We call this quantity \emph{cross-sample prediction fragility}.  On
+eight chemistry benchmarks (MoleculeNet, TDC ADME/Tox, materials
+science) it dominates the parameter-variance axis that deep ensembles
+capture by an order of magnitude.  Bootstrap bagging is the right
+intervention on the data axis; on the small-$N$ chemistry datasets we
+study it cuts churn $47\text{--}49\%$ at no accuracy regression.
+Adding a sym-KL consistency loss between the two bagging networks
+(\emph{twin-indep}) cuts churn $69\text{--}72\%$ at matched compute
+and distributional disagreement by an additional order of magnitude;
+twin-indep is a $\sim$$40\%$-bootstrap-overlap operating point on the
+codistillation family, and is the only point on that family that does
+not catastrophically fail across 10 datasets we test.  The recipe is
+small-$N$ from-scratch; on pretrained-backbone benchmarks like
+Waterbirds the consistency loss over-regularises features the
+backbone already encodes.
 \end{abstract}

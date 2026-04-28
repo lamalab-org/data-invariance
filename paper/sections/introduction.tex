@@ -54,44 +54,46 @@ compute.
 
 \paragraph{Contributions.}
 \begin{itemize}\itemsep0pt
-  \item \textbf{Population-level prediction fragility for small-$N$
-        scientific ML.}  We bring the deployment-driven prediction-churn
-        literature~\citep{TODO_milani2016, TODO_bhojanapalli2021,
-        TODO_jiang2022} and the clinical-biostatistics
-        stability-interval program~\citep{TODO_riley2023} into the
-        small-$N$ from-scratch regime that scientific ML inhabits.
-        Cross-sample fragility, measured between two models trained on
-        independent bootstraps of the same population, is a measurable
-        analogue of uniform algorithmic
-        stability~\citep{TODO_bousquet2002}.  On eight standard chemistry
-        benchmarks (MoleculeNet, TDC ADME/Tox, materials science),
-        $8\text{--}17\%$ of test predictions flip across retrainings, an
-        order of magnitude larger than deep-ensemble disagreement; deep
-        ensembles remove only ${\sim}2$pp of churn.
-  \item \textbf{Two methods} under a strict no-test-tuning protocol;
-        hyperparameters frozen on a single development dataset (BACE)
-        and applied unchanged to every held-out benchmark.
-        $K$-bootstrap bagging reduces argmax churn $47\text{--}49\%$ at
-        zero accuracy cost (mean $+1.6$pp; $95\%$ CI $[+1.1, +2.1]$).
-        \textbf{Twin-indep} --- two networks on independent bootstraps
-        with a sym-KL consistency penalty between heads --- reduces
-        argmax churn $69\text{--}72\%$ at matched compute against
-        bagging-$K{=}2$, and distributional sym-KL by roughly an
-        additional order of magnitude beyond bagging.  The construction
-        shares mechanics with codistillation~\citep{TODO_anil2018_codistillation};
-        we discuss the differences in motivation, regime and protocol in
-        Section~\ref{sec:related}.
+  \item \textbf{Cross-sample fragility as a measurement.}  We
+        re-target the prediction-churn measurement of
+        \citet{TODO_milani2016, TODO_bhojanapalli2021, TODO_jiang2022}
+        from deployment-loop churn (a new model regressed against an
+        incumbent on web-scale data) to population-level churn between
+        two bootstraps of the same training pool, in the small-$N$
+        from-scratch regime where no incumbent model exists.  On eight
+        chemistry benchmarks, $8\text{--}17\%$ of test predictions
+        flip across retrainings --- an order of magnitude larger than
+        the parameter-variance axis that deep ensembles capture.
+  \item \textbf{Bootstrap bagging on the data axis.}  Bagging at
+        $K{=}5$~\citep{TODO_breiman1996} is the right intervention
+        when the deliverable is per-example stability rather than
+        accuracy.  Under a no-test-tuning protocol it reduces argmax
+        churn $47\text{--}49\%$ on every held-out dataset
+        (paired-bootstrap CI excludes zero on every dataset; mean
+        accuracy delta $+1.6$pp [$+1.1, +2.1$]).
+  \item \textbf{Twin-indep: codistillation at the right overlap.}
+        Twin-indep is the codistillation
+        family~\citep{TODO_anil2018_codistillation} at $\sim$$40\%$
+        inter-network bootstrap overlap rather than the disjoint-shard
+        $0\%$ end of the same axis.  At a frozen
+        $\lambda$ selected on a single development dataset (BACE,
+        $\lambda{=}300$), it reduces argmax churn $69\text{--}72\%$
+        at matched compute against bagging-$K{=}2$ and distributional
+        disagreement by roughly an additional order of magnitude.
+        On a 10-dataset comparison, twin-indep is the only operating
+        point on the codistillation family with no failure case
+        (Appendix~\ref{app:overlap_spectrum}).
   \item \textbf{Per-example fragility from one additional bootstrap}
         captures $68\text{--}94\%$ of the predictions that retraining
-        will flip in its top decile, giving a deployment-time triage at
-        the cost of one extra model.
-  \item \textbf{Regime characterisation.}  Twin-indep applies in the
-        small-$N$ from-scratch setting that scientific machine learning
-        inhabits.  On pretrained-backbone benchmarks (Waterbirds) the
-        consistency loss over-regularises features the backbone already
-        encodes ($-27$pp accuracy at the chemistry-tuned $\lambda$);
-        bagging extends across all settings tested.  Every reported
-        delta carries a paired-bootstrap $95\%$ confidence interval over
-        seed pairs.
+        will flip in its top decile, giving a deployment-time triage
+        signal at the cost of one extra model.
+  \item \textbf{Regime characterisation.}  The methods apply in the
+        small-$N$ from-scratch setting; on pretrained-backbone
+        benchmarks (Waterbirds) the consistency loss over-regularises
+        features the backbone already encodes ($-27$pp accuracy at
+        the chemistry-tuned $\lambda$); on small-$N$ datasets where
+        ERM accuracy is close to majority-class (MOF-thermal),
+        consistency methods collapse to the constant predictor.
+        Bagging extends across all settings tested.
 \end{itemize}
 
