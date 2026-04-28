@@ -305,6 +305,124 @@ def _scaffold_split_with_id_holdout(
     return train_idx, id_test_idx, scaffold_test_idx
 
 
+def _smiles_to_graph(smi: str):
+    """Return (atom_features [N, A_dim], edge_index [2, E], edge_attr [E, B_dim]) or None.
+
+    Atom features: one-hot atomic number bucket + degree + formal charge + aromatic + Hs.
+    Bond features: bond-type one-hot (single / double / triple / aromatic).
+    """
+    from rdkit import Chem
+    mol = Chem.MolFromSmiles(smi)
+    if mol is None:
+        return None
+    # Atom features (lightweight, GIN-style).
+    atom_buckets = [1, 6, 7, 8, 9, 15, 16, 17, 35, 53]   # H,C,N,O,F,P,S,Cl,Br,I
+    A_dim = len(atom_buckets) + 1 + 4 + 4 + 4 + 1
+    feats = []
+    for atom in mol.GetAtoms():
+        an = atom.GetAtomicNum()
+        atom_one = [1.0 if an == b else 0.0 for b in atom_buckets] + [
+            1.0 if an not in atom_buckets else 0.0
+        ]
+        deg = atom.GetDegree()
+        deg_one = [1.0 if deg == k else 0.0 for k in range(4)]
+        charge = atom.GetFormalCharge()
+        ch_one = [1.0 if charge == c else 0.0 for c in (-1, 0, 1, 2)]
+        nH = atom.GetTotalNumHs()
+        nH_one = [1.0 if nH == k else 0.0 for k in range(4)]
+        arom = [1.0 if atom.GetIsAromatic() else 0.0]
+        feats.append(atom_one + deg_one + ch_one + nH_one + arom)
+    x = torch.tensor(feats, dtype=torch.float32)
+
+    # Bonds (bidirectional).
+    src, dst, btypes = [], [], []
+    bond_types = [Chem.BondType.SINGLE, Chem.BondType.DOUBLE,
+                  Chem.BondType.TRIPLE, Chem.BondType.AROMATIC]
+    for bond in mol.GetBonds():
+        i, j = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+        bt = bond.GetBondType()
+        bt_one = [1.0 if bt == t else 0.0 for t in bond_types]
+        src.extend([i, j]); dst.extend([j, i])
+        btypes.extend([bt_one, bt_one])
+    if not src:
+        edge_index = torch.zeros((2, 0), dtype=torch.long)
+        edge_attr = torch.zeros((0, len(bond_types)), dtype=torch.float32)
+    else:
+        edge_index = torch.tensor([src, dst], dtype=torch.long)
+        edge_attr = torch.tensor(btypes, dtype=torch.float32)
+    return x, edge_index, edge_attr
+
+
+class MolNetGraphDataset(Dataset):
+    """MoleculeNet dataset with on-the-fly RDKit graphs and scaffold split.
+
+    Mirrors ``MolNetDataset`` but yields ``torch_geometric.data.Data``
+    objects so a GIN backbone can consume the molecular graph directly.
+    """
+
+    def __init__(
+        self,
+        name: str = "bace",
+        split: str = "train",
+        seed: int = 42,
+        data_dir: str = "./data/molnet",
+    ) -> None:
+        from torch_geometric.data import Data
+        smiles_list, labels = _load_molnet_smiles_labels(name, data_dir)
+        train_idx, id_test_idx, scaffold_test_idx = _scaffold_split_with_id_holdout(
+            smiles_list, seed
+        )
+        if split == "train":
+            idx = train_idx
+        elif split == "test":
+            idx = id_test_idx
+        elif split == "test_scaffold":
+            idx = scaffold_test_idx
+        else:
+            raise ValueError(f"Unknown split: {split}")
+
+        self._graphs = []
+        self.labels = []
+        for i in idx:
+            g = _smiles_to_graph(smiles_list[i])
+            if g is None:
+                continue
+            x, edge_index, edge_attr = g
+            self._graphs.append(
+                Data(x=x, edge_index=edge_index, edge_attr=edge_attr,
+                     y=torch.tensor(int(labels[i]), dtype=torch.long))
+            )
+            self.labels.append(int(labels[i]))
+        self.labels = torch.tensor(self.labels, dtype=torch.long)
+        self._spurious = torch.full(
+            (len(self.labels),), int(split == "test_scaffold"), dtype=torch.long
+        )
+
+    @property
+    def spurious(self) -> torch.Tensor:
+        return self._spurious
+
+    @property
+    def input_dim(self) -> int:
+        raise NotImplementedError("Graph backbone uses Data objects, not input_dim.")
+
+    @property
+    def atom_feature_dim(self) -> int:
+        return self._graphs[0].x.shape[1] if self._graphs else 0
+
+    def __getitem__(self, idx: int) -> dict:
+        g = self._graphs[idx]
+        return {
+            "image": g,
+            "label": int(self.labels[idx]),
+            "spurious": int(self._spurious[idx]),
+            "index": idx,
+        }
+
+    def __len__(self) -> int:
+        return len(self.labels)
+
+
 class MolNetTokenDataset(Dataset):
     """MoleculeNet dataset with ChemBERTa-tokenized SMILES and scaffold split.
 

@@ -87,6 +87,47 @@ def make_chemberta_backbone(
     return bb, bb.hidden_size
 
 
+class GINBackbone(nn.Module):
+    """Small GIN encoder for molecular graphs.
+
+    3 GINConv layers with mean-pool readout; from-scratch (no pretrained
+    chemistry features).  Takes a torch_geometric.data.Batch (forwarded
+    by the dataloader as the ``image`` field) and returns (B, hidden_dim).
+    """
+
+    def __init__(self, in_dim: int, hidden_dim: int = 128, n_layers: int = 3) -> None:
+        super().__init__()
+        from torch_geometric.nn import GINConv
+        self.atom_proj = nn.Linear(in_dim, hidden_dim)
+        self.convs = nn.ModuleList()
+        for _ in range(n_layers):
+            mlp = nn.Sequential(
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim),
+            )
+            self.convs.append(GINConv(mlp, train_eps=True))
+        self.norm = nn.LayerNorm(hidden_dim)
+        self._hidden_dim = hidden_dim
+
+    @property
+    def hidden_size(self) -> int:
+        return self._hidden_dim
+
+    def forward(self, data) -> torch.Tensor:
+        from torch_geometric.utils import scatter
+        x = self.atom_proj(data.x)
+        for conv in self.convs:
+            x = torch.relu(conv(x, data.edge_index)) + x
+        x = self.norm(x)
+        return scatter(x, data.batch, dim=0, reduce="mean")
+
+
+def make_gin_backbone(in_dim: int, hidden_dim: int = 128) -> tuple[nn.Module, int]:
+    bb = GINBackbone(in_dim=in_dim, hidden_dim=hidden_dim)
+    return bb, bb.hidden_size
+
+
 class MLP(nn.Module):
     """Single-head classifier with pluggable backbone.
 

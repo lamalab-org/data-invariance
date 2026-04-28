@@ -108,6 +108,12 @@ def _build_model(cfg, loaders, device):
         from models import make_chemberta_backbone
         backbone, out_dim = make_chemberta_backbone()
         return MLP(backbone=backbone, backbone_out_dim=out_dim).to(device)
+    if cfg.dataset.arch == "gin":
+        from models import make_gin_backbone
+        in_dim = loaders["train"].dataset.atom_feature_dim
+        backbone, out_dim = make_gin_backbone(in_dim=in_dim,
+                                              hidden_dim=cfg.model.hidden_dim)
+        return MLP(backbone=backbone, backbone_out_dim=out_dim).to(device)
     input_dim = loaders["train"].dataset.input_dim
     return MLP(input_dim=input_dim, hidden_dim=cfg.model.hidden_dim).to(device)
 
@@ -230,6 +236,18 @@ def make_dataloaders(cfg: DictConfig) -> dict[str, DataLoader]:
         ood_test_ds = MolNetTokenDataset(name=molnet_name, split="test_scaffold",
                                          seed=seed, data_dir=data_dir)
 
+    elif name.endswith("_gin") and name.replace("_gin", "") in (
+            "bace", "bbbp", "hiv", "clintox", "tox21", "sider", "muv", "pcba"):
+        from data_molnet import MolNetGraphDataset
+        data_dir = getattr(cfg.dataset, "data_dir", "./data/molnet")
+        molnet_name = name.replace("_gin", "")
+        train_ds = MolNetGraphDataset(name=molnet_name, split="train",
+                                      seed=seed, data_dir=data_dir)
+        id_test_ds = MolNetGraphDataset(name=molnet_name, split="test",
+                                        seed=seed, data_dir=data_dir)
+        ood_test_ds = MolNetGraphDataset(name=molnet_name, split="test_scaffold",
+                                         seed=seed, data_dir=data_dir)
+
     elif name in ("hia_hou", "bioavailability_ma", "pgp_broccatelli",
                   "bbb_martins", "herg", "dili", "ames", "skin_reaction"):
         from data_tdc import TDCDataset
@@ -286,6 +304,19 @@ def make_dataloaders(cfg: DictConfig) -> dict[str, DataLoader]:
         pin_memory=use_cuda,
         persistent_workers=True if use_cuda else False,
     )
+    # GIN datasets yield torch_geometric Data objects in the "image" field;
+    # the default collate fails on them.  Use a graph-aware collate.
+    if cfg.dataset.arch == "gin":
+        def graph_collate(items):
+            from torch_geometric.data import Batch
+            return {
+                "image":    Batch.from_data_list([it["image"] for it in items]),
+                "label":    torch.tensor([it["label"]    for it in items], dtype=torch.long),
+                "spurious": torch.tensor([it["spurious"] for it in items], dtype=torch.long),
+                "index":    torch.tensor([it["index"]    for it in items], dtype=torch.long),
+            }
+        kwargs["collate_fn"] = graph_collate
+
     return {
         "train": DataLoader(train_ds, shuffle=True, **kwargs),
         "id_test": DataLoader(id_test_ds, shuffle=False, **kwargs),

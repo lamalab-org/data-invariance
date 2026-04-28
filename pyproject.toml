@@ -24,6 +24,7 @@ dependencies = [
     "wilds>=2.0.0",
     "transformers>=5.5.3",
     "lama-aesthetics",
+    "torch-geometric>=2.7.0",
 ]
 
 [dependency-groups]

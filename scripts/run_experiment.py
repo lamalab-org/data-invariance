@@ -66,6 +66,9 @@ HPARAMS = {
     # ChemBERTa fine-tune: smaller LR, smaller batch, fewer epochs (transformer fine-tune defaults).
     "bace_chemberta":            {"lr": 2e-5, "batch_size": 32, "epochs": 10, "discovery_epochs": 3},
     "bbbp_chemberta":            {"lr": 2e-5, "batch_size": 32, "epochs": 10, "discovery_epochs": 3},
+    # GIN: standard graph-network defaults.
+    "bace_gin":                  {"lr": 1e-3, "batch_size": 32, "epochs": 50, "discovery_epochs": 5},
+    "bbbp_gin":                  {"lr": 1e-3, "batch_size": 32, "epochs": 50, "discovery_epochs": 5},
     "pgp_broccatelli_chemberta": {"lr": 2e-5, "batch_size": 32, "epochs": 10, "discovery_epochs": 3},
     "bbb_martins_chemberta":     {"lr": 2e-5, "batch_size": 32, "epochs": 10, "discovery_epochs": 3},
     "ames_chemberta":            {"lr": 2e-5, "batch_size": 32, "epochs": 10, "discovery_epochs": 3},

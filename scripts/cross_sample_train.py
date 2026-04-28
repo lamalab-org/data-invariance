@@ -97,7 +97,9 @@ def _make_loader(base_dataset, indices, cfg, canonical_loaders, pool_idx=None):
         Subset(base_dataset, indices.tolist()),
         batch_size=cfg.training.batch_size, shuffle=True,
         num_workers=canonical_loaders["train"].num_workers,
-        pin_memory=canonical_loaders["train"].pin_memory)
+        pin_memory=canonical_loaders["train"].pin_memory,
+        collate_fn=canonical_loaders["train"].collate_fn,
+    )
 
 
 # ---------------------------------------------------------------------------
