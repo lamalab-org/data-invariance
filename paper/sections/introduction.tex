@@ -42,9 +42,10 @@ from-scratch regime, where no incumbent exists.  Algorithmic
 stability~\citep{TODO_bousquet2002} is the formal anchor.  Deep
 ensembles, MC dropout, and conformal prediction all fix the dataset
 and vary something else; deep ensembles remove $2$pp of argmax churn
-on average and MC dropout removes essentially none ($+1.7\%$ to
-$+12.5\%$ on the eight datasets we tested), confirming that
-parameter-variance methods miss the data-resampling axis.
+on average and MC dropout fails to reduce it (relative $\Delta$
+$-2.2\%$ to $+12.5\%$ across the eight datasets, median $+1\%$),
+confirming that parameter-variance methods miss the data-resampling
+axis.
 
 \paragraph{Contributions.}
 \begin{itemize}\itemsep0pt

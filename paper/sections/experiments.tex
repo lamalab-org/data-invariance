@@ -7,11 +7,11 @@ plus seven held-out; MOF-thermal is reported in
 Section~\ref{sec:scope}), bagging-$K{=}5$ and twin-indep both beat
 ERM on cross-sample id-churn with $95\%$ paired-bootstrap CIs that
 exclude zero (Table~\ref{tab:main}, Figure~\ref{fig:main}).  MC
-dropout, in contrast, leaves argmax churn essentially unchanged
-($\Delta$ ranges $-2.2\%$ to $+12.5\%$ relative to ERM, median
-$+1\%$): training a single model with dropout and averaging $T{=}20$
-stochastic forward passes does not address the data-resampling axis
-that bagging and twin-indep operate on.  At matched compute against
+dropout, in contrast, fails to reduce argmax churn: $\Delta$ ranges
+$-2.2\%$ to $+12.5\%$ relative to ERM (median $+1\%$).  Training a
+single model with dropout and averaging $T{=}20$ stochastic forward
+passes does not address the data-resampling axis that bagging and
+twin-indep operate on.  At matched compute against
 bagging-$K{=}2$, twin-indep wins on $7/8$ datasets (CI excludes zero;
 the difference is not significant on DILI, where ERM accuracy is
 $0.72$ on a $76$-example test set); against the $5\times$-compute

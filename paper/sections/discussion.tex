@@ -24,7 +24,7 @@ accuracy --- the BACE case (Figure~\ref{fig:overview}) --- are
 indistinguishable in the report column even though the practitioner
 sees the difference at the next retraining.  Deep ensembles and MC
 dropout, the standard parameter-side uncertainty methods, leave
-$-0.2$ to $+1.1$pp on argmax churn (Table~\ref{tab:main}); they are
+$-0.2$ to $+1.8$pp on argmax churn (Table~\ref{tab:main}); they are
 not substitutes for a report column that measures sensitivity to the
 training sample.  The clinical-biostatistics literature already
 reports per-individual stability intervals~\citep{TODO_riley2023};
@@ -52,15 +52,15 @@ $\lambda$-scaling are open
 (Section~\ref{sec:scope}).
 
 \paragraph{Two columns in the report.}
-Aggregate accuracy on a fixed test set measures the model that
-actually deployed.  Cross-sample fragility measures the procedure
-that will produce the next one.  These are different questions, and
-on the eight chemistry benchmarks where we measured both, the second
-varies by $8\text{--}17$ percentage points across retrainings while
-the first does not move at all.  The methods that close that gap ---
+Aggregate accuracy on a fixed test set measures the deployed model.
+Cross-sample fragility measures the procedure that will produce the
+next one.  These are different questions, and on the eight chemistry
+benchmarks where we measured both, the second varies by
+$8\text{--}17$ percentage points across retrainings while the first
+does not move.  The methods that close that gap ---
 bagging~\citep{TODO_breiman1996}, codistillation
 \citep{TODO_anil2018_codistillation} at the right inter-network
 overlap --- already exist; what was missing was a measurement
 protocol that made the gap visible and a regime
-(small-$N$ from-scratch scientific ML) where it dominates the rest of
-the report.
+(small-$N$ from-scratch scientific ML) where it dominates the rest
+of the report.
