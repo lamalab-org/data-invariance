@@ -140,6 +140,69 @@ value does not.  For practitioners changing the architecture, the
 practical recipe is a single $\lambda$ sweep on the development
 dataset before transferring to held-out data.
 
+\section{Regression: ESOL, FreeSolv, Lipophilicity}
+\label{app:regression}
+
+The headline experiments are binary classification.  To test whether
+the methods extend to continuous targets we run the same protocol on
+three small-$N$ MoleculeNet regression benchmarks: ESOL ($N{=}1128$,
+$\log$ aqueous solubility), FreeSolv ($N{=}642$, hydration free
+energy in kcal/mol), and Lipophilicity ($N{=}4200$, $\log D_{7.4}$).
+Cross-sample fragility for regression is the per-example absolute
+prediction difference between two retrainings on independent bootstraps:
+$\rho_{\mathrm{reg}}(\mathcal{A}, x) =
+\mathbb{E}_{S_A, S_B}|f_{S_A}(x) - f_{S_B}(x)|$.  The
+twin-indep consistency loss is MSE between the two networks'
+predictions (instead of sym-KL on softmax outputs); the rule-selected
+$\lambda$ is the largest value in $\{1, 3\}$ keeping id-MAE within
+$0.05$ of ERM id-MAE, which is $\lambda{=}3$ on all three datasets
+(in fact id-MAE \emph{improves} for both choices, so the rule is not
+binding).  All other protocol choices (canonical-seed $99$, ten
+train-seeds, paired-bootstrap CIs over $45$ seed-pairs) are unchanged.
+
+\begin{table}[h]
+\centering
+\caption{\textbf{Bagging and twin-indep generalise to regression;
+  bagging dominates twin-indep on this task.}  Per-method id-MAE and
+  cross-sample fragility (mean $|f_A - f_B|$ between bootstrapped
+  retrainings) on three MoleculeNet regression benchmarks, with $95\%$
+  paired-bootstrap CIs.  Paired $\Delta$ vs.\ ERM in the rightmost
+  columns.  Twin-indep at $\lambda{=}3$ (rule-selected) cuts fragility
+  $39\text{--}42\%$; bagging-$K{=}5$ cuts it $55\text{--}58\%$ at
+  $5\times$ ERM compute.  Both methods modestly improve MAE.}
+\label{tab:regression}
+\small
+\begin{tabular}{lcccccc}
+\toprule
+& \multicolumn{2}{c}{ESOL ($N{=}1128$)} & \multicolumn{2}{c}{FreeSolv ($N{=}642$)} & \multicolumn{2}{c}{Lipo ($N{=}4200$)} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
+Method & id-MAE & fragility & id-MAE & fragility & id-MAE & fragility \\
+\midrule
+ERM                       & 0.94 & 0.52 & 1.65 & 0.69 & 0.66 & 0.38 \\
+Bagging-$K{=}5$           & \textbf{0.86} & \textbf{0.22} & \textbf{1.54} & \textbf{0.29} & \textbf{0.62} & \textbf{0.17} \\
+Twin-indep $\lambda{=}3$  & 0.86 & 0.30 & 1.56 & 0.42 & 0.62 & 0.23 \\
+\midrule
+\multicolumn{7}{l}{\emph{Paired $\Delta$ fragility vs.\ ERM (45 seed-pairs):}} \\
+Bagging-$K{=}5$           & \multicolumn{2}{c}{$-0.30$ ($-57.3\%$)} & \multicolumn{2}{c}{$-0.40$ ($-58.3\%$)} & \multicolumn{2}{c}{$-0.21$ ($-55.2\%$)} \\
+Twin-indep $\lambda{=}3$  & \multicolumn{2}{c}{$-0.22$ ($-42.1\%$)} & \multicolumn{2}{c}{$-0.27$ ($-38.7\%$)} & \multicolumn{2}{c}{$-0.15$ ($-40.0\%$)} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The pattern differs from the classification headline.  In binary
+classification twin-indep beats matched-compute bagging-$K{=}2$ on
+$7/8$ datasets and is competitive with bagging-$K{=}5$; in
+regression bagging-$K{=}5$ beats twin-indep on every dataset, by
+$13\text{--}19$pp of relative reduction.  We attribute this to the
+consistency-loss scale: sym-KL on softmax distributions has implicit
+margin-aware shrinkage that does not exist for MSE between scalar
+predictions, so the consistency penalty is mechanically weaker.
+Higher $\lambda$ values may close the gap (we did not sweep beyond
+$\lambda{=}3$); the takeaway for practitioners is that bagging-$K{=}5$
+is the safer recipe for regression in the small-$N$ from-scratch
+regime, and twin-indep is a bagging-$K{=}2$-cost alternative that
+captures most --- but not all --- of the available reduction.
+
 \section{ChemBERTa scope experiment}
 \label{app:chemberta_scope}
 

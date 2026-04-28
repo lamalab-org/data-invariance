@@ -48,10 +48,16 @@ The headline experiments use binary classification, Morgan
 fingerprints, and a $256$-unit MLP from scratch; the test-set
 construction is fixed at canonical seed $99$ and $\lambda$ is selected
 on BACE alone.  We do not vary the test-set seed, the development
-dataset, the twin head count, or the output type (regression /
-multi-class).  The bagging-$K{=}5$ finding is paired across
-$\binom{10}{2}=45$ seed pairs and significant at $p < 10^{-4}$ on the
-Friedman test (Appendix~\ref{app:friedman}); the twin-indep finding
-is more sensitive --- it depends on the consistency-loss coupling
-that fails on MOF-thermal and pretrained-backbone settings, and on
-a $\lambda$ that does not transfer across architectures unmodified.
+dataset, the twin head count, or the multi-class output type.  An
+appendix regression study (ESOL, FreeSolv, Lipophilicity;
+Appendix~\ref{app:regression}) shows the methods extend to continuous
+targets but with a different trade-off: bagging-$K{=}5$ cuts
+prediction-difference fragility $55\text{--}58\%$ vs.\ ERM while
+twin-indep cuts $39\text{--}42\%$, reversing the matched-compute
+ranking we see on classification.  The bagging-$K{=}5$ finding is
+paired across $\binom{10}{2}=45$ seed pairs and significant at $p <
+10^{-4}$ on the Friedman test (Appendix~\ref{app:friedman}); the
+twin-indep finding is more sensitive --- it depends on the
+consistency-loss coupling that fails on MOF-thermal and
+pretrained-backbone settings, and on a $\lambda$ that does not
+transfer across architectures unmodified.
