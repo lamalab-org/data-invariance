@@ -65,18 +65,13 @@ mini-batches.  At deployment, predictions are averaged.
 \end{algorithm}
 
 \paragraph{Mechanism.}
-Without the consistency term ($\lambda{=}0$) the procedure reduces to
-$K{=}2$ bagging: each network fits its own bootstrap and the two are
-averaged at deployment.  Adding the consistency term penalises
-divergence on every example seen in either mini-batch, including the
+At $\lambda{=}0$ the procedure is $K{=}2$ bagging.  At $\lambda > 0$
+the consistency term penalises divergence on every example seen in
+either mini-batch, including the
 $\sim 40\%$ of indices that appear in both
 bootstraps.\footnote{Bootstrap-with-replacement at size $N$ covers
-${\sim}63\%$ of unique indices in expectation.  Two independent
-bootstraps share ${\sim}0.63 \times 0.63 \approx 0.40$.}  The
-objective is an explicit pull toward decision functions that are
-invariant to the specific bootstrap, with cross-sample invariance as
-the theoretical motivation
-(Section~\ref{sec:preliminaries}, Appendix~\ref{app:theory}).
+${\sim}63\%$ of unique indices in expectation; two independent
+bootstraps share ${\sim}0.63^2 \approx 0.40$.}
 
 \paragraph{Hyperparameter selection (no test-set tuning).}
 A single development dataset (BACE) is used to select $\lambda$ via

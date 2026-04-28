@@ -37,18 +37,13 @@ are with respect to this bootstrap proxy, which is what a practitioner
 can compute from their own training set.
 
 \paragraph{Connection to algorithmic stability.}
-\citet{TODO_bousquet2002} define uniform stability $\beta$ as the
-maximum loss change when one example is altered, and prove it bounds
-the generalisation gap by $O(\beta) + O(1/\sqrt{N})$ for $\beta = O(1/N)$.
-Cross-sample fragility is the corresponding statement for $\hat{y}$
-rather than the loss.  This identifies $\beta$ as the right
-theoretical motivation for fragility decreasing with $N$; we use this
-as an interpretive anchor, but make no empirical claim that fragility
-matches the $O(1/N)$ rate.  Two complications obstruct a clean
-empirical fit: the bootstrap protocol perturbs many examples
-simultaneously rather than one (so $\beta$ underestimates), and
-intrinsic boundary ambiguity contributes an irreducible floor at
-finite $N$ (Section~\ref{sec:measurement}).
+\citet{TODO_bousquet2002} define uniform stability $\beta$ on the
+loss when a single training example is altered.  Cross-sample
+fragility is the corresponding output-space quantity under
+multi-example perturbation, and decreases with $N$ for the same
+reason $\beta$ does.  We use $\beta$ as the interpretive anchor but
+do not claim fragility matches the $O(1/N)$ rate quantitatively;
+Appendix~\ref{app:theory} enumerates the gaps.
 
 \paragraph{Strict measurement protocol.}
 To avoid contaminating cross-sample measurements with test-set drift, we
