@@ -285,9 +285,18 @@ All datasets use AdamW with weight decay $10^{-4}$, gradient clipping
 at $1.0$, no learning-rate schedule.  Per-dataset learning rate, batch
 size, and epoch count are listed in
 \texttt{scripts/run\_experiment.py:HPARAMS}; we use $\text{lr}=10^{-3}$,
-batch size $64$, and $30$ epochs for the eight headline chemistry
+batch size $64$, and $30$ epochs for the headline chemistry
 datasets, and the published Waterbirds recipe ($\text{lr}=10^{-4}$,
 batch size $64$, $15$ epochs) for the scope analysis.
+
+\paragraph{Compute footprint.}
+The chemistry experiments run end-to-end on a single laptop CPU; the
+total compute budget for the small-$N$ portion of the paper is
+${\sim}50$ CPU-hours.  Waterbirds (Section~\ref{sec:scope}) runs on a
+single A100 GPU with a budget of ${\sim}6$ GPU-hours total.  Each
+\texttt{cross\_sample\_train.py} run records reproducibility metadata
+(canonical seed, train seed, mode, $\lambda$); all trained
+predictions are saved as NPZ.
 
 \paragraph{Reproducing every table and figure.}
 Once the NPZ predictions exist under

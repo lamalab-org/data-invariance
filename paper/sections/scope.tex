@@ -1,28 +1,24 @@
 \section{Scope and limitations}
 \label{sec:scope}
 
-\paragraph{Pretrained backbones (Waterbirds).}
-We test the BACE-frozen recipe on Waterbirds, a vision benchmark with
-ImageNet-pretrained ResNet-50.  Bagging $K{=}5$ improves both
-accuracy ($+2$pp) and cross-sample churn ($-51\%$ relative).
-Twin-indep at the same $\lambda{=}300$ collapses accuracy by $27$pp
-while still reducing churn.
-Reducing $\lambda$ to a principled scaled value $\lambda_N
-= \lambda_{\mathrm{dev}} \cdot N_{\mathrm{dev}}/N \approx 60$ recovers
-some accuracy but does not return to the Pareto frontier of bagging.
-
-\paragraph{Why the consistency loss interferes with finetuning.}
+\paragraph{Pretrained backbones.}
 A pretrained backbone is itself an implicit data prior: large-scale
-pretraining has already collapsed most cross-sample variation in the
-learned features.  Our consistency loss imposes the same prior on top
-of finetuning, and the two appear to pull the model toward an
-over-averaged solution.  Bagging adds no such second prior and so
-extends to the pretrained-backbone setting unchanged.
+pretraining has collapsed most cross-sample variation in the learned
+features.  Twin-indep adds the same prior on top of finetuning, and
+the two pull the model toward an over-averaged solution.  Empirically,
+on Waterbirds (ImageNet-pretrained ResNet-50, $\lambda{=}300$ as
+applied to chemistry) accuracy collapses by $27$pp while churn does
+fall.  Bagging adds no second prior and is unaffected
+($+2$pp accuracy, $-51\%$ relative churn).  An $N$-aware scaling
+$\lambda_N = \lambda_{\mathrm{dev}} \cdot N_{\mathrm{dev}}/N \approx
+60$ recovers some accuracy but does not reach the bagging Pareto
+frontier; twin-indep should not be applied unmodified to
+pretrained-backbone settings.
 
-\paragraph{Where strong inter-network consistency collapses (MOF-thermal).}
+\paragraph{Inter-network consistency collapse on MOF-thermal.}
 Strong consistency between two networks has a degenerate solution:
 both predict the majority class everywhere, so they agree trivially.
-On MOF-thermal twin-indep and codistillation reach this solution
+On MOF-thermal, twin-indep and codistillation reach this solution
 (id-acc $0.53$, chance on a binary task; ERM $0.62$); bagging and
 ERM, neither of which couples the two networks, are unaffected
 (Appendix~\ref{app:borderline}).  Twin-indep should not be applied
@@ -31,50 +27,26 @@ majority-class baseline; the headline filter we use ($\text{ERM-acc}
 \geq \text{majority-acc} + 5\text{pp}$) is necessary but not
 sufficient on its own to predict this collapse.
 
-\paragraph{Architecture and featurisation.}
-The chemistry experiments use Morgan fingerprints (radius $2$, $2048$
-bits) and a $256$-unit MLP trained from scratch --- the canonical
-small-$N$ tabular pipeline.  Whether the twin-indep failure mode on
-pretrained backbones (above) also occurs in chemistry under
-fine-tuned ChemBERTa~\citep{TODO_chithrananda2020_chemberta} is a
-controlled test that we report on a subset of our datasets; the
-result is summarised in
-Appendix~\ref{app:chemberta_scope}.  D-MPNN~\citep{TODO_yang2019_dmpnn}
-is the natural follow-up architecture, not run here.
+\paragraph{Untested settings.}
+Our results are for binary classification with cross-entropy training,
+Morgan fingerprints, and a $256$-unit MLP trained from scratch.  The
+fragility definition reduces unchanged to multi-class argmax
+disagreement and extends to regression with a metric substitution;
+we have not verified the method or magnitudes there.  Twin-indep
+with $K{=}2$ extends mechanically to larger $K$ via all-pairs sym-KL,
+interpolating between bagging-$K$ and our $K{=}2$ twin; we do not
+characterise this trade-off.  Whether the pretrained-backbone failure
+mode reproduces under fine-tuned
+ChemBERTa~\citep{TODO_chithrananda2020_chemberta} is a controlled
+test summarised in Appendix~\ref{app:chemberta_scope};
+D-MPNN~\citep{TODO_yang2019_dmpnn} is the obvious follow-up
+architecture.
 
-\paragraph{Class of learners.}
-Our results are for binary classification with cross-entropy training.
-The fragility definition reduces unchanged to multi-class argmax
-disagreement and a multi-class symmetric KL, and extends to regression
-with a metric substitution (MAE or covered-interval).  We have run
-neither, and do not claim the magnitudes reported here transfer.
-
-\paragraph{Twin head count.}
-We report twin-indep with $K{=}2$.  Larger $K$ extends mechanically
-through all-pairs sym-KL consistency, interpolating between bagging-$K$
-and the $K{=}2$ twin we study; we do not characterise the trade-off
-empirically.
-
-\paragraph{Single canonical seed.}
+\paragraph{Protocol choices we did not vary.}
 The reported numbers fix test-set construction at a single canonical
-seed (\texttt{99}); the cross-sample variation is entirely on the
-training-bootstrap side.  We do not re-run the sweep at additional
-canonical seeds, so we cannot rule out test-set-construction
-sensitivity in absolute fragility magnitudes.
-
-\paragraph{Single development dataset.}
-The hyperparameter $\lambda$ was selected on BACE alone and frozen.
-Cross-validating the development rule across multiple dev datasets
-would test robustness of the selection rule itself; we leave this to
-follow-up.
-
-\paragraph{Compute used.}
-Small-$N$ chemistry experiments (BACE, BBBP, TADF, MOFs, TDC ADME/Tox
-benchmarks) run end-to-end on a single laptop CPU; the total compute
-budget for the small-$N$ portion of the paper is approximately $50$
-CPU-hours.  Waterbirds (Section~\ref{sec:scope}) runs on a single
-A100 GPU with a budget of approximately $6$ GPU-hours total.  Each
-\texttt{cross\_sample\_train.py} run prints reproducibility metadata
-(canonical seed, train seed, mode, $\lambda$).  All trained
-predictions are saved as NPZ; every paper table is regenerated from
-saved NPZs with no retraining required.
+seed (\texttt{99}) and select $\lambda$ on a single development
+dataset (BACE).  We did not re-run the sweep at additional canonical
+seeds, so we cannot rule out test-set-construction sensitivity in
+absolute fragility magnitudes; nor did we cross-validate the
+development rule across multiple dev datasets.  Both robustness
+checks are natural follow-ups.
