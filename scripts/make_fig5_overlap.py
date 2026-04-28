@@ -74,23 +74,29 @@ def main() -> None:
     args = ap.parse_args()
     root = Path(args.root)
 
-    candidates = [DEV_DATASET] + HEADLINE_DATASETS
-    keep, points = [], {}
+    # Include every dataset for which all three methods completed; flag
+    # accuracy-degradation points (any consistency method dropping id-acc
+    # by more than 5pp from ERM) so they read as "failures" in the figure.
+    BORDERLINE = ["mof_thermal", "skin_reaction", "herg", "hia_hou"]
+    candidates = [DEV_DATASET] + HEADLINE_DATASETS + BORDERLINE
+    keep, points, accuracy_collapse = [], {}, {}
     for ds in candidates:
         ds_dir = root / ds
-        # require all three methods + no accuracy collapse > 5pp on any of them
-        ok = True
         rows = []
+        collapse_flags = []
+        complete = True
         for ov, label, glob in OVERLAP_POINTS:
             res = _paired_delta(ds_dir, glob, FROZEN_LAM)
             drop = _id_acc_drop(ds_dir, glob, FROZEN_LAM)
-            if res is None or drop > 0.05:
-                ok = False
+            if res is None:
+                complete = False
                 break
             rows.append((ov, label, res))
-        if ok:
+            collapse_flags.append(drop > 0.05)
+        if complete:
             keep.append(ds)
             points[ds] = rows
+            accuracy_collapse[ds] = collapse_flags
 
     if not keep:
         print("No datasets with all three overlap points and no accuracy collapse.")
@@ -135,12 +141,15 @@ def main() -> None:
             y = y_centres[di] + offset
             # Plot REDUCTION (positive = improvement); flip sign of Δ.
             reduction = -m * 100
-            err_lo = (hi - m) * 100   # symmetry under sign flip
+            err_lo = (hi - m) * 100
             err_hi = (m - lo) * 100
+            collapsed = accuracy_collapse[ds][j]
             ax.barh(
                 y, reduction, height=bar_h,
-                color=overlap_colors[ov],
-                edgecolor="none",
+                color=overlap_colors[ov] if not collapsed else "white",
+                edgecolor=overlap_colors[ov],
+                linewidth=0.8 if collapsed else 0.0,
+                hatch="///" if collapsed else None,
                 xerr=[[err_lo], [err_hi]],
                 error_kw=dict(elinewidth=0.8, ecolor="0.3"),
                 zorder=3,
@@ -157,10 +166,13 @@ def main() -> None:
     handles = [plt.Rectangle((0, 0), 1, 1, fc=overlap_colors[ov],
                              ec="none", label=overlap_labels[ov])
                for ov in [0, 40, 100]]
+    handles.append(plt.Rectangle((0, 0), 1, 1, fc="white",
+                                 ec="0.3", hatch="///",
+                                 label="id-acc drop $>$5pp"))
     ax.legend(handles=handles, loc="upper center",
-              bbox_to_anchor=(0.5, -0.10), ncol=3,
+              bbox_to_anchor=(0.5, -0.08), ncol=2,
               frameon=False, fontsize=7.5, handletextpad=0.4,
-              columnspacing=1.0)
+              columnspacing=1.2)
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.out, bbox_inches="tight")
