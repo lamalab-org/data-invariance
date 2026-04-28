@@ -63,11 +63,11 @@ axis.
         bootstrap CI excluding zero, with no accuracy regression.
         Twin-indep --- the codistillation
         family~\citep{TODO_anil2018_codistillation} at $\sim$$40\%$
-        inter-network bootstrap overlap --- reduces churn
-        $69\text{--}72\%$ at matched compute against bagging-$K{=}2$
-        at a frozen $\lambda{=}300$ selected on BACE alone, and cuts
-        distributional disagreement by an additional order of
-        magnitude.  On a 10-dataset comparison across the overlap
+        inter-network bootstrap overlap --- cuts argmax churn by a
+        further median $60\%$ (range $16\text{--}92\%$) at matched
+        compute against bagging-$K{=}2$, at a frozen $\lambda{=}300$
+        selected on BACE alone, and reduces distributional
+        disagreement by another factor of ${\sim}8$.  On a 10-dataset comparison across the overlap
         axis, $\sim$$40\%$ is the only operating point with no failure
         case (Appendix~\ref{app:overlap_spectrum}).
   \item Per-example fragility computed from a single additional

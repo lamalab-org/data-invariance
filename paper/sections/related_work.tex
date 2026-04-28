@@ -73,7 +73,11 @@ deep-learning treatment.
 \paragraph{Conformal prediction, group robustness, and data attribution.}
 Conformal prediction~\citep{TODO_vovk2005} provides marginal
 coverage guarantees over the test point given a fixed training set,
-not stability across resamples of the training set.  Group-robust
+not stability across resamples of the training set.  A conformal
+wrapper preserves the underlying point prediction --- argmax churn
+of an ERM model wrapped with split conformal is identical to argmax
+churn of the bare ERM model --- so we report ERM as the conformal
+baseline rather than running a separate column.  Group-robust
 methods~\citep{TODO_sagawa2020, TODO_arjovsky2019, TODO_krueger2021}
 target accuracy on rare subpopulations.  Influence
 functions~\citep{TODO_koh2017_influence, TODO_pruthi2020_tracin} and

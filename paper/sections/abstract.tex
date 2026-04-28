@@ -12,10 +12,12 @@ exists.  On nine chemistry benchmarks (MoleculeNet, TDC ADME/Tox,
 materials science) fragility exceeds the parameter-variance axis
 captured by deep ensembles and MC dropout by an order of magnitude.  $K$-bootstrap
 bagging cuts argmax churn $40\text{--}54\%$ on every dataset with no
-accuracy regression.  A sym-KL consistency loss between two networks trained
-on independent bootstraps (\emph{twin-indep}) cuts it $69\text{--}72\%$
-at matched compute against bagging-$K{=}2$, and reduces distributional
-disagreement by an additional order of magnitude.  Twin-indep is the
+accuracy regression.  A sym-KL consistency loss between two networks
+trained on independent bootstraps (\emph{twin-indep}) cuts argmax
+churn by a further median $60\%$ (range $16\text{--}92\%$ across the
+eight datasets) at $2\times$-ERM compute matched against
+bagging-$K{=}2$, and reduces distributional disagreement by another
+factor of ${\sim}8$.  Twin-indep is the
 codistillation family of \citet{TODO_anil2018_codistillation} at
 $\sim$$40\%$ inter-network bootstrap overlap; on a 10-dataset
 comparison it is the only operating point on that family that does

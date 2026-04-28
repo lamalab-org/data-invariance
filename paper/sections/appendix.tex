@@ -58,9 +58,9 @@ fast.
 \end{figure}
 
 A plateau of configurations $\lambda \in \{1, 3, 10, 30\}$ all preserve
-accuracy while reducing churn modestly; a knee at $\lambda \approx 100$
-drops churn by another factor of two; $\lambda{=}300$ extends along
-the same axis at a $1$pp accuracy cost.  The selected $\lambda$ sits at the extreme
+accuracy and reduce churn from ERM's $16\%$ to ${\sim}10\%$; a knee at
+$\lambda \approx 100$ drops churn to ${\sim}7.6\%$; $\lambda{=}300$
+extends along the same axis to $6.4\%$ at a $1$pp accuracy cost.  The selected $\lambda$ sits at the extreme
 of the feasible interval that satisfies the $0.02$ accuracy tolerance,
 which suggests the rule is not knife-edge: relaxing the tolerance to
 $0.01$ would still pick the same $\lambda$, while tightening to
@@ -199,8 +199,8 @@ classification headline (Section~\ref{sec:experiments}).
 Bagging-$K{=}5$ at $5\times$ ERM compute is still strongest at
 $55\text{--}58\%$, consistent with the classification pattern where
 $5\times$-compute bagging beats twin-indep on $3/7$ datasets at the
-same compute trade-off.  All four methods modestly improve MAE; no
-accuracy regression on this task.
+same compute trade-off.  All four methods improve id-MAE by
+$3\text{--}9\%$ over ERM; no accuracy regression on this task.
 
 \section{ChemBERTa scope experiment}
 \label{app:chemberta_scope}
@@ -218,15 +218,14 @@ $\binom{5}{2}=10$ seed-pairs.
 \begin{table}[h]
 \centering
 \caption{\textbf{Twin-indep at the BACE-frozen $\lambda{=}300$
-  catastrophically over-regularises ChemBERTa on every dataset.}
-  ERM and twin-indep on six chemistry benchmarks, fine-tuning
-  ChemBERTa-77M-MTR with five train-seeds each.  Twin-indep drops
-  id-accuracy by $9\text{--}17$pp on every dataset; on $5/6$
-  datasets it \emph{increases} argmax churn (BBBP collapses to the
-  majority-class predictor: $77.6\%$ accuracy = majority, $0\%$
-  churn).  Same failure mode as Waterbirds, now inside chemistry on
-  the same datasets where the from-scratch MLP+fingerprint recipe
-  works.}
+  over-regularises ChemBERTa on every dataset, dropping accuracy
+  $9\text{--}17$pp.}  ERM and twin-indep on six chemistry benchmarks,
+  fine-tuning ChemBERTa-77M-MTR with five train-seeds each.  On
+  $5/6$ datasets the consistency loss \emph{increases} argmax churn;
+  on BBBP it collapses the model to the majority-class predictor
+  ($77.6\%$ accuracy = majority, $0\%$ churn).  Same failure mode as
+  Waterbirds, now inside chemistry on the same datasets where the
+  from-scratch MLP+fingerprint recipe works.}
 \label{tab:chemberta}
 \small
 \begin{tabular}{lcccc}
