@@ -189,19 +189,11 @@ Twin-indep $\lambda{=}3$  & \multicolumn{2}{c}{$-0.22$ ($-42.1\%$)} & \multicolu
 \end{tabular}
 \end{table}
 
-The pattern differs from the classification headline.  In binary
-classification twin-indep beats matched-compute bagging-$K{=}2$ on
-$7/8$ datasets and is competitive with bagging-$K{=}5$; in
-regression bagging-$K{=}5$ beats twin-indep on every dataset, by
-$13\text{--}19$pp of relative reduction.  We attribute this to the
-consistency-loss scale: sym-KL on softmax distributions has implicit
-margin-aware shrinkage that does not exist for MSE between scalar
-predictions, so the consistency penalty is mechanically weaker.
-Higher $\lambda$ values may close the gap (we did not sweep beyond
-$\lambda{=}3$); the takeaway for practitioners is that bagging-$K{=}5$
-is the safer recipe for regression in the small-$N$ from-scratch
-regime, and twin-indep is a bagging-$K{=}2$-cost alternative that
-captures most --- but not all --- of the available reduction.
+The matched-compute comparison against bagging-$K{=}2$
+($2\times$-ERM compute, the same as twin-indep) is the load-bearing
+one for the classification headline; the bagging-$K{=}5$ column
+above is at $5\times$-ERM compute and serves as a stronger no-cost
+reference.
 
 \section{ChemBERTa scope experiment}
 \label{app:chemberta_scope}
