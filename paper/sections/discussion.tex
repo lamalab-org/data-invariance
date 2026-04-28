@@ -52,15 +52,15 @@ $\lambda$-scaling are open
 (Section~\ref{sec:scope}).
 
 \paragraph{Two columns in the report.}
-Aggregate accuracy on a fixed test set measures the deployed model.
-Cross-sample fragility measures the procedure that will produce the
-next one.  These are different questions, and on the eight chemistry
-benchmarks where we measured both, the second varies by
-$8\text{--}17$ percentage points across retrainings while the first
-does not move.  The methods that close that gap ---
-bagging~\citep{TODO_breiman1996}, codistillation
+Bagging~\citep{TODO_breiman1996} and codistillation
 \citep{TODO_anil2018_codistillation} at the right inter-network
-overlap --- already exist; what was missing was a measurement
-protocol that made the gap visible and a regime
-(small-$N$ from-scratch scientific ML) where it dominates the rest
-of the report.
+overlap already exist; what this paper adds is a measurement
+protocol that makes their effect on cross-sample fragility visible,
+and a regime --- small-$N$ from-scratch scientific ML --- where the
+gap they close dominates the rest of the report.  Aggregate accuracy
+on a fixed test set measures the deployed model; cross-sample
+fragility measures the procedure that will produce the next one.  On
+the eight chemistry benchmarks where we measured both, the second
+varies by $8\text{--}17$ percentage points across retrainings while
+the first does not move.  Reading only the accuracy column is
+reading half the report.
