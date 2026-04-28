@@ -24,11 +24,6 @@ tadf,Bagging K=2,ERM,-0.02336,-0.03027,-0.01599
 tadf,Bagging K=5,ERM,-0.04605,-0.05171,-0.04024
 tadf,Twin-indep,ERM,-0.03827,-0.04418,-0.03250
 tadf,Twin-indep,Bagging K=2,-0.01490,-0.02009,-0.01007
-mof_thermal,Deep Ens. K=5,ERM,-0.01946,-0.02385,-0.01513
-mof_thermal,Bagging K=2,ERM,-0.03023,-0.03746,-0.02321
-mof_thermal,Bagging K=5,ERM,-0.05883,-0.06408,-0.05391
-mof_thermal,Twin-indep,ERM,-0.09584,-0.10186,-0.08995
-mof_thermal,Twin-indep,Bagging K=2,-0.06560,-0.07053,-0.06071
 ames,Deep Ens. K=5,ERM,-0.00540,-0.00737,-0.00344
 ames,Bagging K=2,ERM,-0.03933,-0.04271,-0.03603
 ames,Bagging K=5,ERM,-0.07182,-0.07600,-0.06796

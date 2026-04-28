@@ -19,14 +19,18 @@ of finetuning, and the two appear to pull the model toward an
 over-averaged solution.  Bagging adds no such second prior and so
 extends to the pretrained-backbone setting unchanged.
 
-\paragraph{Class-proportion shift (MOFs).}
-On the two MOF datasets the OOD test split has flipped class
-proportions relative to the training distribution.  Both bagging and
-twin-indep reduce cross-sample churn, but accuracy on this OOD split
-suffers because the methods anchor to the training prior more strongly
-than ERM does.  This is a known limitation of any prior-imposing
-method under prior shift; conformal-prediction-style recalibration is
-complementary.
+\paragraph{Consistency-loss accuracy collapse (MOF-thermal).}
+We initially included MOF-thermal in the headline benchmarks but
+demoted it after observing that twin-indep and codistillation drive
+id-test accuracy from ERM's $0.62$ down to $0.53$ on this dataset
+(chance level on a binary task), while bagging and ERM are unaffected.
+The corresponding ``churn reduction'' is then largely majority-class
+prediction, not stabilisation.  We do not claim MOF-thermal as
+evidence for either method; it is reported in
+Appendix~\ref{app:borderline}.  This is a real failure mode of strong
+inter-network consistency on small-$N$ datasets where the two
+networks can settle into a uniform prior; the same does not occur on
+the seven other chemistry benchmarks we tested.
 
 \paragraph{Architecture and featurisation.}
 The chemistry experiments use Morgan fingerprints (radius $2$, $2048$

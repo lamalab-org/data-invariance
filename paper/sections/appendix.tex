@@ -157,6 +157,41 @@ every value tested).  The effective per-step regularisation under
 AdamW does not constrain the data-resampling sensitivity that drives
 churn.
 
+\section{Borderline datasets}
+\label{app:borderline}
+
+\paragraph{MOF-thermal: consistency-loss accuracy collapse.}
+On MOF-thermal (binary stability prediction), strong inter-network
+consistency methods drive id-test accuracy from ERM's $0.62$ down to
+$0.53$ --- chance level.  The raw paired ERM-vs-method numbers on
+ten train-seeds:
+
+\begin{itemize}\itemsep0pt
+  \item ERM:                    id-acc $0.616 \pm 0.013$.
+  \item Bagging $K{=}5$:        id-acc $0.608 \pm 0.013$ (no collapse).
+  \item Distillation-from-anchor: id-acc $0.598 \pm 0.012$ (mild drop).
+  \item Twin-indep $\lambda{=}300$: id-acc $0.535 \pm 0.005$ (collapse).
+  \item Codistillation:         id-acc $0.535 \pm 0.003$ (collapse).
+\end{itemize}
+
+The twin-indep ``churn reduction'' on this dataset is therefore largely
+a consequence of both networks predicting the majority class
+everywhere: they agree because the prediction is uninformative.
+Bagging and ERM are unaffected, because neither imposes
+inter-network agreement.  We do not include MOF-thermal in
+Figure~\ref{fig:main} or Table~\ref{tab:main}, but we report it here
+as an honest failure mode of strong inter-network consistency on
+small-$N$ datasets where the two networks can settle into a uniform
+prior.
+
+\paragraph{hERG, HIA\_Hou, Skin\_Reaction.}
+These three datasets pass the ERM-versus-majority filter only
+marginally ($+3$ to $+4$pp on test sets of $57$--$104$ examples).
+We report their cross-sample magnitudes in
+Table~\ref{tab:fragility-magnitudes} only; method-comparison numbers
+on these test sets do not have enough statistical power to support
+the same claims as the headline.
+
 \section{Predictive entropy as a flip-predictor baseline}
 \label{app:entropy}
 

@@ -30,7 +30,8 @@ Decisions documented (2026-04-27):
 
 DEV_DATASET = "bace"
 
-# Headline held-out chemistry datasets (passed the ERM > majority + 5pp check).
+# Headline held-out chemistry datasets (passed the ERM > majority + 5pp check
+# AND showed no consistency-loss accuracy collapse under twin-indep λ=300).
 # Sorted by N (training-set size).
 HEADLINE_DATASETS = [
     "dili",
@@ -38,13 +39,17 @@ HEADLINE_DATASETS = [
     "bbb_martins",
     "bbbp",
     "tadf",
-    "mof_thermal",
     "ames",
 ]
 
-# Borderline datasets (ERM > majority by < 5pp, or test set < 60 examples).
-# Reported in an appendix table only.
+# Borderline datasets: small test set or accuracy-collapse failure mode under
+# strong consistency loss; reported in an appendix table only.
+#   - mof_thermal: id_acc collapses 0.62 -> 0.53 under twin-indep λ=300 and
+#     codistillation (chance-level on a binary task); the "churn reduction"
+#     is then partly via majority-class prediction.
+#   - skin_reaction, herg, hia_hou: ERM > majority by < 5pp or test set < 60.
 BORDERLINE_DATASETS = [
+    "mof_thermal",
     "skin_reaction",
     "herg",
     "hia_hou",

@@ -2,16 +2,17 @@
 \label{sec:experiments}
 
 \paragraph{Cross-sample reduction across benchmarks.}
-Across the eight chemistry benchmarks, every method beats ERM on
-cross-sample id-churn with $95\%$ paired-bootstrap CIs that exclude
-zero (Table~\ref{tab:main}, Figure~\ref{fig:main}).  At matched
-compute against bagging-$K{=}2$, twin-indep wins on every dataset
-(left panel of Figure~\ref{fig:main}, all CIs exclude zero); against
-the $5\times$-compute bagging-$K{=}5$, twin-indep wins on $4/7$
-held-out datasets and trails on three (DILI, Pgp, TADF).  The
-aggregate Friedman test ranks twin-indep first (mean rank $1.50$),
-indistinguishable from bagging-$K{=}5$ (rank $1.62$) at less than
-half the compute (Appendix~\ref{app:friedman}).
+Across the seven chemistry benchmarks (BACE plus six held-out), every
+method beats ERM on cross-sample id-churn with $95\%$ paired-bootstrap
+CIs that exclude zero (Table~\ref{tab:main}, Figure~\ref{fig:main}).
+At matched compute against bagging-$K{=}2$, twin-indep wins on every
+dataset (left panel of Figure~\ref{fig:main}, all CIs exclude zero);
+against the $5\times$-compute bagging-$K{=}5$, twin-indep wins on
+$3/6$ held-out datasets and trails on three (DILI, Pgp, TADF).
+The aggregate Friedman test rejects equal-ranks at $\chi^2 = 24.34$,
+$p = 6.8 \times 10^{-5}$; twin-indep ranks first, indistinguishable
+from bagging-$K{=}5$ at less than half the compute
+(Appendix~\ref{app:friedman}).
 
 \begin{figure}[t]
   \centering

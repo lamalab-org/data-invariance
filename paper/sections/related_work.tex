@@ -74,9 +74,13 @@ loss --- but differs in motivation, regime, and protocol: the data
 splits are bootstraps with replacement (rather than disjoint shards),
 the target setting is small-$N$ from-scratch (rather than web-scale),
 and per-example fragility is the deliverable rather than a side
-metric.  We do not claim this combination is novel as an architecture;
-we claim it is the right form of the data-side regulariser for
-small-$N$ scientific machine learning.
+metric.  We compare empirically: codistillation matches twin-indep on
+three of the four datasets where we ran it, but flips sign on TADF
+(paired $\Delta = +3.0$pp $[+1.3, +5.0]$ vs.\ ERM, i.e.\ \emph{worse}
+than ERM), where the disjoint-shard protocol leaves each network
+with only $N/2 \approx 500$ unique training examples.  Twin-indep's
+overlapping bootstraps ($\sim 63\%$ unique per network, $\sim 40\%$
+shared between the pair) appear more robust at this scale.
 
 \paragraph{Clinical-biostatistics precedent.}
 \citet{TODO_riley2023} develop a stability-interval program for
