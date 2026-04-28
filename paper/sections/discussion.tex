@@ -1,39 +1,62 @@
 \section{Discussion}
 \label{sec:discussion}
 
-\paragraph{What practitioners should do.}
-For deployed scientific machine learning at $N \lesssim 5000$ from
-scratch, run $K$-bootstrap bagging with $K{=}5$ as the default: it
-removes roughly half of the per-example retraining churn at a
-$5\times$ training cost, with no accuracy regression
-(Table~\ref{tab:main}).  When stability matters more than compute,
-twin-indep at $\lambda{=}300$ removes the next layer of churn at
-$2\times$ ERM training cost, matched against bagging-$K{=}2$.
+\paragraph{What the methods buy.}
+The intro's toxicity classifier loses class on $8\text{--}17\%$ of
+test molecules between retrainings on independent bootstraps of the
+same training population.  Bagging-$K{=}5$ cuts that to
+$4\text{--}9\%$ at no accuracy cost (Table~\ref{tab:main}); twin-indep
+at $\lambda{=}300$ cuts it further to $1\text{--}7\%$ at $2\times$-ERM
+compute matched against bagging-$K{=}2$.  A single additional
+bootstrap suffices to identify the top decile of fragile predictions,
+which captures $68\text{--}94\%$ of the molecules retraining will flip
+(Figure~\ref{fig:decile}); a triage workflow that routes only that
+decile to a human reviewer is therefore a one-bootstrap operation on
+top of an existing pipeline.
 
-\paragraph{Stability is a property of the training procedure.}
-A model's cross-sample churn is not a fact about the trained weights;
-it is a fact about the procedure that produced them --- the
+\paragraph{Cross-sample fragility belongs alongside accuracy.}
+Scientific-ML benchmark reports columns for accuracy, AUROC,
+calibration, and (sometimes) worst-group accuracy.  None of these
+varies the training dataset; cross-sample fragility does.  Two
+models trained on independent samples of the same population that
+disagree on $16\%$ of test predictions while reporting identical
+aggregate accuracy --- the BACE case
+(Figure~\ref{fig:overview}) --- are indistinguishable in the report
+column even though the practitioner sees the difference at the next
+retraining.  Deep ensembles and MC dropout, the standard
+parameter-side uncertainty methods, leave $-0.2$ to $+1.1$pp on
+argmax churn (Table~\ref{tab:main}); they are not substitutes for a
+report column that measures sensitivity to the training sample.
+The clinical-biostatistics literature already reports per-individual
+stability intervals~\citep{TODO_riley2023}; the case for the same in
+scientific ML rests on the magnitudes we measure
+(Section~\ref{sec:measurement}).
+
+\paragraph{Stability is a property of the procedure.}
+A model's cross-sample churn is not a fact about the trained
+weights; it is a fact about the procedure that produced them --- the
 optimiser, the schedule, the data-resampling protocol.  The
 codistillation-vs.\ twin-indep comparison
 (Appendix~\ref{app:overlap_spectrum}) makes this concrete: a single
 hyperparameter on the procedure --- the fraction of data the two
 networks share --- separates a method that catastrophically fails on
-TADF from a method that does not.  None of the standard report
-columns (accuracy, AUROC, calibration, worst-group accuracy) varies
-the dataset; cross-sample fragility does, and it is the column that
-tracks what practitioners observe between retrainings on a refreshed
-sample.  The clinical-biostatistics
-literature~\citep{TODO_riley2023} already reports per-individual
-stability intervals; the case for the same in scientific ML
-benchmarks rests on the magnitudes we measure
-(Section~\ref{sec:measurement}).
+TADF from a method that does not.  The same applies across
+architectures: at the BACE-MLP-frozen $\lambda{=}300$ twin-indep
+over-regularises GIN by $15$pp id-accuracy; the same selection rule
+re-applied on BACE-GIN picks $\lambda{=}10$ and recovers the result
+($-47.6\%$ argmax churn vs.\ ERM-GIN, Appendix~\ref{app:gin}).  The
+selection rule transfers; the numerical $\lambda$ does not.
 
-\paragraph{Future work.}
-Bootstrap-aware data augmentation, subbagging schedules, and
-training-set diversity penalties would act on the same axis as
-twin-indep; matched-compute comparisons against any of them are open.
-An $N$-aware scaling $\lambda_N \propto 1/N$ is the obvious
-follow-up for removing the one tuned hyperparameter; we have not
-verified it beyond BACE.  The fragility definition extends unchanged
-to regression (with an MAE or covered-interval metric in place of
-class-flip rate) and to multi-class.
+\paragraph{What still blocks adoption.}
+Three concrete gaps.  $(i)$~The recipe has one tuned
+hyperparameter; an $N$-aware scaling $\lambda_N \propto 1/N$ is the
+obvious follow-up for removing it but we have not verified the
+scaling beyond BACE.  $(ii)$~Coverage is the small-$N$ from-scratch
+regime; on pretrained-backbone settings the consistency loss
+over-regularises features the backbone already encodes
+(Section~\ref{sec:scope}).  $(iii)$~The fragility definition extends
+unchanged to regression and multi-class (with an MAE or
+covered-interval metric in place of class-flip rate), but we report
+only binary classification here; matched-compute comparisons against
+bootstrap-aware data augmentation, subbagging schedules, and
+training-set diversity penalties are open.
