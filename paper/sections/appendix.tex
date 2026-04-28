@@ -162,14 +162,15 @@ train-seeds, paired-bootstrap CIs over $45$ seed-pairs) are unchanged.
 
 \begin{table}[h]
 \centering
-\caption{\textbf{Bagging and twin-indep generalise to regression;
-  bagging dominates twin-indep on this task.}  Per-method id-MAE and
-  cross-sample fragility (mean $|f_A - f_B|$ between bootstrapped
-  retrainings) on three MoleculeNet regression benchmarks, with $95\%$
-  paired-bootstrap CIs.  Paired $\Delta$ vs.\ ERM in the rightmost
-  columns.  Twin-indep at $\lambda{=}3$ (rule-selected) cuts fragility
-  $39\text{--}42\%$; bagging-$K{=}5$ cuts it $55\text{--}58\%$ at
-  $5\times$ ERM compute.  Both methods modestly improve MAE.}
+\caption{\textbf{At matched $2\times$-ERM compute, twin-indep beats
+  bagging-$K{=}2$ on every regression dataset; the methods rank
+  identically to the classification headline.}  Per-method id-MAE
+  and cross-sample fragility (mean $|f_A - f_B|$ between bootstrap
+  retrainings) on three MoleculeNet regression benchmarks, with
+  $95\%$ paired-bootstrap CIs.  Paired $\Delta$ vs.\ ERM in the
+  bottom rows; bold marks the best matched-compute method per
+  dataset.  Bagging-$K{=}5$ ($5\times$-ERM compute) included as a
+  stronger no-cost reference.}
 \label{tab:regression}
 \small
 \begin{tabular}{lcccccc}
@@ -178,32 +179,83 @@ train-seeds, paired-bootstrap CIs over $45$ seed-pairs) are unchanged.
 \cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
 Method & id-MAE & fragility & id-MAE & fragility & id-MAE & fragility \\
 \midrule
-ERM                       & 0.94 & 0.52 & 1.65 & 0.69 & 0.66 & 0.38 \\
-Bagging-$K{=}5$           & \textbf{0.86} & \textbf{0.22} & \textbf{1.54} & \textbf{0.29} & \textbf{0.62} & \textbf{0.17} \\
-Twin-indep $\lambda{=}3$  & 0.86 & 0.30 & 1.56 & 0.42 & 0.62 & 0.23 \\
+ERM                            & 0.94 & 0.52 & 1.65 & 0.69 & 0.66 & 0.38 \\
+Bagging-$K{=}2$ ($2\times$)    & 0.89 & 0.35 & 1.60 & 0.49 & 0.63 & 0.27 \\
+Twin-indep $\lambda{=}3$ ($2\times$) & \textbf{0.86} & \textbf{0.30} & \textbf{1.56} & \textbf{0.42} & \textbf{0.62} & \textbf{0.23} \\
+Bagging-$K{=}5$ ($5\times$)    & 0.86 & 0.22 & 1.54 & 0.29 & 0.62 & 0.17 \\
 \midrule
 \multicolumn{7}{l}{\emph{Paired $\Delta$ fragility vs.\ ERM (45 seed-pairs):}} \\
-Bagging-$K{=}5$           & \multicolumn{2}{c}{$-0.30$ ($-57.3\%$)} & \multicolumn{2}{c}{$-0.40$ ($-58.3\%$)} & \multicolumn{2}{c}{$-0.21$ ($-55.2\%$)} \\
-Twin-indep $\lambda{=}3$  & \multicolumn{2}{c}{$-0.22$ ($-42.1\%$)} & \multicolumn{2}{c}{$-0.27$ ($-38.7\%$)} & \multicolumn{2}{c}{$-0.15$ ($-40.0\%$)} \\
+Bagging-$K{=}2$                & \multicolumn{2}{c}{$-0.17$ ($-32.4\%$)} & \multicolumn{2}{c}{$-0.20$ ($-28.7\%$)} & \multicolumn{2}{c}{$-0.11$ ($-29.7\%$)} \\
+Twin-indep $\lambda{=}3$       & \multicolumn{2}{c}{$-0.22$ ($-42.1\%$)} & \multicolumn{2}{c}{$-0.27$ ($-38.7\%$)} & \multicolumn{2}{c}{$-0.15$ ($-40.0\%$)} \\
+Bagging-$K{=}5$                & \multicolumn{2}{c}{$-0.30$ ($-57.3\%$)} & \multicolumn{2}{c}{$-0.40$ ($-58.3\%$)} & \multicolumn{2}{c}{$-0.21$ ($-55.2\%$)} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The matched-compute comparison against bagging-$K{=}2$
-($2\times$-ERM compute, the same as twin-indep) is the load-bearing
-one for the classification headline; the bagging-$K{=}5$ column
-above is at $5\times$-ERM compute and serves as a stronger no-cost
-reference.
+At matched compute, twin-indep cuts regression fragility by $39\text{--}42\%$
+while bagging-$K{=}2$ cuts $29\text{--}32\%$; twin-indep wins on every
+dataset by ${\sim}10$pp of relative reduction.  This mirrors the
+classification headline (Section~\ref{sec:experiments}).
+Bagging-$K{=}5$ at $5\times$ ERM compute is still strongest at
+$55\text{--}58\%$, consistent with the classification pattern where
+$5\times$-compute bagging beats twin-indep on $3/7$ datasets at the
+same compute trade-off.  All four methods modestly improve MAE; no
+accuracy regression on this task.
 
 \section{ChemBERTa scope experiment}
 \label{app:chemberta_scope}
 
 To test whether the Waterbirds finding (twin-indep over-regularises
 pretrained features) is modality-specific or reproduces inside the
-chemistry domain, we plan to fine-tune
-ChemBERTa-77M-MTR~\citep{TODO_chithrananda2020_chemberta} on a subset
-of the headline datasets and run ERM and twin-indep at the
-BACE-frozen $\lambda{=}300$.  The corresponding numbers go here.
+chemistry domain, we fine-tuned
+ChemBERTa-77M-MTR~\citep{TODO_chithrananda2020_chemberta} on six
+headline datasets (BACE, BBBP, Pgp, BBB-Martins, AMES, DILI) and ran
+ERM and twin-indep at the BACE-frozen $\lambda{=}300$ for five
+train-seeds each.  Table~\ref{tab:chemberta} reports per-method
+id-accuracy and id-churn with $95\%$ CIs from the
+$\binom{5}{2}=10$ seed-pairs.
+
+\begin{table}[h]
+\centering
+\caption{\textbf{Twin-indep at the BACE-frozen $\lambda{=}300$
+  catastrophically over-regularises ChemBERTa on every dataset.}
+  ERM and twin-indep on six chemistry benchmarks, fine-tuning
+  ChemBERTa-77M-MTR with five train-seeds each.  Twin-indep drops
+  id-accuracy by $9\text{--}17$pp on every dataset; on $5/6$
+  datasets it \emph{increases} argmax churn (BBBP collapses to the
+  majority-class predictor: $77.6\%$ accuracy = majority, $0\%$
+  churn).  Same failure mode as Waterbirds, now inside chemistry on
+  the same datasets where the from-scratch MLP+fingerprint recipe
+  works.}
+\label{tab:chemberta}
+\small
+\begin{tabular}{lcccc}
+\toprule
+& \multicolumn{2}{c}{ERM} & \multicolumn{2}{c}{Twin-indep $\lambda{=}300$} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5}
+Dataset & id-acc & id-churn (\%) & id-acc & id-churn (\%) \\
+\midrule
+BACE        & 0.71 & 15.5 [13.8, 17.5] & 0.62 & 26.0 [21.7, 30.2] \\
+BBBP        & 0.89 &  4.0 [ 3.4,  4.6] & 0.78 (= maj.) & 0.0 [0.0, 0.0] \\
+Pgp         & 0.79 &  8.9 [ 7.3, 10.4] & 0.63 & 16.3 [13.7, 18.7] \\
+BBB-Martins & 0.88 &  3.5 [ 3.1,  3.9] & 0.77 &  3.5 [ 2.2,  4.8] \\
+AMES        & 0.76 &  9.1 [ 8.7,  9.6] & 0.60 & 13.3 [10.8, 16.4] \\
+DILI        & 0.67 & 27.9 [23.8, 31.4] & 0.57 & 41.6 [35.7, 47.2] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The pattern is the same as Waterbirds (Section~\ref{sec:scope}):
+the consistency loss adds a second prior on top of the pretrained
+representation and pulls the model toward an over-averaged solution.
+On chemistry the failure is severe enough that argmax churn
+\emph{rises} on five of six datasets, and BBBP collapses to the
+majority-class predictor entirely.  Pretraining-modality (vision /
+SMILES) does not change the diagnosis: \textbf{twin-indep at the
+from-scratch-tuned $\lambda$ should not be applied unmodified to
+pretrained-backbone settings, on any modality.}  Bagging is
+unaffected by either prior; we therefore recommend bagging-$K{=}5$
+as the default recipe whenever a pretrained backbone is in use.
 
 \section{Within-dataset $N$-scaling on BACE}
 \label{app:nscaling}

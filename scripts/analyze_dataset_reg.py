@@ -54,6 +54,7 @@ def pairwise_fragility(runs):
 
 METHODS = {
     "ERM":              "erm_train*.npz",
+    "Bagging-K=2":      "bagging_train*_K2.npz",
     "Bagging-K=5":      "bagging_train*_K5.npz",
     "Twin-indep λ=1":   "twin_indep_train*_lam1.0.npz",
     "Twin-indep λ=3":   "twin_indep_train*_lam3.0.npz",

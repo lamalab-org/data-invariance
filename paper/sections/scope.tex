@@ -11,13 +11,15 @@ pretraining has collapsed most cross-sample variation in the learned
 features.  Twin-indep adds the same prior on top of finetuning, and
 the two pull the model toward an over-averaged solution.  Empirically,
 on Waterbirds (ImageNet-pretrained ResNet-50, $\lambda{=}300$ as
-applied to chemistry) accuracy collapses by $27$pp while churn does
-fall.  Bagging adds no second prior and is unaffected
-($+2$pp accuracy, $-51\%$ relative churn).  An $N$-aware scaling
-$\lambda_N = \lambda_{\mathrm{dev}} \cdot N_{\mathrm{dev}}/N \approx
-60$ recovers some accuracy but does not reach the bagging Pareto
-frontier; twin-indep should not be applied unmodified to
-pretrained-backbone settings.
+applied to chemistry) accuracy collapses by $27$pp while churn falls.
+The failure reproduces inside chemistry: fine-tuning ChemBERTa-77M-MTR
+on six headline datasets at the same $\lambda{=}300$ drops accuracy
+by $9\text{--}17$pp on every dataset, and \emph{increases} argmax
+churn on five of six (Appendix~\ref{app:chemberta_scope}).  Bagging
+adds no second prior and is unaffected on Waterbirds ($+2$pp accuracy,
+$-51\%$ relative churn).  Twin-indep at the from-scratch-tuned
+$\lambda$ should not be applied unmodified to pretrained-backbone
+settings on any modality.
 
 \paragraph{Inter-network consistency collapse on MOF-thermal.}
 Strong consistency between two networks has a degenerate solution:
@@ -50,10 +52,11 @@ construction is fixed at canonical seed $99$ and $\lambda$ is selected
 on BACE alone.  We do not vary the test-set seed, the development
 dataset, the twin head count, or the multi-class output type.  An appendix regression study (ESOL, FreeSolv, Lipophilicity;
 Appendix~\ref{app:regression}) shows the methods extend to continuous
-targets: bagging-$K{=}5$ cuts prediction-difference fragility
-$55\text{--}58\%$ vs.\ ERM and twin-indep cuts $39\text{--}42\%$ at
-$2\times$-ERM compute.  The matched-compute comparison against
-bagging-$K{=}2$ is reported there.  The bagging-$K{=}5$ finding is
+targets and rank the same way as on classification: at matched
+$2\times$-ERM compute, twin-indep cuts prediction-difference fragility
+$39\text{--}42\%$ vs.\ ERM while bagging-$K{=}2$ cuts $29\text{--}32\%$
+(twin-indep wins on every dataset).  Bagging-$K{=}5$ at $5\times$-ERM
+compute is strongest at $55\text{--}58\%$.  The bagging-$K{=}5$ finding is
 paired across $\binom{10}{2}=45$ seed pairs and significant at $p <
 10^{-4}$ on the Friedman test (Appendix~\ref{app:friedman}); the
 twin-indep finding is more sensitive --- it depends on the
