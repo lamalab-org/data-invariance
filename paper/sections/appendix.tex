@@ -69,14 +69,53 @@ $0.005$ would pick $\lambda{=}100$ (still on the knee).
 
 The headline experiments use a $256$-unit MLP on Morgan fingerprints
 ($2048$ bits, radius $2$).  As a non-fingerprint architecture
-cross-check, we train a small graph isomorphism network
+cross-check, we train a graph isomorphism network
 (GIN,~\citealp{TODO_xu2018_gin}) on RDKit-derived atom-and-bond
 graphs of BACE: $3$ GINConv layers, hidden dimension $128$, mean-pool
-readout, $50$ epochs.  All ten train-seeds + the canonical-data-seed
-protocol are unchanged.  ERM on this architecture reaches id-acc
-${\sim}0.76$ (vs.\ $0.78$ for the MLP-on-fingerprints ERM); cross-sample
-churn and the bagging-$K{=}5$ / twin-indep $\lambda{=}300$ deltas vs.\
-ERM are reported here once the sweep lands.
+readout, $50$ epochs.  All ten train-seeds and the canonical-data-seed
+protocol are unchanged.  Table~\ref{tab:gin} reports per-method
+id-accuracy, argmax churn, and sym-KL with $95\%$ paired-bootstrap
+CIs, plus paired $\Delta$ vs.\ ERM on the same $45$ seed-pairs.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lccc}
+\toprule
+Method & id-acc & id-churn (\%) & sym-KL \\
+\midrule
+ERM                       & 0.74 [0.72, 0.76] & 22.5 [21.6, 23.3] & 0.42 [0.38, 0.45] \\
+Bagging-$K{=}5$           & \textbf{0.77 [0.77, 0.78]} & \textbf{10.8 [10.2, 11.3]} & 0.07 [0.07, 0.07] \\
+Twin-indep $\lambda{=}300$ & 0.59 [0.58, 0.61] & 16.6 [13.4, 19.8] & \textbf{0.004 [0.003, 0.005]} \\
+\midrule
+\multicolumn{4}{l}{\emph{Paired $\Delta$ vs.\ ERM (same $45$ seed-pairs)}} \\
+Bagging-$K{=}5$           & \multicolumn{1}{c}{$+0.035$ pp} & $-11.7$ [$-12.7$, $-10.7$] ($-52\%$) & $-0.35$ [$-0.38$, $-0.32$] ($-83\%$) \\
+Twin-indep $\lambda{=}300$ & \multicolumn{1}{c}{$-0.149$ pp} & $-5.9$ [$-8.9$, $-2.8$] ($-26\%$) & $-0.41$ [$-0.44$, $-0.38$] ($-99\%$) \\
+\bottomrule
+\end{tabular}
+\caption{\textbf{GIN on BACE: bagging transfers cleanly; twin-indep
+  $\lambda$ does not.}  ERM-GIN is more fragile than ERM-MLP
+  ($22.5\%$ vs.\ $16.1\%$ argmax churn), making the methods more
+  rather than less relevant on this backbone.  Bagging-$K{=}5$ cuts
+  churn $52\%$ and improves id-accuracy by $3.5$pp.  Twin-indep at
+  the BACE-MLP-frozen $\lambda{=}300$ reduces sym-KL by $99\%$ but
+  drops id-accuracy by $15$pp --- well outside the $0.02$
+  selection-rule tolerance ERM-GIN id-acc would impose.  Bold cells
+  mark the best mean per column among the three methods.}
+\label{tab:gin}
+\end{table}
+
+The honest reading: the consistency loss is real and effective at
+suppressing inter-network disagreement on GIN ($99\%$ sym-KL
+reduction), but the fixed $\lambda$ from the MLP development run is
+too strong for the smaller GIN ($N$ identical, model capacity
+different).  Re-selecting $\lambda$ on BACE-GIN under the same
+$0.02$ accuracy tolerance would pick a smaller value; the recipe
+(``select $\lambda$ on the development dataset under a fixed accuracy
+tolerance, then freeze'') transfers, the numerical value does not.
+For practitioners changing the architecture, we recommend a single
+$\lambda$ sweep on the development dataset before transferring to
+held-out data.
 
 \section{ChemBERTa scope experiment}
 \label{app:chemberta_scope}
