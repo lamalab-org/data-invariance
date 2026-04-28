@@ -18,82 +18,60 @@
   \label{fig:overview}
 \end{figure}
 
-A toxicity classifier is retrained after a new batch of assay results
-lands.  Aggregate accuracy is unchanged, yet predictions flip class
-for $8\text{--}17\%$ of candidate molecules---some already in
-synthesis queues (Figure~\ref{fig:overview}).  We call this
-\emph{cross-sample prediction fragility}: the fraction of test
-predictions that change class between two models trained on
-independent bootstraps of the same population.
+A toxicity classifier is retrained on a new batch of assay results.
+Aggregate accuracy is unchanged.  Predictions flip class for
+$8\text{--}17\%$ of candidate molecules, some already in synthesis
+queues (Figure~\ref{fig:overview}).  We call this \emph{cross-sample
+prediction fragility}: the fraction of test predictions that change
+class between two models trained on independent bootstraps of the
+same training population.
 
-Chemistry machine learning has built architectures around invariances
---- to atom indexing, rotation, conformational degrees of freedom
---- and architectures that respect them are now standard.  A further
-invariance has gone unspoken: that a model's prediction on a given
-molecule should not depend on which subset of the available data the
-model trained on.  In a deployment-driven domain where training sets
-evolve continuously, this \emph{cross-sample invariance} governs
-whether a deployed prediction survives the next retraining.
+Equivariant chemistry models bake invariances into the architecture
+once --- atom indexing, rotation, conformational degrees of freedom
+--- and never re-derive them.  Cross-sample invariance is statistical
+rather than architectural, and is the property that determines
+whether a deployed prediction survives the next retraining when the
+training pool itself changes.
 
-Cross-sample fragility is the population-level analogue of the
-deployment ``prediction churn'' studied
-by~\citet{TODO_milani2016, TODO_bhojanapalli2021, TODO_jiang2022} and
-of the bootstrap-stability-interval program developed in clinical
-biostatistics by~\citet{TODO_riley2023}; we extend that thread to the
-small-$N$ from-scratch setting that scientific machine learning
-inhabits.  It is motivated theoretically by algorithmic
-stability~\citep{TODO_bousquet2002}, and missed by the standard
-uncertainty toolkit: deep ensembles vary model parameters at fixed
-data and remove only ${\sim}2$pp of churn on average.  We measure
-cross-sample fragility on eight standard chemistry benchmarks (BACE,
-BBBP, three materials-science datasets, three TDC ADME/Tox
-benchmarks), then introduce two methods that reduce it under a strict
-no-test-tuning protocol: $K$-bootstrap bagging at no accuracy cost,
-and a twin-network bootstrap-consistency objective at matched
-compute.
+Cross-sample fragility is the population-level analogue of
+\emph{prediction churn}~\citep{TODO_milani2016, TODO_bhojanapalli2021,
+TODO_jiang2022}.  The deployment-loop literature measures churn
+between a new model and a fixed incumbent on web-scale data; we
+measure it between two equally weighted bootstraps in the small-$N$
+from-scratch regime, where no incumbent exists.  Algorithmic
+stability~\citep{TODO_bousquet2002} is the formal anchor.  Deep
+ensembles, MC dropout, and conformal prediction all fix the dataset
+and vary something else; on our benchmarks they remove
+${\sim}2$pp of churn on average.
 
 \paragraph{Contributions.}
 \begin{itemize}\itemsep0pt
-  \item \textbf{Cross-sample fragility as a measurement.}  We
-        re-target the prediction-churn measurement of
-        \citet{TODO_milani2016, TODO_bhojanapalli2021, TODO_jiang2022}
-        from deployment-loop churn (a new model regressed against an
-        incumbent on web-scale data) to population-level churn between
-        two bootstraps of the same training pool, in the small-$N$
-        from-scratch regime where no incumbent model exists.  On eight
-        chemistry benchmarks, $8\text{--}17\%$ of test predictions
-        flip across retrainings --- an order of magnitude larger than
-        the parameter-variance axis that deep ensembles capture.
-  \item \textbf{Bootstrap bagging on the data axis.}  Bagging at
-        $K{=}5$~\citep{TODO_breiman1996} is the right intervention
-        when the deliverable is per-example stability rather than
-        accuracy.  Under a no-test-tuning protocol it reduces argmax
-        churn $47\text{--}49\%$ on every held-out dataset
-        (paired-bootstrap CI excludes zero on every dataset; mean
-        accuracy delta $+1.6$pp [$+1.1, +2.1$]).
-  \item \textbf{Twin-indep: codistillation at the right overlap.}
-        Twin-indep is the codistillation
+  \item We re-target prediction-churn measurement to the small-$N$
+        from-scratch regime and document its magnitude on eight
+        chemistry benchmarks ($8\text{--}17\%$ of predictions flip
+        across retrainings; an order of magnitude larger than the
+        parameter-variance axis deep ensembles capture).
+  \item $K$-bootstrap bagging~\citep{TODO_breiman1996} reduces argmax
+        churn $47\text{--}49\%$ on every held-out dataset under a
+        no-test-tuning protocol, paired-bootstrap CI excludes zero,
+        with no accuracy regression.
+  \item Twin-indep is the codistillation
         family~\citep{TODO_anil2018_codistillation} at $\sim$$40\%$
-        inter-network bootstrap overlap rather than the disjoint-shard
-        $0\%$ end of the same axis.  At a frozen
-        $\lambda$ selected on a single development dataset (BACE,
-        $\lambda{=}300$), it reduces argmax churn $69\text{--}72\%$
-        at matched compute against bagging-$K{=}2$ and distributional
-        disagreement by roughly an additional order of magnitude.
-        On a 10-dataset comparison, twin-indep is the only operating
-        point on the codistillation family with no failure case
-        (Appendix~\ref{app:overlap_spectrum}).
-  \item \textbf{Per-example fragility from one additional bootstrap}
-        captures $68\text{--}94\%$ of the predictions that retraining
-        will flip in its top decile, giving a deployment-time triage
-        signal at the cost of one extra model.
-  \item \textbf{Regime characterisation.}  The methods apply in the
-        small-$N$ from-scratch setting; on pretrained-backbone
-        benchmarks (Waterbirds) the consistency loss over-regularises
-        features the backbone already encodes ($-27$pp accuracy at
-        the chemistry-tuned $\lambda$); on small-$N$ datasets where
-        ERM accuracy is close to majority-class (MOF-thermal),
+        inter-network bootstrap overlap.  At a frozen
+        $\lambda{=}300$ selected on BACE alone, it reduces argmax
+        churn $69\text{--}72\%$ at matched compute against
+        bagging-$K{=}2$, and distributional disagreement by an
+        additional order of magnitude.  On a 10-dataset comparison
+        across the overlap axis, $\sim$$40\%$ is the only operating
+        point with no failure case (Appendix~\ref{app:overlap_spectrum}).
+  \item Per-example fragility computed from a single additional
+        bootstrap captures $68\text{--}94\%$ of the test predictions
+        that retraining will flip in its top decile.
+  \item The methods apply in the small-$N$ from-scratch regime.  On
+        pretrained-backbone settings the consistency loss
+        over-regularises features the backbone already encodes; on
+        datasets where ERM accuracy is close to majority-class,
         consistency methods collapse to the constant predictor.
-        Bagging extends across all settings tested.
+        Bagging is unaffected by either failure mode.
 \end{itemize}
 

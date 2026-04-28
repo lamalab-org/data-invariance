@@ -1,25 +1,25 @@
 \begin{abstract}
-Retraining a chemistry classifier on a fresh draw of the same training
-population flips predictions for $8\text{--}17\%$ of test molecules
-with no change in aggregate accuracy.  This is the population-level
-analogue of \emph{prediction churn}~\citep{TODO_milani2016}: where the
-deployment-loop literature measures churn between a new model and a
-fixed incumbent, we measure it between two equally weighted
-retrainings on independent bootstraps of the same training pool, in
-the small-$N$ from-scratch regime where no incumbent model exists.
-We call this quantity \emph{cross-sample prediction fragility}.  On
-eight chemistry benchmarks (MoleculeNet, TDC ADME/Tox, materials
-science) it dominates the parameter-variance axis that deep ensembles
-capture by an order of magnitude.  Bootstrap bagging is the right
-intervention on the data axis; on the small-$N$ chemistry datasets we
-study it cuts churn $47\text{--}49\%$ at no accuracy regression.
-Adding a sym-KL consistency loss between the two bagging networks
-(\emph{twin-indep}) cuts churn $69\text{--}72\%$ at matched compute
-and distributional disagreement by an additional order of magnitude;
-twin-indep is a $\sim$$40\%$-bootstrap-overlap operating point on the
-codistillation family, and is the only point on that family that does
-not catastrophically fail across 10 datasets we test.  The recipe is
-small-$N$ from-scratch; on pretrained-backbone benchmarks like
-Waterbirds the consistency loss over-regularises features the
-backbone already encodes.
+Two classifiers trained on independent samples of the same chemistry
+training population assign different classes to $8\text{--}17\%$ of
+test molecules with no measurable change in aggregate accuracy.  We
+call this \emph{cross-sample prediction fragility}: the population-level
+analogue of \emph{prediction churn}~\citep{TODO_milani2016}.  Where
+deployment-loop work measures churn between a new model and an
+incumbent on web-scale data, we measure it between two equally
+weighted bootstraps of the training pool, in the small-$N$ from-scratch
+regime that scientific machine learning inhabits and where no incumbent
+exists.  On eight chemistry benchmarks (MoleculeNet, TDC ADME/Tox,
+materials science) fragility exceeds the parameter-variance axis
+captured by deep ensembles by an order of magnitude.  $K$-bootstrap
+bagging cuts argmax churn $47\text{--}49\%$ with no accuracy
+regression.  A sym-KL consistency loss between two networks trained
+on independent bootstraps (\emph{twin-indep}) cuts it $69\text{--}72\%$
+at matched compute against bagging-$K{=}2$, and reduces distributional
+disagreement by an additional order of magnitude.  Twin-indep is the
+codistillation family of \citet{TODO_anil2018_codistillation} at
+$\sim$$40\%$ inter-network bootstrap overlap; on a 10-dataset
+comparison it is the only operating point on that family that does
+not catastrophically fail.  The recipe applies in the small-$N$
+from-scratch regime; on pretrained-backbone settings the consistency
+loss over-regularises features the backbone already encodes.
 \end{abstract}
