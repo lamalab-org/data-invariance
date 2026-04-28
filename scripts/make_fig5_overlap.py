@@ -133,11 +133,15 @@ def main() -> None:
         for j, (ov, _, (m, lo, hi)) in enumerate(points[ds]):
             offset = (j - 1) * bar_h * 1.05
             y = y_centres[di] + offset
+            # Plot REDUCTION (positive = improvement); flip sign of Δ.
+            reduction = -m * 100
+            err_lo = (hi - m) * 100   # symmetry under sign flip
+            err_hi = (m - lo) * 100
             ax.barh(
-                y, m * 100, height=bar_h,
+                y, reduction, height=bar_h,
                 color=overlap_colors[ov],
                 edgecolor="none",
-                xerr=[[(m - lo) * 100], [(hi - m) * 100]],
+                xerr=[[err_lo], [err_hi]],
                 error_kw=dict(elinewidth=0.8, ecolor="0.3"),
                 zorder=3,
             )
@@ -145,7 +149,7 @@ def main() -> None:
     ax.axvline(0, color="0.2", linewidth=1.0, zorder=2)
     ax.set_yticks(y_centres)
     ax.set_yticklabels([display(ds) for ds in keep])
-    ax.set_xlabel("Paired Δ id-churn vs ERM (pp; <0 better)")
+    ax.set_xlabel("Reduction in id-churn vs ERM (pp; >0 better)")
     ax.set_ylim(-0.6, n_ds - 0.4)
     ax.grid(axis="x", linestyle="-", linewidth=0.4, alpha=0.4, zorder=0)
 

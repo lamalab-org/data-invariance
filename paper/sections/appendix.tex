@@ -280,14 +280,12 @@ BACE only by the rule ``largest $\lambda \in
 (Figure~\ref{fig:pareto}).  We apply $\lambda{=}300$ unchanged to every
 held-out chemistry dataset; no held-out tuning at any stage.
 
-\paragraph{Dataset-by-dataset training hyperparameters.}
-All datasets use AdamW with weight decay $10^{-4}$, gradient clipping
-at $1.0$, no learning-rate schedule.  Per-dataset learning rate, batch
-size, and epoch count are listed in
-\texttt{scripts/run\_experiment.py:HPARAMS}; we use $\text{lr}=10^{-3}$,
-batch size $64$, and $30$ epochs for the headline chemistry
-datasets, and the published Waterbirds recipe ($\text{lr}=10^{-4}$,
-batch size $64$, $15$ epochs) for the scope analysis.
+\paragraph{Training hyperparameters.}
+AdamW with weight decay $10^{-4}$, gradient clipping at $1.0$, no
+learning-rate schedule.  Headline chemistry datasets use
+$\text{lr}=10^{-3}$, batch size $64$, and $30$ epochs; the Waterbirds
+scope analysis uses the published recipe ($\text{lr}=10^{-4}$, batch
+size $64$, $15$ epochs).
 
 \paragraph{Compute footprint.}
 The chemistry experiments run end-to-end on a single laptop CPU; the
@@ -298,17 +296,9 @@ single A100 GPU with a budget of ${\sim}6$ GPU-hours total.  Each
 (canonical seed, train seed, mode, $\lambda$); all trained
 predictions are saved as NPZ.
 
-\paragraph{Reproducing every table and figure.}
-Once the NPZ predictions exist under
-\texttt{outputs/cross\_sample/\{dataset\}/}, every paper artefact
-regenerates with one command:
-\begin{verbatim}
-make tables       # paper Table 1, fragility-magnitudes table
-make figures      # Fig 1 forest, Fig 2 Pareto, Fig 3 decile
-\end{verbatim}
-To regenerate the predictions from scratch, the same
-\texttt{Makefile} provides
-\texttt{make sweep-erm}, \texttt{sweep-bagging},
-\texttt{sweep-deep-ensemble}, \texttt{sweep-twin-indep}, and
-\texttt{sweep-pareto-bace}.  Cluster array scripts that drive these
-sweeps in parallel are in \texttt{slurm/}.
+\paragraph{Code release.}
+The accompanying source release contains a single \texttt{Makefile}
+entry-point covering both the training sweeps that produce the saved
+NPZ predictions and the analysis pipeline that converts those into
+every paper table and figure.  No table in the paper is computed at
+build time outside of this pipeline.

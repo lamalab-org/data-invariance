@@ -113,9 +113,12 @@ METHODS = [
 
 
 def _fmt_delta_pp(t: tuple[float, float, float]) -> str:
-    """Format a paired-Δ id-churn (mean, lo, hi) tuple as `m [lo, hi]` in pp."""
+    """Format a paired-Δ id-churn (mean, lo, hi) tuple as `m [lo, hi]` in pp.
+
+    All in text mode (no $...$ math) so that \\textbf{} bolds the entire
+    cell when wrapped, not just the bracketed range."""
     m, lo, hi = t
-    return f"${m*100:+.1f}$ [{lo*100:+.1f}, {hi*100:+.1f}]"
+    return f"{m*100:+.1f} [{lo*100:+.1f}, {hi*100:+.1f}]"
 
 
 def write_latex_table(rows, path, frozen_lam):
