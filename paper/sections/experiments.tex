@@ -17,16 +17,14 @@ from bagging-$K{=}5$ at less than half the compute
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/fig1_forest.pdf}
-  \caption{\textbf{Twin-indep reduces cross-sample prediction churn
-    vs.\ ERM on every chemistry benchmark; the consistency loss adds
-    reliably to bagging at matched compute.}  Each row is one
-    dataset (sorted by training-set size, smallest at top); markers
-    show paired $\Delta$ id-churn vs.\ ERM with $95\%$
-    bootstrap CIs across $45$ seed pairs.  Twin-indep
-    $\lambda{=}300$ (red) is at matched compute against
-    bagging $K{=}2$ (light blue, open).  Frozen $\lambda$ is selected
-    on a single development dataset (Figure~\ref{fig:pareto}); no
-    held-out tuning.}
+  \caption{\textbf{Twin-indep beats ERM on every chemistry benchmark
+    and beats matched-compute bagging-$K{=}2$ on every dataset.}
+    Left: paired $\Delta$ id-churn vs.\ ERM for the four methods,
+    one row per dataset (smallest $N$ at top), $95\%$ paired-bootstrap
+    CIs across $\binom{10}{2}=45$ seed pairs.  Right: $\Delta$ vs.\
+    matched-compute bagging-$K{=}2$, twin-indep only.  Frozen
+    $\lambda{=}300$ is selected on the BACE development dataset
+    alone; no held-out tuning.}
   \label{fig:main}
 \end{figure}
 

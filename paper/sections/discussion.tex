@@ -20,21 +20,48 @@ the column that varies the dataset and fixes everything else, and it
 is the column that tracks the deployment quantity practitioners
 observe between retrainings.  The clinical-biostatistics
 literature~\citep{TODO_riley2023} already reports per-individual
-stability intervals as a model-development standard; the case for
-the same in scientific machine learning is straightforward to make
-once the magnitudes ($8\text{--}17\%$ flip rate at deployment-relevant
-$N$) are visible.
+stability intervals as a model-development standard; the same case
+extends to scientific machine learning.
 
 \paragraph{Stability is a property of the procedure, not the model.}
-The deeper consequence is that any method which does not optimise
-against the data-resampling axis --- which is most of them --- leaves
-that axis on the table.  Twin-indep is one consistency objective that
-does; we expect simpler data-side regularisers (subbagging schedules,
-bootstrap-aware data augmentation, training-set diversity penalties)
-to land on the same axis once it is reported.  An $N$-aware scaling
+A model's churn under retraining is not a fact about the trained
+weights; it is a fact about the entire training procedure that
+produced them, including the choice of optimiser, schedule, and
+data-resampling protocol.  This has three consequences worth naming.
+
+First, the natural target for stability research is the procedure,
+not the model.  Twin-indep is one such procedure, but the
+bootstrap-overlap analysis (Section~\ref{sec:related}) shows that
+even a single hyperparameter on the procedure --- how much data the
+two networks share --- makes the difference between catastrophic
+failure and the best result we measured.  Procedure design has more
+slack than model design at fixed compute.
+
+Second, this changes what reporting standards should look like.
+Existing leaderboards report a model card: accuracy, AUROC, sometimes
+calibration.  A procedure card would also report churn at fixed-$N$
+retraining, with a paired-bootstrap CI.  In a domain where training
+sets evolve --- drug discovery, materials discovery, clinical risk
+modelling, recommendation systems with continuous data refresh ---
+the procedure card is the operationally relevant document.  The
+clinical-biostatistics literature~\citep{TODO_riley2023} already
+reports per-individual stability intervals; nothing prevents
+extending the same to ML benchmarks beyond requiring multiple
+retrainings.
+
+Third, the analogy to architectural invariances is informative.
+Equivariant networks built rotation, permutation, and translation
+invariance into the architecture once and never tuned them again.
+Cross-sample invariance is statistical, not architectural, but the
+analogy holds: once the bias is in the procedure, it does not have
+to be re-derived per model.  We expect bootstrap-aware data
+augmentation, subbagging schedules, and training-set diversity
+penalties to act on the same axis as twin-indep; whether any of them
+match twin-indep at matched compute is open.
+
+The fragility definition extends unchanged to regression (MAE or
+covered-interval metric in place of class-flip rate) and to
+multi-class; we verify neither.  An $N$-aware scaling
 $\lambda_N \propto 1/N$, motivated by the algorithmic-stability rate
-but unverified beyond BACE, is the natural next attempt at removing
-the single tuned hyperparameter.  The fragility definition extends
-unchanged to regression (MAE or covered-interval metric in place of
-class-flip rate) and to multi-class without protocol changes; we
-verify neither here.
+but unverified beyond BACE, is the obvious follow-up for removing
+the one tuned hyperparameter.

@@ -4,20 +4,17 @@
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/fig0_overview.pdf}
-  \caption{\textbf{Cross-sample prediction churn on BACE, and its
-    removal by twin-indep at matched compute.}  Protocol: ten models
-    are trained on ten independent bootstraps of the canonical
-    training pool and evaluated on the same canonical test set; under
-    ERM each model is trained independently (left), under twin-indep
-    each \emph{pair} is trained jointly with a sym-KL consistency
-    loss between their outputs (right, $\lambda{=}300$, matched
-    compute against bagging $K{=}2$).  Each row is a test molecule
-    (top $80$ by ERM argmax churn shown), each column is one
-    retraining; cells are coloured by predicted class.  Vertical
-    stripes in the left panel are predictions that flip class across
-    retrainings --- $16.1\%$ averaged over the test set and up to
-    $43\%$ on the most fragile decile; under twin-indep the flips
-    largely disappear ($6.4\%$ across the test set).}
+  \caption{\textbf{Twin-indep eliminates most of ERM's
+    retraining-induced prediction flips on BACE.}  Each row is one
+    of the $80$ test molecules with the largest cross-sample
+    contrast; each column is one of ten retrainings on an
+    independent bootstrap of the canonical training pool; cells
+    are coloured by predicted class.  Visible vertical stripes
+    in the left (ERM) panel are predictions that flip class across
+    retrainings; under twin-indep (right; $\lambda{=}300$, matched
+    compute against bagging-$K{=}2$) the same molecules become
+    near-uniform.  Mean argmax churn over the full test set drops
+    from $16.1\%$ (ERM) to $6.4\%$ (twin-indep).}
   \label{fig:overview}
 \end{figure}
 

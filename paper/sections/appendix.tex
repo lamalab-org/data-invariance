@@ -64,22 +64,15 @@ which suggests the rule is not knife-edge: relaxing the tolerance to
 $0.01$ would still pick the same $\lambda$, while tightening to
 $0.005$ would pick $\lambda{=}100$ (still on the knee).
 
-\section{ChemBERTa scope experiment (in progress)}
+\section{ChemBERTa scope experiment}
 \label{app:chemberta_scope}
 
 To test whether the Waterbirds finding (twin-indep over-regularises
-pretrained features) reproduces inside the chemistry domain, we
-fine-tune ChemBERTa-77M-MTR on a subset of the headline datasets
-(BACE, BBBP, Pgp\_Broccatelli, BBB-Martins, AMES, DILI; $5$ seeds
-each) and run ERM and twin-indep at the BACE-frozen $\lambda{=}300$.
-At submission time the cluster sweep is still in flight; this section
-will be populated with the comparison of (i) baseline cross-sample
-churn under fine-tuned ChemBERTa vs.\ Morgan-MLP ERM and (ii) the
-twin-indep delta on each backbone.  The result determines whether the
-regime characterisation in Section~\ref{sec:scope} rests on a
-chemistry-internal effect (twin-indep over-regularises ChemBERTa as it
-does ResNet-50 on Waterbirds) or whether the Waterbirds result is
-modality-specific.
+pretrained features) is modality-specific or reproduces inside the
+chemistry domain, we plan to fine-tune
+ChemBERTa-77M-MTR~\citep{TODO_chithrananda2020_chemberta} on a subset
+of the headline datasets and run ERM and twin-indep at the
+BACE-frozen $\lambda{=}300$.  The corresponding numbers go here.
 
 \section{Within-dataset $N$-scaling on BACE}
 \label{app:nscaling}

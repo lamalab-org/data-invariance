@@ -50,12 +50,11 @@ of~\citet{TODO_breiman1996} and the conceptual lineage of stability
 selection~\citep{TODO_meinshausen2010}, has been argued to be a
 \emph{worse} accuracy estimator for neural networks than full-data
 ensembles because each member sees only ${\sim}63\%$ unique
-indices~\citep{TODO_nixon2020}.  Our results are consistent with their
-bound on accuracy in some regimes, but for the deliverable that
-matters here --- per-example stability across retrainings --- bagging
-is exactly the right intervention; on the small-$N$ chemistry
-benchmarks we additionally find that bagging-$K{=}5$ improves
-accuracy over ERM (mean $+1.6$pp, $95\%$ CI $[+1.1, +2.1]$).
+indices~\citep{TODO_nixon2020}.  For the deliverable that matters here --- per-example stability
+across retrainings --- bagging is the right intervention, and on the
+small-$N$ chemistry benchmarks of this paper we additionally observe
+a small accuracy gain over ERM rather than the regression
+\citet{TODO_nixon2020} report at scale.
 Bootstrapped DQN~\citep{TODO_osband2016} uses a closely related
 multi-head bootstrap construction for exploration in reinforcement
 learning.
@@ -95,20 +94,18 @@ gains without TADF's failure is open.
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.6\linewidth]{figures/fig5_overlap.pdf}
-  \caption{\textbf{Bootstrap-overlap fraction as a hyperparameter.}
+  \caption{\textbf{Twin-indep's bootstrap-overlap (${\sim}40\%$) is
+    the only operating point that never catastrophically fails.}
     Three operating points: codistillation ($0\%$ overlap, disjoint
-    shards), twin-indep ($\sim$$40\%$ overlap, bootstraps with
-    replacement), twin-indep with shared bootstrap
-    ($100\%$ overlap, only init differs).  Each line is one chemistry
-    dataset (BACE highlighted); markers show paired $\Delta$ id-churn
-    vs.\ ERM (lower = better) with $95\%$ paired-bootstrap CIs across
-    the $\binom{10}{2}=45$ seed pairs.  Codistillation tends to win at
-    the low-overlap end on most datasets but \emph{flips sign on
-    TADF}: $+3.0$pp $[+1.3, +5.0]$ vs.\ ERM, worse than no method.
-    Twin-indep at $\sim$$40\%$ overlap is the robust default.
-    Datasets on which any of the three methods drop id-acc by more
-    than $5$pp (MOF-thermal; Pgp under codistillation) are excluded;
-    see Appendix~\ref{app:borderline}.}
+    shards), twin-indep ($\sim$$40\%$, bootstraps with replacement),
+    twin-shared-bootstrap ($100\%$, init differs only).  One line per
+    dataset (BACE highlighted); markers are paired $\Delta$ id-churn
+    vs.\ ERM (lower better), $95\%$ paired-bootstrap CIs across $45$
+    seed pairs.  Codistillation matches or beats twin-indep on $4$ of
+    $5$ datasets but flips sign on TADF (\emph{worse} than ERM); on
+    Pgp it drops id-acc $5.7$pp.  Datasets where any method drops
+    id-acc by more than $5$pp are excluded
+    (Appendix~\ref{app:borderline}).}
   \label{fig:overlap}
 \end{figure}
 
