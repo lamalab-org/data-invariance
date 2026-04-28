@@ -67,11 +67,10 @@ def main():
     ys = [twin[l][0] * 100 for l in lams]
     ax.plot(xs, ys, color="#7a1313", linewidth=1.0, alpha=0.6, zorder=2)
 
-    # Only label the load-bearing points individually: the frozen choice
-    # (λ=300) and the knee (λ=100).  The {1, 3, 10, 30} plateau is so
-    # tightly clustered that per-point labels overlap; we annotate it
-    # once as a group.
-    individually_labelled = {100.0: (-50, 4), 300.0: (8, 2)}
+    # Inline-label only the rule-selected point (λ=300).  Other λ values
+    # are identified by trace order in the legend; the body text
+    # references them by value where needed.
+    individually_labelled = {300.0: (8, 2)}
 
     for lam in lams:
         m = twin[lam]
@@ -96,18 +95,7 @@ def main():
                         fontsize=7, color="0.30",
                         fontweight="bold" if is_frozen else "normal")
 
-    # Group label for the {1, 3, 10, 30} plateau, placed below the cluster
-    # with a leader line to the cluster centroid.
-    cluster_lams = [1.0, 3.0, 10.0, 30.0]
-    cx = float(np.mean([twin[l][3] * 100 for l in cluster_lams if l in twin]))
-    cy = float(np.mean([twin[l][0] * 100 for l in cluster_lams if l in twin]))
-    ax.annotate(r"$\lambda \in \{1, 3, 10, 30\}$",
-                xy=(cx, cy), xytext=(cx + 1.6, cy - 0.9),
-                fontsize=7, color="0.30",
-                arrowprops=dict(arrowstyle="-", color="0.40", linewidth=0.5,
-                                shrinkA=0, shrinkB=4))
-
-    # ERM and bagging reference points.
+    # ERM and bagging reference points (no inline labels — handled by legend).
     if erm is not None:
         ax.errorbar(erm[3] * 100, erm[0] * 100,
                     xerr=[[(erm[3] - erm[4]) * 100], [(erm[5] - erm[3]) * 100]],
@@ -115,9 +103,6 @@ def main():
                     fmt="none", elinewidth=0.8, ecolor="0.40", zorder=2)
         ax.plot(erm[3] * 100, erm[0] * 100, marker="s", linestyle="None",
                 ms=6, mfc="white", mec="0.40", zorder=3)
-        ax.annotate("ERM", (erm[3] * 100, erm[0] * 100),
-                    xytext=(6, -2), textcoords="offset points",
-                    fontsize=8, color="0.30")
 
     if bag is not None:
         ax.errorbar(bag[3] * 100, bag[0] * 100,
@@ -126,9 +111,21 @@ def main():
                     fmt="none", elinewidth=0.8, ecolor="#0d3a5c", zorder=2)
         ax.plot(bag[3] * 100, bag[0] * 100, marker="o", linestyle="None",
                 ms=6, mfc="#1f77b4", mec="#0d3a5c", zorder=3)
-        ax.annotate("Bagging $K{=}5$", (bag[3] * 100, bag[0] * 100),
-                    xytext=(6, -2), textcoords="offset points",
-                    fontsize=8, color="0.30")
+
+    # Legend — empty upper-right corner of the plot, no overlap with data.
+    legend_handles = [
+        plt.Line2D([0], [0], marker="s", color="0.40", linestyle="None",
+                   ms=6, mfc="white", mec="0.40", label="ERM"),
+        plt.Line2D([0], [0], marker="o", color="#0d3a5c", linestyle="None",
+                   ms=6, mfc="#1f77b4", mec="#0d3a5c", label="Bagging $K{=}5$"),
+        plt.Line2D([0], [0], marker="D", color="#7a1313", linestyle="-",
+                   ms=5, mfc="white", mec="#7a1313",
+                   label=r"Twin-indep ($\lambda \in \{1,3,10,30,100,300\}$)"),
+    ]
+    ax.legend(handles=legend_handles, loc="upper center",
+              bbox_to_anchor=(0.5, -0.18), ncol=3,
+              frameon=False, fontsize=7.5, handletextpad=0.5,
+              columnspacing=1.5)
 
     ax.set_xlabel("id-churn (%)")
     ax.set_ylabel("id-accuracy (%)")
