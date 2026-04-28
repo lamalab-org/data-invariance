@@ -1,34 +1,41 @@
 dataset,method,reference,delta_mean,delta_lo,delta_hi
+dili,MC dropout,ERM,0.01053,0.00322,0.01754
 dili,Deep Ens. K=5,ERM,0.00234,-0.00643,0.01053
 dili,Bagging K=2,ERM,-0.03947,-0.05439,-0.02456
 dili,Bagging K=5,ERM,-0.08392,-0.09795,-0.06988
 dili,Twin-indep,ERM,-0.02690,-0.04240,-0.01053
 dili,Twin-indep,Bagging K=2,0.01257,-0.00058,0.02661
+cyp2d6_substrate,MC dropout,ERM,0.00021,-0.00377,0.00419
 cyp2d6_substrate,Deep Ens. K=5,ERM,0.00126,-0.00461,0.00692
 cyp2d6_substrate,Bagging K=2,ERM,-0.06017,-0.07002,-0.05073
 cyp2d6_substrate,Bagging K=5,ERM,-0.07191,-0.08176,-0.06164
 cyp2d6_substrate,Twin-indep,ERM,-0.09308,-0.10189,-0.08512
 cyp2d6_substrate,Twin-indep,Bagging K=2,-0.03291,-0.04109,-0.02537
+pgp_broccatelli,MC dropout,ERM,-0.00229,-0.00596,0.00126
 pgp_broccatelli,Deep Ens. K=5,ERM,0.00252,-0.00126,0.00619
 pgp_broccatelli,Bagging K=2,ERM,-0.02337,-0.03173,-0.01523
 pgp_broccatelli,Bagging K=5,ERM,-0.04422,-0.05132,-0.03677
 pgp_broccatelli,Twin-indep,ERM,-0.03631,-0.04307,-0.02967
 pgp_broccatelli,Twin-indep,Bagging K=2,-0.01294,-0.01856,-0.00722
+bbb_martins,MC dropout,ERM,0.01001,0.00734,0.01276
 bbb_martins,Deep Ens. K=5,ERM,-0.00418,-0.00706,-0.00151
 bbb_martins,Bagging K=2,ERM,-0.02737,-0.03237,-0.02263
 bbb_martins,Bagging K=5,ERM,-0.04115,-0.04527,-0.03711
 bbb_martins,Twin-indep,ERM,-0.07387,-0.07826,-0.06968
 bbb_martins,Twin-indep,Bagging K=2,-0.04650,-0.04918,-0.04369
+bbbp,MC dropout,ERM,0.00607,0.00300,0.00920
 bbbp,Deep Ens. K=5,ERM,-0.00648,-0.00900,-0.00402
 bbbp,Bagging K=2,ERM,-0.01977,-0.02543,-0.01425
 bbbp,Bagging K=5,ERM,-0.04035,-0.04519,-0.03586
 bbbp,Twin-indep,ERM,-0.06980,-0.07389,-0.06592
 bbbp,Twin-indep,Bagging K=2,-0.05003,-0.05310,-0.04690
+tadf,MC dropout,ERM,-0.00177,-0.00441,0.00088
 tadf,Deep Ens. K=5,ERM,-0.00182,-0.00498,0.00125
 tadf,Bagging K=2,ERM,-0.02336,-0.03027,-0.01599
 tadf,Bagging K=5,ERM,-0.04605,-0.05171,-0.04024
 tadf,Twin-indep,ERM,-0.03827,-0.04418,-0.03250
 tadf,Twin-indep,Bagging K=2,-0.01490,-0.02009,-0.01007
+ames,MC dropout,ERM,0.01817,0.01516,0.02102
 ames,Deep Ens. K=5,ERM,-0.00540,-0.00737,-0.00344
 ames,Bagging K=2,ERM,-0.03933,-0.04271,-0.03603
 ames,Bagging K=5,ERM,-0.07182,-0.07600,-0.06796

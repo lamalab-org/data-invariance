@@ -109,7 +109,7 @@ The honest reading: the consistency loss is real and effective at
 suppressing inter-network disagreement on GIN ($99\%$ sym-KL
 reduction), but the fixed $\lambda$ from the MLP development run is
 too strong for GIN.  We re-applied the same selection rule on
-BACE-GIN, sweeping $\lambda \in \{1, 3, 10, 30, 300\}$:
+BACE-GIN, sweeping $\lambda \in \{1, 3, 10, 30, 100, 300\}$:
 
 \begin{center}
 \small
@@ -121,6 +121,7 @@ $\lambda$ & id-acc & id-churn (\%) & sym-KL \\
 3   & 0.769 [0.760, 0.777] & 10.6 [10.1, 11.1] & 0.091 [0.087, 0.096] \\
 10  & \textbf{0.749 [0.743, 0.756]} & \textbf{11.8 [10.9, 12.6]} & 0.055 [0.051, 0.060] \\
 30  & 0.706 [0.699, 0.713] & 16.1 [14.9, 17.3] & 0.028 [0.025, 0.032] \\
+100 & 0.613 [0.602, 0.624] & 16.4 [14.0, 18.7] & 0.007 [0.006, 0.008] \\
 300 & 0.591 [0.576, 0.607] & 16.6 [13.4, 19.8] & 0.004 [0.003, 0.005] \\
 \bottomrule
 \end{tabular}

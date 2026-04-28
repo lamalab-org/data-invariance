@@ -105,6 +105,7 @@ def paired_delta_vs(reference_glob: str, method_glob: str,
 
 METHODS = [
     ("ERM",              GLOBS["erm"]),
+    ("MC dropout",        "mc_dropout_train*_T20.npz"),
     ("Deep Ensemble K=5", GLOBS["deep_ensemble_5"]),
     ("Bagging K=2",       GLOBS["bagging_2"]),
     ("Bagging K=5",       GLOBS["bagging_5"]),
@@ -123,9 +124,9 @@ def _fmt_delta_pp(t: tuple[float, float, float]) -> str:
 
 def write_latex_table(rows, path, frozen_lam):
     """Emit `paper/sections/tables/main.tex`: per-dataset paired Δ id-churn vs ERM."""
-    methods = ["Deep Ensemble K=5", "Bagging K=2", "Bagging K=5",
+    methods = ["MC dropout", "Deep Ensemble K=5", "Bagging K=2", "Bagging K=5",
                f"Twin_indep λ={frozen_lam} (frozen)"]
-    headers = ["Deep Ens.\\ $K{=}5$", "Bagging $K{=}2$",
+    headers = ["MC dropout", "Deep Ens.\\ $K{=}5$", "Bagging $K{=}2$",
                "Bagging $K{=}5$", "Twin-indep $\\lambda{=}300$"]
     by_ds: dict[str, dict[str, str]] = {}
     for r in rows:

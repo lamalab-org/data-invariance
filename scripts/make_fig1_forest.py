@@ -65,6 +65,7 @@ def main() -> None:
                       for ds in HEADLINE_DATASETS}
 
     method_styles = {
+        "MC dropout":    dict(marker="^", mfc="white",   mec="0.45", ms=4.5,  zorder=1),
         "Deep Ens. K=5": dict(marker="o", mfc="white",   mec="0.65", ms=4.0,  zorder=2),
         "Bagging K=2":   dict(marker="s", mfc="white",   mec="#1f77b4", ms=5.5,  zorder=3),
         "Bagging K=5":   dict(marker="s", mfc="#1f77b4", mec="#0d3a5c", ms=6.5,  zorder=4),
