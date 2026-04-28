@@ -36,6 +36,10 @@ _TDC_DATASETS = {
     "bioavailability_ma": ("ADME", "Bioavailability_Ma"),
     "pgp_broccatelli":    ("ADME", "Pgp_Broccatelli"),
     "bbb_martins":        ("ADME", "BBB_Martins"),
+    # ADME — CYP P450 substrate prediction (binary; ~660-940 each)
+    "cyp2c9_substrate":   ("ADME", "CYP2C9_Substrate_CarbonMangels"),
+    "cyp2d6_substrate":   ("ADME", "CYP2D6_Substrate_CarbonMangels"),
+    "cyp3a4_substrate":   ("ADME", "CYP3A4_Substrate_CarbonMangels"),
     # Tox
     "herg":               ("Tox",  "hERG"),
     "dili":               ("Tox",  "DILI"),

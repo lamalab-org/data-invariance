@@ -1,0 +1,3 @@
+name: cyp2c9_substrate
+arch: mlp
+data_dir: ./data/tdc

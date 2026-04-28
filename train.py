@@ -249,7 +249,8 @@ def make_dataloaders(cfg: DictConfig) -> dict[str, DataLoader]:
                                          seed=seed, data_dir=data_dir)
 
     elif name in ("hia_hou", "bioavailability_ma", "pgp_broccatelli",
-                  "bbb_martins", "herg", "dili", "ames", "skin_reaction"):
+                  "bbb_martins", "herg", "dili", "ames", "skin_reaction",
+                  "cyp2c9_substrate", "cyp2d6_substrate", "cyp3a4_substrate"):
         from data_tdc import TDCDataset
         data_dir = getattr(cfg.dataset, "data_dir", "./data/tdc")
         train_ds   = TDCDataset(name=name, split="train",         seed=seed, data_dir=data_dir)
