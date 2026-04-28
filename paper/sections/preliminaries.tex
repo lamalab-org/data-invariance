@@ -4,10 +4,10 @@
 \paragraph{Setting.}
 A learner $\mathcal{A}$ maps a training set
 $S = \{(x_i, y_i)\}_{i=1}^{N}$ drawn iid from population $\mathcal{D}$
-to a classifier $f_S = \mathcal{A}(S)$.  At deployment time the
-practitioner reports $\hat{y}(x) = \arg\max_c f_S(x)_c$ for each test
-example $x$.  We are interested in how much $\hat{y}(x)$ changes when
-$S$ is replaced by an independent draw from $\mathcal{D}$.
+to a classifier $f_S = \mathcal{A}(S)$ that returns a class
+$\hat{y}(x) = \arg\max_c f_S(x)_c$ at each test example $x$.
+Cross-sample fragility quantifies how $\hat{y}(x)$ changes when $S$
+is replaced by an independent iid draw from $\mathcal{D}$.
 
 \paragraph{Definition.}
 Given two iid training samples $S_A, S_B \sim \mathcal{D}^N$ and a
@@ -30,15 +30,14 @@ as a percentage; figures use ``id-churn'' on axes when the canonical
 id-test set is the population the expectation is taken over.
 
 \paragraph{Bootstrap estimator.}
-In practice we have one observed training set $S$, so we estimate
-$\rho$ by drawing two independent bootstraps from $S$ (sample $N$
-items with replacement).  Each bootstrap is a draw of size $N$ from
-the empirical distribution $\hat{\mathcal{D}}_S$, and $\hat{\mathcal{D}}_S
-\to \mathcal{D}$ as $N \to \infty$.  We treat the bootstrap-pair
-disagreement as a proxy for $\rho$ throughout this paper; we do not
-claim a formal consistency result.  All numerical magnitudes we report
-are with respect to this bootstrap proxy, which is what a practitioner
-can compute from their own training set.
+A practitioner has one observed training set $S$, not a population
+$\mathcal{D}$.  We estimate $\rho$ by drawing two independent
+bootstraps from $S$ (size $N$, with replacement); each bootstrap is
+a draw from the empirical distribution
+$\hat{\mathcal{D}}_S \to \mathcal{D}$ as $N \to \infty$.  All
+numerical magnitudes we report are with respect to this bootstrap
+proxy --- the quantity computable from a single observed training
+set.
 
 \paragraph{Connection to algorithmic stability.}
 \citet{TODO_bousquet2002} define uniform stability $\beta$ on the
@@ -49,13 +48,13 @@ reason $\beta$ does.  We use $\beta$ as the interpretive anchor but
 do not claim fragility matches the $O(1/N)$ rate quantitatively;
 Appendix~\ref{app:theory} enumerates the gaps.
 
-\paragraph{Strict measurement protocol.}
-To avoid contaminating cross-sample measurements with test-set drift, we
-fix a canonical test set once and only vary the training-side seed.
-Concretely: a single canonical seed $99$ constructs the test set; for
-each measurement seed $s \in \{1, \dots, 10\}$ we draw a bootstrap
+\paragraph{Measurement protocol.}
+A single canonical seed (we use $99$) fixes the train/test split.
+For each train-side seed $s \in \{1, \dots, 10\}$ we draw a bootstrap
 $S^{(s)}$ from the canonical training set and train
-$f^{(s)} = \mathcal{A}(S^{(s)})$.  Cross-sample churn is the average of
+$f^{(s)} = \mathcal{A}(S^{(s)})$ on it; the test set is byte-identical
+across $s$.  Cross-sample churn is the average of
 $\mathbf{1}[\arg\max f^{(s)}(x) \neq \arg\max f^{(s')}(x)]$ over all
-$\binom{10}{2}$ seed pairs.  Confidence intervals are obtained by
-bootstrap resampling of seed pairs; deltas between methods are paired.
+$\binom{10}{2}=45$ pairs $(s, s')$ and over the canonical test set.
+Confidence intervals come from $10{,}000$-sample bootstrap on the
+seed-pair distribution; cross-method deltas are paired.
