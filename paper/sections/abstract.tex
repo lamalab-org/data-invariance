@@ -3,24 +3,24 @@ Two classifiers trained on independent samples of the same chemistry
 training population assign different classes to $8\text{--}22\%$ of
 test molecules; aggregate accuracy is unchanged.  We call this
 \emph{cross-sample prediction fragility}: the population-level
-analogue of \emph{prediction churn}, measured
-between two equally weighted bootstraps in the small-$N$ from-scratch
-regime where scientific ML retrains and where no incumbent exists.
-Deep ensembles and MC dropout vary parameters at fixed data; they
-leave argmax churn unchanged ($-13\%$ to $+7\%$ relative on nine
-chemistry benchmarks).  Methods that vary the data work.  $K$-bootstrap
-bagging cuts argmax churn $40\text{--}54\%$ on every dataset with no
-accuracy regression.  \emph{Twin-indep} --- codistillation at $\sim$$40\%$ inter-network
-bootstrap overlap --- cuts a further median $60\%$ (range
-$16\text{--}92\%$) at matched $2\times$-ERM compute against
-bagging-$K{=}2$, and reduces distributional disagreement by another
-factor of ${\sim}8$; across three overlap points ($0\%$, $\sim$$40\%$,
-$\sim$$63\%$), only $\sim$$40\%$ never increases churn relative to
-ERM.  The selection rule that picks $\lambda$ on the development
-dataset transfers across all three architectures and modalities we
-tested (from-scratch GIN, ChemBERTa-77M-MTR, ImageNet-pretrained
-ResNet-50); the numerical $\lambda$ does not.  Bagging and
-codistillation already exist; what this paper adds is a measurement
+analogue of \emph{prediction churn}, measured between two bootstraps
+of the same training pool.  Deep ensembles and MC dropout vary
+parameters at fixed data; the class-flip rate barely moves ($-13\%$
+to $+7\%$ relative across nine chemistry benchmarks).  Methods that
+vary the data work.  Bagging cuts the rate $40\text{--}54\%$ on every
+dataset with no accuracy regression.  \emph{Twin-bootstrap} --- two
+networks trained on independent bootstraps with a soft consistency
+loss between their predictions --- cuts a further median $60\%$
+(range $16\text{--}92\%$) at twice ERM compute, and shrinks the
+softmax-level disagreement by another factor of ${\sim}8$.
+Twin-bootstrap is the codistillation family at $\sim$$40\%$
+inter-network bootstrap overlap; among the three overlap points we
+tested ($0\%$, $\sim$$40\%$, $\sim$$63\%$), the middle point is the
+only one that never makes the class-flip rate worse.  The selection
+rule for the consistency-loss weight transfers across all three
+architectures we tested (a from-scratch GIN, ChemBERTa,
+ImageNet-pretrained ResNet-50); the value the rule picks does not.
+The methods exist already; what this paper adds is a measurement
 protocol that makes their effect on cross-sample fragility visible,
 and a regime where the gap they close is large enough to demand its
 own column in the benchmark report.

@@ -6,7 +6,7 @@ The intro's toxicity classifier loses class on $8\text{--}22\%$ of
 test molecules between retrainings on independent bootstraps of the
 same training population.  Bagging-$K{=}5$ cuts that to
 $4\text{--}11\%$ at no accuracy cost ($5\times$-ERM compute,
-Table~\ref{tab:main}).  Twin-indep at $\lambda{=}300$ ($2\times$-ERM
+Table~\ref{tab:main}).  Twin-bootstrap at $\lambda{=}300$ ($2\times$-ERM
 compute) cuts it to $1\text{--}14\%$, beating matched-compute
 bagging-$K{=}2$ on $8/9$ datasets and matching the $K{=}5$ result in
 mean rank (Appendix~\ref{app:friedman}).  A single additional
@@ -20,19 +20,19 @@ an existing pipeline.
 A model's cross-sample churn is not a fact about the trained
 weights; it is a fact about the procedure that produced them ---
 the optimiser, the schedule, the data-resampling protocol.  In the
-codistillation-vs.\ twin-indep comparison
+codistillation-vs.\ twin-bootstrap comparison
 (Appendix~\ref{app:overlap_spectrum}), a single hyperparameter on
 the procedure --- the fraction of data the two networks share ---
 separates a column that goes positive on DILI ($100\%$ overlap) from
 one that never does ($\sim$$40\%$).  The same applies across
-architectures: at the BACE-MLP-frozen $\lambda{=}300$ twin-indep
+architectures: at the BACE-MLP-frozen $\lambda{=}300$ twin-bootstrap
 over-regularises GIN by $15$pp id-accuracy; the same selection rule
 re-applied on BACE-GIN picks $\lambda{=}10$ and recovers the result
 ($-47.6\%$ argmax churn vs.\ ERM-GIN, Appendix~\ref{app:gin}); the
 same rule re-applied on BACE-ChemBERTa and on Waterbirds also picks
 $\lambda{=}10$ and recovers the result
 (Appendices~\ref{app:chemberta_scope},~\ref{app:waterbirds_lambda}).
-The selection rule transfers; the numerical $\lambda$ does not.
+The selection rule transfers; the value $\lambda$ takes does not.
 Multi-class output and $N$-aware $\lambda$-scaling are open
 (Section~\ref{sec:scope}); regression results are reported in
 Appendix~\ref{app:regression}.

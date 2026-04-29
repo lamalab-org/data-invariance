@@ -3,35 +3,35 @@
 
 \paragraph{Cross-sample reduction across benchmarks.}
 Across the nine chemistry benchmarks (BACE plus eight held-out),
-bagging-$K{=}5$ and twin-indep both beat ERM on cross-sample
+bagging-$K{=}5$ and twin-bootstrap both beat ERM on cross-sample
 id-churn with $95\%$ paired-bootstrap CIs that exclude zero
 (Table~\ref{tab:main}, Figure~\ref{fig:main}).  MC dropout, in
 contrast, fails to reduce argmax churn: $\Delta$ ranges $-13\%$ to
 $+7\%$ relative to ERM, with no consistent direction.  Training a
 single model with dropout and averaging $T{=}20$ stochastic forward
 passes does not address the data-resampling axis that bagging and
-twin-indep operate on.  At matched compute against bagging-$K{=}2$,
-twin-indep wins on $8/9$ datasets (CI excludes zero; the difference
+twin-bootstrap operate on.  At matched compute against bagging-$K{=}2$,
+twin-bootstrap wins on $8/9$ datasets (CI excludes zero; the difference
 is not significant on DILI, where ERM accuracy is $0.72$ on a
 $76$-example test set); against the $5\times$-compute
-bagging-$K{=}5$, twin-indep wins on $5/8$ held-out datasets and
+bagging-$K{=}5$, twin-bootstrap wins on $5/8$ held-out datasets and
 trails on three (DILI, Pgp, TADF).  The aggregate Friedman test
 rejects equal-ranks at $\chi^2 = 38.4$, $p = 3.1 \times 10^{-7}$;
-twin-indep ranks first, indistinguishable from bagging-$K{=}5$ at
+twin-bootstrap ranks first, indistinguishable from bagging-$K{=}5$ at
 less than half the compute (Appendix~\ref{app:friedman}).
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/fig1_forest.pdf}
-  \caption{\textbf{Bagging and twin-indep beat ERM on every chemistry
+  \caption{\textbf{Bagging and twin-bootstrap beat ERM on every chemistry
     benchmark; MC dropout and deep ensembles do not.}  Left: paired
     $\Delta$ id-churn vs.\ ERM for five methods, one row per dataset
     (smallest $N$ at top), $95\%$ paired-bootstrap CIs across
     $\binom{10}{2}=45$ seed pairs.  Vertical reference lines mark
-    each method's across-dataset mean (twin-indep solid, others
+    each method's across-dataset mean (twin-bootstrap solid, others
     dashed; colours match markers); the solid black line is parity
     with ERM.  Right: $\Delta$ vs.\ matched-compute bagging-$K{=}2$,
-    twin-indep only; CI excludes zero on $7/8$ datasets and ties on
+    twin-bootstrap only; CI excludes zero on $7/8$ datasets and ties on
     DILI.  Frozen $\lambda{=}300$ is selected on the BACE development
     dataset alone; no held-out tuning.}
   \label{fig:main}
@@ -43,7 +43,7 @@ less than half the compute (Appendix~\ref{app:friedman}).
 Argmax churn projects the full prediction distribution onto its mode.
 Symmetric KL between two bootstraps distinguishes methods more finely:
 bagging-$K{=}5$ reduces it $5\text{--}10\times$ vs.\ ERM, and
-twin-indep reduces it by another factor of ${\sim}8$.  Pipelines that
+twin-bootstrap reduces it by another factor of ${\sim}8$.  Pipelines that
 consume the softmax (uncertainty-weighted ranking, candidate scoring)
 see a larger gap between the two than the argmax-churn column
 reflects.
@@ -75,7 +75,7 @@ retraining --- one extra bootstrap on top of the deployed pipeline.
 
 \paragraph{Per-molecule stabilisation on BACE.}
 Figure~\ref{fig:case_study} shows six BACE id-test molecules where
-ERM flips class on $\geq 36\%$ of seed pairs and twin-indep flips on
+ERM flips class on $\geq 36\%$ of seed pairs and twin-bootstrap flips on
 $0\%$ over the same ten retrainings.  Both methods see the same
 canonical training pool and test set; the difference is the
 consistency loss.
@@ -83,12 +83,12 @@ consistency loss.
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/fig4_case_study.pdf}
-  \caption{\textbf{Twin-indep eliminates per-molecule retraining
+  \caption{\textbf{Twin-bootstrap eliminates per-molecule retraining
     flips on BACE.}  Six id-test molecules where ERM flips class on
-    $\geq 36\%$ of seed pairs and twin-indep flips on $0\%$.  Below
-    each structure: ten ERM and ten twin-indep seed predictions,
+    $\geq 36\%$ of seed pairs and twin-bootstrap flips on $0\%$.  Below
+    each structure: ten ERM and ten twin-bootstrap seed predictions,
     each cell is the predicted class at one retraining; the gap
-    separates the two methods.  ERM stripes flip; twin-indep
+    separates the two methods.  ERM stripes flip; twin-bootstrap
     collapses to a single colour.}
   \label{fig:case_study}
 \end{figure}
@@ -96,7 +96,7 @@ consistency loss.
 \subsection{Development analysis (BACE)}
 \label{sec:dev}
 
-The single hyperparameter, twin-indep $\lambda$, is selected on BACE
+The single hyperparameter, twin-bootstrap $\lambda$, is selected on BACE
 by sweeping $\lambda \in \{1, 3, 10, 30, 100, 300\}$ and picking the
 largest grid point with BACE id-accuracy within $0.02$ of ERM
 id-accuracy.  This rule yields $\lambda{=}300$, which we apply

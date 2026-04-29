@@ -34,16 +34,17 @@ aleatoric/epistemic taxonomy of~\citet{TODO_huellermeier2021}.
 
 \paragraph{Parameter-side uncertainty and bagging.}
 Deep ensembles~\citep{TODO_lakshminarayanan2017} and MC
-dropout~\citep{TODO_gal2016} sample over model parameters at a fixed
-dataset.  Bagging~\citep{TODO_breiman1996}, in the lineage of
-stability selection~\citep{TODO_meinshausen2010}, samples over the
-data; \citet{TODO_nixon2020} report that bagged neural-network
-ensembles trade some accuracy for the resampling.  The data-resample
-axis is the right one for cross-sample fragility, and our small-$N$
-experiments find no accuracy regression from bagging in this regime.
-Bootstrapped DQN~\citep{TODO_osband2016} uses a closely related
-multi-head bootstrap construction for exploration in reinforcement
-learning.
+dropout~\citep{TODO_gal2016} sample over model parameters at fixed
+data.  Bagging~\citep{TODO_breiman1996}, in the lineage of stability
+selection~\citep{TODO_meinshausen2010}, samples over the data;
+\citet{TODO_nixon2020} report that bagged neural-network ensembles
+can trade accuracy for the resampling.  Bootstrapped
+DQN~\citep{TODO_osband2016} uses a closely related multi-head
+bootstrap construction for exploration in reinforcement learning.
+The data-resampling axis bagging operates on is the same axis
+cross-sample fragility measures, but bagging has not been
+re-targeted to it as a stability mechanism in small-$N$ from-scratch
+deep learning.
 
 \paragraph{Two-network training with a disagreement loss.}
 \citet{TODO_anil2018_codistillation} train two networks on disjoint
@@ -53,14 +54,14 @@ large-scale training, reporting churn reduction as a side benefit.
 disagreement-driven sample selection for label-noise robustness;
 mean teacher and $\Pi$-model~\citep{TODO_tarvainen2017} penalise
 disagreement under input augmentation rather than training-data
-resampling.  Twin-indep is mechanically closest to codistillation
+resampling.  Twin-bootstrap is mechanically closest to codistillation
 (two networks, KL agreement) but operates at $\sim$$40\%$
 inter-network bootstrap overlap rather than at the disjoint-shard
 $0\%$ end of the same axis; on a 10-dataset comparison
 (Appendix~\ref{app:overlap_spectrum}) codistillation degrades
 id-accuracy beyond a $5$pp threshold on Pgp and MOF-thermal,
 twin-shared introduces a positive churn delta on DILI, and
-twin-indep at ${\sim}40\%$ is the only column that never increases
+twin-bootstrap at ${\sim}40\%$ is the only column that never increases
 churn relative to ERM.
 
 \paragraph{Clinical-biostatistics precedent.}
@@ -89,9 +90,3 @@ fragility is the corresponding output-side signal and requires
 only $K$ retrainings rather than the ${\sim}10^5$ models a datamodel
 surrogate is fit on.
 
-\paragraph{Evaluation methodology.}
-\citet{TODO_bouthillier2021} argue for accounting for multiple
-variance sources in ML benchmarks; this paper pairs every reported
-delta across $\binom{10}{2}=45$ seed pairs and uses
-$10{,}000$-sample bootstrap on the seed-pair distribution to compute
-$95\%$ confidence intervals.

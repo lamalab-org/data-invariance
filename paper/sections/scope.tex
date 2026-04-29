@@ -10,7 +10,7 @@ the protocol choices we did not vary.
 \paragraph{Pretrained backbones.}
 A pretrained backbone is an implicit data prior; the from-scratch
 $\lambda$ is too strong for what the backbone already encodes.  At
-$\lambda{=}300$ (the BACE-MLP-frozen value), twin-indep collapses
+$\lambda{=}300$ (the BACE-MLP-frozen value), twin-bootstrap collapses
 accuracy by $27$pp on Waterbirds (ImageNet-pretrained ResNet-50)
 and by $9\text{--}17$pp on ChemBERTa-77M-MTR fine-tuned on six
 headline datasets, increasing argmax churn on five of six ChemBERTa
@@ -22,14 +22,14 @@ cuts churn $15\text{--}82\%$ on every ChemBERTa dataset
 accuracy (within $1$pp of ERM) and cuts churn $52\%$
 ($-5.7$pp [$-7.1$, $-4.5$]).  The rule transfers across all three
 architectures/modalities we tested (MLP, GIN, ResNet-50/ChemBERTa);
-the numerical $\lambda$ does not.  Bagging is independent of
+the value $\lambda$ takes does not.  Bagging is independent of
 $\lambda$ choice and works on every backbone we tested.
 
 \paragraph{Architecture-dependent $\lambda$.}
 On a non-fingerprint architecture (a $3$-layer GIN on RDKit graphs of
 BACE), bagging-$K{=}5$ transfers cleanly: it cuts argmax churn by
 $52\%$ ($-11.7$pp [$-12.7$, $-10.7$]) and improves id-accuracy by
-$+3.5$pp.  Twin-indep at the BACE-MLP-frozen $\lambda{=}300$ drops
+$+3.5$pp.  Twin-bootstrap at the BACE-MLP-frozen $\lambda{=}300$ drops
 id-accuracy by $15$pp and is rejected by the same accuracy-tolerance
 rule that selected $\lambda{=}300$ in the first place; re-running
 the rule on BACE-GIN selects $\lambda{=}10$, which cuts argmax
@@ -39,18 +39,17 @@ of $\lambda$ is not.  Bagging is unaffected.
 
 \paragraph{Untested settings and protocol choices.}
 The headline experiments use binary classification, Morgan
-fingerprints, and a $256$-unit MLP from scratch; the test-set
-construction is fixed at canonical seed $99$ and $\lambda$ is selected
-on BACE alone.  We do not vary the test-set seed, the development
+fingerprints, and a $256$-unit MLP from scratch; the test-set construction is fixed at a single canonical seed and
+$\lambda$ is selected on BACE alone.  We do not vary the test-set seed, the development
 dataset, the twin head count, or the multi-class output type.  An appendix regression study (ESOL, FreeSolv, Lipophilicity;
 Appendix~\ref{app:regression}) shows the methods extend to continuous
 targets and rank the same way as on classification: at matched
-$2\times$-ERM compute, twin-indep cuts prediction-difference fragility
+$2\times$-ERM compute, twin-bootstrap cuts prediction-difference fragility
 $39\text{--}42\%$ vs.\ ERM while bagging-$K{=}2$ cuts $29\text{--}32\%$
-(twin-indep wins on every dataset).  Bagging-$K{=}5$ at $5\times$-ERM
+(twin-bootstrap wins on every dataset).  Bagging-$K{=}5$ at $5\times$-ERM
 compute is strongest at $55\text{--}58\%$.  The bagging-$K{=}5$ finding is
 paired across $\binom{10}{2}=45$ seed pairs and significant at $p <
 10^{-4}$ on the Friedman test (Appendix~\ref{app:friedman}); the
-twin-indep finding is more sensitive --- it depends on a $\lambda$
+twin-bootstrap finding is more sensitive --- it depends on a $\lambda$
 that does not transfer across architectures unmodified (though the
 selection rule does).

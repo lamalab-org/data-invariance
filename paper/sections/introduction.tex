@@ -4,17 +4,17 @@
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/fig0_overview.pdf}
-  \caption{\textbf{Twin-indep eliminates most of ERM's
+  \caption{\textbf{Twin-bootstrap eliminates most of ERM's
     retraining-induced prediction flips on BACE.}  Each row is one
     of the $80$ test molecules with the largest cross-sample
     contrast; each column is one of ten retrainings on an
     independent bootstrap of the canonical training pool; cells
     are coloured by predicted class.  Visible vertical stripes
     in the left (ERM) panel are predictions that flip class across
-    retrainings; under twin-indep (right; $\lambda{=}300$, matched
+    retrainings; under twin-bootstrap (right; $\lambda{=}300$, matched
     compute against bagging-$K{=}2$) the same molecules become
-    near-uniform.  Mean argmax churn over the full test set drops
-    from $16.1\%$ (ERM) to $6.4\%$ (twin-indep).}
+    near-uniform.  Mean the class-flip rate over the full test set drops
+    from $16.1\%$ (ERM) to $6.4\%$ (twin-bootstrap).}
   \label{fig:overview}
 \end{figure}
 
@@ -23,28 +23,23 @@ Aggregate accuracy is unchanged.  The class label flips on
 $8\text{--}22\%$ of test molecules --- some already in synthesis
 queues (Figure~\ref{fig:overview}).  We call this \emph{cross-sample
 prediction fragility}: the fraction of test predictions that change
-class between two models trained on independent bootstraps of the
-same training population.
-
-Equivariant chemistry models bake invariances into the architecture
-once --- atom indexing, rotation, conformational degrees of freedom
---- and never re-derive them.  Cross-sample invariance is statistical
-rather than architectural, and is the property that determines
-whether a deployed prediction survives the next retraining when the
-training pool itself changes.
+class between two models trained on independent samples of the same
+training population.
 
 Cross-sample fragility is the population-level analogue of
 \emph{prediction churn}~\citep{TODO_milani2016, TODO_bhojanapalli2021,
-TODO_jiang2022}.  The deployment-loop literature measures churn
-between a new model and a fixed incumbent on web-scale data; we
-measure it between two equally weighted bootstraps in the small-$N$
-from-scratch regime, where no incumbent exists.  Algorithmic
-stability~\citep{TODO_bousquet2002} is the formal anchor.  Deep
-ensembles, MC dropout, and conformal prediction all fix the dataset
-and vary something else; across our nine chemistry benchmarks they
-move argmax churn by $-21\%$ to $+12.5\%$ relative to ERM, with no
-consistent direction.  Methods that vary the data, not the
-parameters, are what reduce cross-sample fragility.
+TODO_jiang2022}: prior work measures churn between a new model and
+a deployed incumbent at web scale, where the incumbent is fixed.
+Scientific machine learning often retrains from scratch on a few
+hundred to a few thousand examples and has no incumbent; what
+varies between retrainings is the sample drawn from the training
+population.  Cross-sample fragility is a distinct axis of predictive
+uncertainty: deep ensembles, MC dropout, and conformal prediction
+all sample over model parameters at fixed training data; cross-sample
+fragility samples over draws of the training data itself.  Across
+our nine chemistry benchmarks the parameter-side methods move the
+class-flip rate by $-21\%$ to $+12.5\%$ relative to ERM, with no
+consistent direction.  Methods that vary the data work.
 
 \paragraph{Contributions.}
 \begin{itemize}\itemsep0pt
@@ -57,13 +52,13 @@ parameters, are what reduce cross-sample fragility.
         predictions across retrainings --- many times larger than
         the parameter-variance axis deep ensembles and MC dropout
         capture (which leave $-13\%$ to $+7\%$ relative on
-        argmax churn).
+        the class-flip rate).
   \item $K$-bootstrap bagging~\citep{TODO_breiman1996} reduces argmax
         churn $40\text{--}54\%$ on every held-out dataset, paired
         bootstrap CI excluding zero, with no accuracy regression.
-        Twin-indep --- the codistillation
+        Twin-bootstrap --- the codistillation
         family~\citep{TODO_anil2018_codistillation} at $\sim$$40\%$
-        inter-network bootstrap overlap --- cuts argmax churn by a
+        inter-network bootstrap overlap --- cuts the class-flip rate by a
         further median $60\%$ (range $16\text{--}92\%$) at matched
         compute against bagging-$K{=}2$, at a frozen $\lambda{=}300$
         selected on BACE alone, and reduces distributional
@@ -77,13 +72,16 @@ parameters, are what reduce cross-sample fragility.
         the test predictions retraining will flip in its top decile,
         letting practitioners route only that decile to a human
         reviewer at the cost of one extra training run.
-  \item The from-scratch-tuned $\lambda$ does not transfer to other
-        architectures (GIN; Appendix~\ref{app:gin}) or to pretrained
-        backbones (ChemBERTa, Appendix~\ref{app:chemberta_scope};
-        Waterbirds, Appendix~\ref{app:waterbirds_lambda}); on each,
-        re-applying the same selection rule picks a smaller $\lambda$
-        that recovers the result.  Bagging is independent of
-        $\lambda$ choice and works on every architecture and backbone
-        we tested.
+  \item The recipe is portable.  A single rule for picking
+        $\lambda$ on the development dataset transfers across all
+        three architectures and modalities we tested --- a
+        from-scratch GIN (Appendix~\ref{app:gin}), ChemBERTa
+        fine-tuned on six chemistry benchmarks
+        (Appendix~\ref{app:chemberta_scope}), and ImageNet-pretrained
+        ResNet-50 fine-tuned on Waterbirds
+        (Appendix~\ref{app:waterbirds_lambda}) --- though the value
+        the rule picks differs by architecture.  Bagging requires no
+        tuning and works on every architecture and backbone we
+        tested.
 \end{itemize}
 

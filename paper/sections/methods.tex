@@ -28,7 +28,7 @@ trained on $K$ independent bootstraps of the canonical training set,
 predictions averaged at deployment.  No auxiliary loss; the data
 axis is varied along with parameters.
 
-\paragraph{Twin-indep with bootstrap-consistency loss.}
+\paragraph{Twin-bootstrap with bootstrap-consistency loss.}
 Two networks $\theta_A, \theta_B$ are trained jointly on independent
 bootstraps $S_A, S_B$.  At each step we draw one mini-batch from each
 loader, forward both networks on both mini-batches, and minimise
@@ -46,8 +46,8 @@ mini-batches.  At deployment, predictions are averaged.
 
 \paragraph{Algorithm.}
 \begin{algorithm}[H]
-  \caption{Twin-indep training (one epoch).}
-  \label{alg:twin-indep}
+  \caption{Twin-bootstrap training (one epoch).}
+  \label{alg:twin-bootstrap}
   \begin{algorithmic}[1]
     \Require canonical training set $S$, networks $\theta_A, \theta_B$,
              optimisers $\mathrm{opt}_A, \mathrm{opt}_B$, weight $\lambda$
@@ -82,4 +82,4 @@ $0.02$ of ERM id-accuracy.  This rule yields $\lambda{=}300$.  The
 chosen $\lambda$ is frozen and applied unchanged to every held-out
 dataset.  $K$ for ensemble methods is set a priori to $5$ following
 \citet{TODO_lakshminarayanan2017}; we additionally report $K{=}2$ for
-compute-matched comparison against twin-indep.
+compute-matched comparison against twin-bootstrap.

@@ -45,8 +45,8 @@ fast.
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.6\linewidth]{figures/fig2_pareto.pdf}
-  \caption{\textbf{Twin-indep $\lambda{=}300$ sits at the
-    accuracy-preserving end of the BACE Pareto frontier.}  Twin-indep
+  \caption{\textbf{Twin-bootstrap $\lambda{=}300$ sits at the
+    accuracy-preserving end of the BACE Pareto frontier.}  Twin-bootstrap
     at $\lambda \in \{1, 3, 10, 30, 100, 300\}$ traces an
     accuracy-vs.-churn trajectory; the pre-registered selection rule
     (largest $\lambda$ with id-acc $\ge$ ERM-id-acc $-0.02$) picks
@@ -81,11 +81,11 @@ CIs, plus paired $\Delta$ vs.\ ERM on the same $45$ seed-pairs.
 
 \begin{table}[h]
 \centering
-\caption{\textbf{GIN on BACE: bagging transfers cleanly; twin-indep
+\caption{\textbf{GIN on BACE: bagging transfers cleanly; twin-bootstrap
   $\lambda$ does not.}  ERM-GIN is more fragile than ERM-MLP
   ($22.5\%$ vs.\ $16.1\%$ argmax churn), making the methods more
   rather than less relevant on this backbone.  Bagging-$K{=}5$ cuts
-  churn $52\%$ and improves id-accuracy by $3.5$pp.  Twin-indep at
+  churn $52\%$ and improves id-accuracy by $3.5$pp.  Twin-bootstrap at
   the BACE-MLP-frozen $\lambda{=}300$ reduces sym-KL by $99\%$ but
   drops id-accuracy by $15$pp --- well outside the $0.02$
   selection-rule tolerance ERM-GIN id-acc would impose.  Bold cells
@@ -98,11 +98,11 @@ Method & id-acc & id-churn (\%) & sym-KL \\
 \midrule
 ERM                       & 0.74 [0.72, 0.76] & 22.5 [21.6, 23.3] & 0.42 [0.38, 0.45] \\
 Bagging-$K{=}5$           & \textbf{0.77 [0.77, 0.78]} & \textbf{10.8 [10.2, 11.3]} & 0.07 [0.07, 0.07] \\
-Twin-indep $\lambda{=}300$ & 0.59 [0.58, 0.61] & 16.6 [13.4, 19.8] & \textbf{0.004 [0.003, 0.005]} \\
+Twin-bootstrap $\lambda{=}300$ & 0.59 [0.58, 0.61] & 16.6 [13.4, 19.8] & \textbf{0.004 [0.003, 0.005]} \\
 \midrule
 \multicolumn{4}{l}{\emph{Paired $\Delta$ vs.\ ERM (same $45$ seed-pairs)}} \\
 Bagging-$K{=}5$           & \multicolumn{1}{c}{$+0.035$ pp} & $-11.7$ [$-12.7$, $-10.7$] ($-52\%$) & $-0.35$ [$-0.38$, $-0.32$] ($-83\%$) \\
-Twin-indep $\lambda{=}300$ & \multicolumn{1}{c}{$-0.149$ pp} & $-5.9$ [$-8.9$, $-2.8$] ($-26\%$) & $-0.41$ [$-0.44$, $-0.38$] ($-99\%$) \\
+Twin-bootstrap $\lambda{=}300$ & \multicolumn{1}{c}{$-0.149$ pp} & $-5.9$ [$-8.9$, $-2.8$] ($-26\%$) & $-0.41$ [$-0.44$, $-0.38$] ($-99\%$) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -132,7 +132,7 @@ $\lambda$ & id-acc & id-churn (\%) & sym-KL \\
 ERM-GIN id-acc is $0.739$, so the $0.02$-tolerance rule admits any
 $\lambda$ keeping id-acc $\geq 0.719$.  The largest $\lambda$
 satisfying this is $\lambda{=}10$ (bold).  At $\lambda{=}10$
-twin-indep cuts argmax churn $-47.6\%$ vs.\ ERM-GIN (paired CI
+twin-bootstrap cuts argmax churn $-47.6\%$ vs.\ ERM-GIN (paired CI
 $[-11.9, -9.5]$pp), close to the bagging-$K{=}5$ reduction of
 $-52\%$, and improves id-accuracy by $+1$pp.  The selection
 \emph{rule} transfers across architectures unchanged; the numerical
@@ -152,7 +152,7 @@ Cross-sample fragility for regression is the per-example absolute
 prediction difference between two retrainings on independent bootstraps:
 $\rho_{\mathrm{reg}}(\mathcal{A}, x) =
 \mathbb{E}_{S_A, S_B}|f_{S_A}(x) - f_{S_B}(x)|$.  The
-twin-indep consistency loss is MSE between the two networks'
+twin-bootstrap consistency loss is MSE between the two networks'
 predictions (instead of sym-KL on softmax outputs); the rule-selected
 $\lambda$ is the largest value in $\{1, 3\}$ keeping id-MAE within
 $0.05$ of ERM id-MAE, which is $\lambda{=}3$ on all three datasets
@@ -162,7 +162,7 @@ train-seeds, paired-bootstrap CIs over $45$ seed-pairs) are unchanged.
 
 \begin{table}[h]
 \centering
-\caption{\textbf{At matched $2\times$-ERM compute, twin-indep beats
+\caption{\textbf{At matched $2\times$-ERM compute, twin-bootstrap beats
   bagging-$K{=}2$ on every regression dataset; the methods rank
   identically to the classification headline.}  Per-method id-MAE
   and cross-sample fragility (mean $|f_A - f_B|$ between bootstrap
@@ -181,24 +181,24 @@ Method & id-MAE & fragility & id-MAE & fragility & id-MAE & fragility \\
 \midrule
 ERM                            & 0.94 & 0.52 & 1.65 & 0.69 & 0.66 & 0.38 \\
 Bagging-$K{=}2$ ($2\times$)    & 0.89 & 0.35 & 1.60 & 0.49 & 0.63 & 0.27 \\
-Twin-indep $\lambda{=}3$ ($2\times$) & \textbf{0.86} & \textbf{0.30} & \textbf{1.56} & \textbf{0.42} & \textbf{0.62} & \textbf{0.23} \\
+Twin-bootstrap $\lambda{=}3$ ($2\times$) & \textbf{0.86} & \textbf{0.30} & \textbf{1.56} & \textbf{0.42} & \textbf{0.62} & \textbf{0.23} \\
 Bagging-$K{=}5$ ($5\times$)    & 0.86 & 0.22 & 1.54 & 0.29 & 0.62 & 0.17 \\
 \midrule
 \multicolumn{7}{l}{\emph{Paired $\Delta$ fragility vs.\ ERM (45 seed-pairs):}} \\
 Bagging-$K{=}2$                & \multicolumn{2}{c}{$-0.17$ ($-32.4\%$)} & \multicolumn{2}{c}{$-0.20$ ($-28.7\%$)} & \multicolumn{2}{c}{$-0.11$ ($-29.7\%$)} \\
-Twin-indep $\lambda{=}3$       & \multicolumn{2}{c}{$-0.22$ ($-42.1\%$)} & \multicolumn{2}{c}{$-0.27$ ($-38.7\%$)} & \multicolumn{2}{c}{$-0.15$ ($-40.0\%$)} \\
+Twin-bootstrap $\lambda{=}3$       & \multicolumn{2}{c}{$-0.22$ ($-42.1\%$)} & \multicolumn{2}{c}{$-0.27$ ($-38.7\%$)} & \multicolumn{2}{c}{$-0.15$ ($-40.0\%$)} \\
 Bagging-$K{=}5$                & \multicolumn{2}{c}{$-0.30$ ($-57.3\%$)} & \multicolumn{2}{c}{$-0.40$ ($-58.3\%$)} & \multicolumn{2}{c}{$-0.21$ ($-55.2\%$)} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-At matched compute, twin-indep cuts regression fragility by $39\text{--}42\%$
-while bagging-$K{=}2$ cuts $29\text{--}32\%$; twin-indep wins on every
+At matched compute, twin-bootstrap cuts regression fragility by $39\text{--}42\%$
+while bagging-$K{=}2$ cuts $29\text{--}32\%$; twin-bootstrap wins on every
 dataset by ${\sim}10$pp of relative reduction.  This mirrors the
 classification headline (Section~\ref{sec:experiments}).
 Bagging-$K{=}5$ at $5\times$ ERM compute is still strongest at
 $55\text{--}58\%$, consistent with the classification pattern where
-$5\times$-compute bagging beats twin-indep on $3/7$ datasets at the
+$5\times$-compute bagging beats twin-bootstrap on $3/7$ datasets at the
 same compute trade-off.  All four methods improve id-MAE by
 $3\text{--}9\%$ over ERM; no accuracy regression on this task.
 
@@ -208,13 +208,13 @@ $3\text{--}9\%$ over ERM; no accuracy regression on this task.
 We fine-tuned
 ChemBERTa-77M-MTR~\citep{TODO_chithrananda2020_chemberta} on six
 headline datasets (BACE, BBBP, Pgp, BBB-Martins, AMES, DILI), running
-ERM and a $\lambda$ sweep for twin-indep on BACE-ChemBERTa, then
-twin-indep at the rule-selected $\lambda$ on the five held-out
+ERM and a $\lambda$ sweep for twin-bootstrap on BACE-ChemBERTa, then
+twin-bootstrap at the rule-selected $\lambda$ on the five held-out
 datasets.  All runs use five train-seeds, giving
 $\binom{5}{2}=10$ seed-pairs per dataset.
 
 \paragraph{The BACE-MLP-frozen $\lambda$ does not transfer.}  At
-$\lambda{=}300$ (the value selected on BACE-MLP) twin-indep drops
+$\lambda{=}300$ (the value selected on BACE-MLP) twin-bootstrap drops
 ChemBERTa accuracy by $9\text{--}17$pp on every dataset and
 \emph{increases} argmax churn on $5/6$ datasets.  On BBBP it collapses
 the model to the majority-class predictor.  Same diagnosis as the
@@ -228,17 +228,17 @@ and applying the same $0.02$ id-acc tolerance rule used on BACE-MLP:
 $\lambda \in \{1, 3, 10\}$ stay within tolerance, $\lambda{=}30$ and
 above fall below.  The rule picks $\lambda{=}10$.
 
-\paragraph{At rule-selected $\lambda{=}10$, twin-indep works on every
+\paragraph{At rule-selected $\lambda{=}10$, twin-bootstrap works on every
 ChemBERTa dataset.}
 
 \begin{table}[h]
 \centering
-\caption{\textbf{The rule transfers; the numerical $\lambda$ does
-  not.}  At the BACE-MLP-frozen $\lambda{=}300$ twin-indep
+\caption{\textbf{The rule transfers; the value $\lambda$ takes does
+  not.}  At the BACE-MLP-frozen $\lambda{=}300$ twin-bootstrap
   over-regularises ChemBERTa (accuracy drops $9\text{--}17$pp; churn
   rises on $5/6$ datasets, BBBP collapses to majority).  Re-applying
   the same $0.02$-tolerance rule on BACE-ChemBERTa picks
-  $\lambda{=}10$, at which twin-indep preserves accuracy (within
+  $\lambda{=}10$, at which twin-bootstrap preserves accuracy (within
   $2$pp of ERM) and cuts churn $15\text{--}82\%$ on every dataset.
   Same closed-loop pattern as the GIN architecture cross-check
   (Appendix~\ref{app:gin}).}
@@ -246,7 +246,7 @@ ChemBERTa dataset.}
 \small
 \begin{tabular}{lccccc}
 \toprule
-& \multicolumn{1}{c}{ERM} & \multicolumn{2}{c}{Twin-indep $\lambda{=}300$} & \multicolumn{2}{c}{Twin-indep $\lambda{=}10$ (rule)} \\
+& \multicolumn{1}{c}{ERM} & \multicolumn{2}{c}{Twin-bootstrap $\lambda{=}300$} & \multicolumn{2}{c}{Twin-bootstrap $\lambda{=}10$ (rule)} \\
 \cmidrule(lr){2-2} \cmidrule(lr){3-4} \cmidrule(lr){5-6}
 Dataset & churn (\%) & acc & $\Delta$ churn (\%) & acc & $\Delta$ churn (\%) \\
 \midrule
@@ -265,7 +265,7 @@ The closed-loop reading: the failure documented at $\lambda{=}300$ on
 ChemBERTa is a $\lambda$-transfer failure, not a method failure.  The
 rule transfers across architectures (MLP $\to$ GIN, MLP $\to$
 ChemBERTa) and modalities (Morgan fingerprints $\to$ SMILES tokens)
-unchanged; the numerical $\lambda$ that the rule picks does not (see
+unchanged; the value $\lambda$ takes that the rule picks does not (see
 Appendix~\ref{app:waterbirds_lambda} for the matching closed-loop
 result on the vision pretrained backbone).
 
@@ -283,9 +283,9 @@ $0.02$-tolerance selection rule.
 \caption{\textbf{Waterbirds (ImageNet-ResNet50): rule picks
   $\lambda{=}10$, recovering the closed-loop result on a vision
   pretrained backbone.}  ERM-Waterbirds id-acc $0.875$
-  (tolerance threshold $\geq 0.855$).  Twin-indep at the BACE-frozen
+  (tolerance threshold $\geq 0.855$).  Twin-bootstrap at the BACE-frozen
   $\lambda{=}300$ collapses accuracy by $27$pp; the rule on the same
-  $\lambda$ grid picks $\lambda{=}10$, at which twin-indep preserves
+  $\lambda$ grid picks $\lambda{=}10$, at which twin-bootstrap preserves
   accuracy ($0.868$, within $1$pp of ERM) and cuts argmax churn by
   $52\%$ ($-5.7$pp [$-7.1$, $-4.5$]).  Bagging-$K{=}5$ is included
   as a $\lambda$-independent reference.}
@@ -297,19 +297,19 @@ Method & id-acc & id-churn (\%) & $\Delta$ vs ERM (\%) \\
 \midrule
 ERM                       & 0.875 & 11.0 [10.1, 12.0] & --- \\
 Bagging-$K{=}5$ ($5\times$) & 0.895 &  5.4 [ 5.0,  5.9] & $-51\%$ \\
-Twin-indep $\lambda{=}1$  & 0.902 &  6.5 [ 5.9,  7.1] & $-41\%$ \\
-Twin-indep $\lambda{=}3$  & 0.899 &  5.0 [ 4.6,  5.4] & $-54\%$ \\
-\textbf{Twin-indep $\lambda{=}10$ (rule)}  & \textbf{0.868} & \textbf{5.3 [ 4.8,  5.8]} & $\mathbf{-52\%}$ \\
-Twin-indep $\lambda{=}30$ & 0.769 &  5.7 [ 4.6,  6.9] & $-48\%$ (acc out-of-tol) \\
-Twin-indep $\lambda{=}60$ & 0.684 &  4.6 [ 3.8,  5.5] & $-58\%$ (acc out-of-tol) \\
-Twin-indep $\lambda{=}100$ & 0.635 &  2.8 [ 2.5,  3.2] & $-75\%$ (acc out-of-tol) \\
-Twin-indep $\lambda{=}300$ & 0.609 &  3.6 [ 2.7,  4.6] & $-67\%$ (acc out-of-tol) \\
+Twin-bootstrap $\lambda{=}1$  & 0.902 &  6.5 [ 5.9,  7.1] & $-41\%$ \\
+Twin-bootstrap $\lambda{=}3$  & 0.899 &  5.0 [ 4.6,  5.4] & $-54\%$ \\
+\textbf{Twin-bootstrap $\lambda{=}10$ (rule)}  & \textbf{0.868} & \textbf{5.3 [ 4.8,  5.8]} & $\mathbf{-52\%}$ \\
+Twin-bootstrap $\lambda{=}30$ & 0.769 &  5.7 [ 4.6,  6.9] & $-48\%$ (acc out-of-tol) \\
+Twin-bootstrap $\lambda{=}60$ & 0.684 &  4.6 [ 3.8,  5.5] & $-58\%$ (acc out-of-tol) \\
+Twin-bootstrap $\lambda{=}100$ & 0.635 &  2.8 [ 2.5,  3.2] & $-75\%$ (acc out-of-tol) \\
+Twin-bootstrap $\lambda{=}300$ & 0.609 &  3.6 [ 2.7,  4.6] & $-67\%$ (acc out-of-tol) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 The rule transfers across all three architectures and modalities we
-tested (MLP, GIN, ResNet-50/ChemBERTa); the numerical $\lambda$ does
+tested (MLP, GIN, ResNet-50/ChemBERTa); the value $\lambda$ takes does
 not.  Both pretrained backbones (ChemBERTa on SMILES, ResNet-50 on
 Waterbirds) and the from-scratch GIN pick $\lambda{=}10$; only the
 from-scratch fingerprint-MLP picks $\lambda{=}300$.
@@ -339,7 +339,7 @@ beyond the measured range.
 \section{Ablations}
 \label{app:failures}
 
-We report alternatives we considered before settling on twin-indep
+We report alternatives we considered before settling on twin-bootstrap
 with a fixed $\lambda$ and on independent bootstraps.  All numbers
 below are under the headline protocol of
 Section~\ref{sec:preliminaries}: ten train-seeds on BACE
@@ -347,7 +347,7 @@ Section~\ref{sec:preliminaries}: ten train-seeds on BACE
 resamples on the seed-pair distribution).
 
 \paragraph{GradNorm-balanced $\lambda$ collapses the consistency loss.}
-A parameter-free version of twin-indep would balance the gradient
+A parameter-free version of twin-bootstrap would balance the gradient
 norms of the consistency and CE losses, replacing the fixed $\lambda$
 with an adaptive $\lambda_t$ such that
 $\|\nabla \mathcal{L}_{\mathrm{cons}}\|
@@ -359,7 +359,7 @@ below the BACE-frozen $\lambda{=}300$ that we report in the headline
 churn (paired $\Delta = -0.1$pp $[-0.5, +0.4]$ vs.\ ERM, $95\%$ CI
 includes zero).  The distributional sym-KL between bootstraps is
 reduced significantly but only marginally
-($\Delta = -0.15$ $[-0.17, -0.13]$); twin-indep at $\lambda{=}300$
+($\Delta = -0.15$ $[-0.17, -0.13]$); twin-bootstrap at $\lambda{=}300$
 reduces sym-KL by an additional order of magnitude.  The interpretation
 is mechanical: when the two networks share an architecture and
 initialisation distribution, their gradients on the consistency loss
@@ -394,7 +394,7 @@ churn.
 \label{app:overlap_spectrum}
 
 The codistillation~\citep{TODO_anil2018_codistillation},
-twin-indep, and twin-shared variants share the same two-network
+twin-bootstrap, and twin-shared variants share the same two-network
 sym-KL consistency objective and differ only in the inter-network
 bootstrap-overlap: $0\%$ (disjoint shards), ${\sim}40\%$ (independent
 bootstraps with replacement), and $100\%$ (the same bootstrap to
@@ -407,7 +407,7 @@ where all three methods completed.
 Read off the columns: codistillation has the largest mean churn
 reduction on most datasets but trips the $5$pp accuracy-degradation
 flag on Pgp and MOF-thermal; twin-shared trips that flag on
-MOF-thermal and goes positive on DILI; twin-indep at ${\sim}40\%$
+MOF-thermal and goes positive on DILI; twin-bootstrap at ${\sim}40\%$
 overlap is the only column that never increases churn relative to
 ERM and trips the accuracy flag on the fewest datasets (one,
 MOF-thermal).  The bootstrap-overlap fraction is a
@@ -454,17 +454,17 @@ The pairwise CIs reported in Table~\ref{tab:main} test each
 test, we apply the Friedman non-parametric rank test on mean
 cross-sample id-churn over the nine datasets and six methods (ERM,
 MC dropout, Deep Ensemble $K{=}5$, Bagging $K{=}2$, Bagging $K{=}5$,
-Twin-indep $\lambda{=}300$).  The test rejects the null of equal
+Twin-bootstrap $\lambda{=}300$).  The test rejects the null of equal
 ranks at $\chi^2 = 38.4$, $p = 3.1 \times 10^{-7}$.  Mean ranks
 (lower is better, $1$ = best on cross-sample id-churn) are
-twin-indep $1.44$, bagging $K{=}5$ $1.67$, bagging $K{=}2$ $2.89$,
+twin-bootstrap $1.44$, bagging $K{=}5$ $1.67$, bagging $K{=}2$ $2.89$,
 deep-ensemble $K{=}5$ $4.67$, ERM $5.00$, MC dropout $5.33$.  The
 Nemenyi critical difference at $\alpha{=}0.05$ is
 $\textit{CD}{=}2.51$; rank gaps exceeding $\textit{CD}$ identify
-pairs that differ significantly.  Twin-indep is significantly
+pairs that differ significantly.  Twin-bootstrap is significantly
 better in rank than ERM, MC dropout, and deep ensemble; it is
 \emph{not} significantly different from bagging $K{=}5$ (rank gap
-$0.22$).  Twin-indep therefore matches bagging $K{=}5$ in mean-rank
+$0.22$).  Twin-bootstrap therefore matches bagging $K{=}5$ in mean-rank
 at roughly $2{\times}$ ERM compute (Appendix~\ref{app:compute})
 versus the $5{\times}$ that bagging $K{=}5$ requires.
 
@@ -490,12 +490,12 @@ versus the $5{\times}$ that bagging $K{=}5$ requires.
     Deep ensemble $K{=}5$        & 5 & 5 & 5 & $5\times$ (sequential) \\
     Bagging $K{=}2$              & 2 & 2 & 2 & $2\times$ (sequential) \\
     Bagging $K{=}5$              & 5 & 5 & 5 & $5\times$ (sequential) \\
-    Twin-indep ($K{=}2$, joint)  & 4 & 1 (joint) & 2 & ${\sim}2\times$ \\
+    Twin-bootstrap ($K{=}2$, joint)  & 4 & 1 (joint) & 2 & ${\sim}2\times$ \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-Twin-indep at $K{=}2$ trains two networks jointly: each batch is
+Twin-bootstrap at $K{=}2$ trains two networks jointly: each batch is
 processed by both networks (four forwards), and a single backward pass
 on the joint loss updates both networks' parameters.  In wall-clock
 terms this is roughly $2\times$ ERM, matched to bagging-$K{=}2$.  The
@@ -518,7 +518,7 @@ ever sees a different test set; no method ever uses a different
 canonical training pool.
 
 \paragraph{Frozen hyperparameter.}
-The single tuned hyperparameter, twin-indep $\lambda$, is selected on
+The single tuned hyperparameter, twin-bootstrap $\lambda$, is selected on
 BACE only by the rule ``largest $\lambda \in
 \{1, 3, 10, 30, 100, 300\}$ with $\text{id-acc} \ge \text{ERM-id-acc}
 - 0.02$''.  This rule yields $\lambda{=}300$
