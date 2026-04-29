@@ -49,10 +49,29 @@ see a larger gap between the two than the argmax-churn column
 reflects.
 
 \paragraph{Top-decile fragility predicts which predictions flip.}
-A single additional bootstrap is sufficient to identify the $10\%$
-most fragile predictions; this top decile contains $68\text{--}94\%$
-of the predictions that would flip on retraining
-(Figure~\ref{fig:decile}).
+\label{sec:churn-decile}
+Per-example fragility, computed across pairs of ERM bootstraps, ranks
+test examples by how likely they are to flip class on retraining.
+Figure~\ref{fig:decile} bins test examples by fragility decile and
+reports the per-decile flip rate.  The bottom-$50\%$-fragility
+examples flip at $0\%$ on every dataset we test, deciles $6$--$8$
+rise sharply, and the top decile flips at $41\text{--}47\%$.
+Predictive entropy from a single ERM model ranks worse on this task
+(Appendix~\ref{app:entropy}).  A practitioner can therefore identify
+the $10\%$ most fragile predictions from a single additional
+retraining --- one extra bootstrap on top of the deployed pipeline.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.6\linewidth]{figures/fig3_decile.pdf}
+  \caption{Top-decile fragility predicts which test predictions flip
+    on retraining.  Each line is one of the nine chemistry datasets
+    in scope (BACE in red, held-out in grey); the $y$-axis is the
+    mean argmax-flip rate per bootstrap-pair within each fragility
+    decile.  Bottom $50\%$ of examples flip at $0\%$ on every dataset;
+    the top decile flips at $41\text{--}47\%$.}
+  \label{fig:decile}
+\end{figure}
 
 \paragraph{Per-molecule stabilisation on BACE.}
 Figure~\ref{fig:case_study} shows six BACE id-test molecules where
