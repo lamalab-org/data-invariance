@@ -22,11 +22,11 @@ factor of ${\sim}8$.  Twin-indep is the codistillation family of
 bootstrap overlap; on a 10-dataset comparison across three operating
 points on that family ($0\%$, $\sim$$40\%$, $\sim$$63\%$
 inter-network overlap), only $\sim$$40\%$ holds accuracy on every
-dataset.  The recipe applies in the small-$N$ from-scratch regime;
-on pretrained backbones (Waterbirds with ImageNet ResNet-50;
-ChemBERTa-77M-MTR fine-tuned on six chemistry benchmarks) the
-consistency loss over-regularises features the backbone already
-encodes.  Bagging and codistillation already exist; what this paper
+dataset.  The from-scratch-tuned $\lambda$ does not transfer to other
+architectures or to pretrained backbones; re-applying the same
+selection rule recovers the result on a from-scratch GIN
+(Appendix~\ref{app:gin}) and on ChemBERTa-77M-MTR fine-tuned on six
+chemistry benchmarks (Appendix~\ref{app:chemberta_scope}).  Bagging and codistillation already exist; what this paper
 adds is a measurement protocol that makes their cross-sample effect
 visible, and a regime where the gap they close is large enough to
 demand its own column in the report.

@@ -6,20 +6,22 @@ scientific machine learning.  We document two failure modes outside
 that regime and the protocol choices we did not vary.
 
 \paragraph{Pretrained backbones.}
-A pretrained backbone is itself an implicit data prior: large-scale
-pretraining has collapsed most cross-sample variation in the learned
-features.  Twin-indep adds the same prior on top of finetuning, and
-the two pull the model toward an over-averaged solution.  Empirically,
-on Waterbirds (ImageNet-pretrained ResNet-50, $\lambda{=}300$ as
-applied to chemistry) accuracy collapses by $27$pp while churn falls.
-The failure reproduces inside chemistry: fine-tuning ChemBERTa-77M-MTR
-on six headline datasets at the same $\lambda{=}300$ drops accuracy
-by $9\text{--}17$pp on every dataset, and \emph{increases} argmax
-churn on five of six (Appendix~\ref{app:chemberta_scope}).  Bagging
-adds no second prior and is unaffected on Waterbirds ($+2$pp accuracy,
-$-51\%$ relative churn).  Twin-indep at the from-scratch-tuned
-$\lambda$ should not be applied unmodified to pretrained-backbone
-settings on either modality we tested (vision, SMILES).
+A pretrained backbone is an implicit data prior; the from-scratch
+$\lambda$ is too strong for what the backbone already encodes.
+Empirically, on Waterbirds (ImageNet-pretrained ResNet-50,
+$\lambda{=}300$ as applied to chemistry) accuracy collapses by
+$27$pp while churn falls; the failure reproduces on ChemBERTa-77M-MTR
+fine-tuned on six headline datasets, where $\lambda{=}300$ drops
+accuracy $9\text{--}17$pp and \emph{increases} argmax churn on five
+of six.  Re-applying the same $0.02$-tolerance selection rule on
+BACE-ChemBERTa picks $\lambda{=}10$, at which twin-indep preserves
+accuracy (within $2$pp of ERM) and cuts churn $15\text{--}82\%$ on
+every ChemBERTa dataset (Appendix~\ref{app:chemberta_scope}).  The
+rule transfers across architectures and modalities; the numerical
+$\lambda$ does not.  We have not re-run Waterbirds under the rule;
+bagging is independent of $\lambda$ choice and works on every
+backbone we tested ($+2$pp accuracy, $-51\%$ relative churn on
+Waterbirds).
 
 \paragraph{Inter-network consistency collapse on MOF-thermal.}
 Strong consistency between two networks has a degenerate solution:

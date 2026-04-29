@@ -205,56 +205,71 @@ $3\text{--}9\%$ over ERM; no accuracy regression on this task.
 \section{ChemBERTa scope experiment}
 \label{app:chemberta_scope}
 
-To test whether the Waterbirds finding (twin-indep over-regularises
-pretrained features) is modality-specific or reproduces inside the
-chemistry domain, we fine-tuned
+We fine-tuned
 ChemBERTa-77M-MTR~\citep{TODO_chithrananda2020_chemberta} on six
-headline datasets (BACE, BBBP, Pgp, BBB-Martins, AMES, DILI) and ran
-ERM and twin-indep at the BACE-frozen $\lambda{=}300$ for five
-train-seeds each.  Table~\ref{tab:chemberta} reports per-method
-id-accuracy and id-churn with $95\%$ CIs from the
-$\binom{5}{2}=10$ seed-pairs.
+headline datasets (BACE, BBBP, Pgp, BBB-Martins, AMES, DILI), running
+ERM and a $\lambda$ sweep for twin-indep on BACE-ChemBERTa, then
+twin-indep at the rule-selected $\lambda$ on the five held-out
+datasets.  All runs use five train-seeds, giving
+$\binom{5}{2}=10$ seed-pairs per dataset.
+
+\paragraph{The BACE-MLP-frozen $\lambda$ does not transfer.}  At
+$\lambda{=}300$ (the value selected on BACE-MLP) twin-indep drops
+ChemBERTa accuracy by $9\text{--}17$pp on every dataset and
+\emph{increases} argmax churn on $5/6$ datasets.  On BBBP it collapses
+the model to the majority-class predictor.  Same diagnosis as the
+GIN architecture cross-check (Appendix~\ref{app:gin}): the $\lambda$
+tuned on a from-scratch MLP is too strong for pretrained
+representations.
+
+\paragraph{Rule-selected $\lambda$ on BACE-ChemBERTa is $\lambda{=}10$.}
+Sweeping $\lambda \in \{1, 3, 10, 30, 100, 300\}$ on BACE-ChemBERTa
+and applying the same $0.02$ id-acc tolerance rule used on BACE-MLP:
+$\lambda \in \{1, 3, 10\}$ stay within tolerance, $\lambda{=}30$ and
+above fall below.  The rule picks $\lambda{=}10$.
+
+\paragraph{At rule-selected $\lambda{=}10$, twin-indep works on every
+ChemBERTa dataset.}
 
 \begin{table}[h]
 \centering
-\caption{\textbf{Twin-indep at the BACE-frozen $\lambda{=}300$
-  over-regularises ChemBERTa on every dataset, dropping accuracy
-  $9\text{--}17$pp.}  ERM and twin-indep on six chemistry benchmarks,
-  fine-tuning ChemBERTa-77M-MTR with five train-seeds each.  On
-  $5/6$ datasets the consistency loss \emph{increases} argmax churn;
-  on BBBP it collapses the model to the majority-class predictor
-  ($77.6\%$ accuracy = majority, $0\%$ churn).  Same failure mode as
-  Waterbirds, now inside chemistry on the same datasets where the
-  from-scratch MLP+fingerprint recipe works.}
+\caption{\textbf{The rule transfers; the numerical $\lambda$ does
+  not.}  At the BACE-MLP-frozen $\lambda{=}300$ twin-indep
+  over-regularises ChemBERTa (accuracy drops $9\text{--}17$pp; churn
+  rises on $5/6$ datasets, BBBP collapses to majority).  Re-applying
+  the same $0.02$-tolerance rule on BACE-ChemBERTa picks
+  $\lambda{=}10$, at which twin-indep preserves accuracy (within
+  $2$pp of ERM) and cuts churn $15\text{--}82\%$ on every dataset.
+  Same closed-loop pattern as the GIN architecture cross-check
+  (Appendix~\ref{app:gin}).}
 \label{tab:chemberta}
 \small
-\begin{tabular}{lcccc}
+\begin{tabular}{lccccc}
 \toprule
-& \multicolumn{2}{c}{ERM} & \multicolumn{2}{c}{Twin-indep $\lambda{=}300$} \\
-\cmidrule(lr){2-3} \cmidrule(lr){4-5}
-Dataset & id-acc & id-churn (\%) & id-acc & id-churn (\%) \\
+& \multicolumn{1}{c}{ERM} & \multicolumn{2}{c}{Twin-indep $\lambda{=}300$} & \multicolumn{2}{c}{Twin-indep $\lambda{=}10$ (rule)} \\
+\cmidrule(lr){2-2} \cmidrule(lr){3-4} \cmidrule(lr){5-6}
+Dataset & churn (\%) & acc & $\Delta$ churn (\%) & acc & $\Delta$ churn (\%) \\
 \midrule
-BACE        & 0.71 & 15.5 [13.8, 17.5] & 0.62 & 26.0 [21.7, 30.2] \\
-BBBP        & 0.89 &  4.0 [ 3.4,  4.6] & 0.78 (= maj.) & 0.0 [0.0, 0.0] \\
-Pgp         & 0.79 &  8.9 [ 7.3, 10.4] & 0.63 & 16.3 [13.7, 18.7] \\
-BBB-Martins & 0.88 &  3.5 [ 3.1,  3.9] & 0.77 &  3.5 [ 2.2,  4.8] \\
-AMES        & 0.76 &  9.1 [ 8.7,  9.6] & 0.60 & 13.3 [10.8, 16.4] \\
-DILI        & 0.67 & 27.9 [23.8, 31.4] & 0.57 & 41.6 [35.7, 47.2] \\
+BACE        & 15.5 & 0.62 & $+67$ & 0.70 & $-15$ \\
+BBBP        &  4.0 & 0.78 & $-100$* & 0.88 & $-23$ \\
+Pgp         &  8.9 & 0.63 & $+84$ & 0.77 & $-28$ \\
+BBB-Martins &  3.5 & 0.77 & $+2$  & 0.87 & $-82$ \\
+AMES        &  9.1 & 0.60 & $+46$ & 0.75 & $-28$ \\
+DILI        & 27.9 & 0.57 & $+49$ & 0.68 & $-24$ \\
 \bottomrule
+\multicolumn{6}{l}{\footnotesize *BBBP at $\lambda{=}300$ collapses to majority-class predictor (acc $0.78$ = majority).}
 \end{tabular}
 \end{table}
 
-The pattern is the same as Waterbirds (Section~\ref{sec:scope}):
-the consistency loss adds a second prior on top of the pretrained
-representation and pulls the model toward an over-averaged solution.
-On chemistry the failure is severe enough that argmax churn
-\emph{rises} on five of six datasets, and BBBP collapses to the
-majority-class predictor entirely.  The two modalities we tested (vision and SMILES) yield the same
-diagnosis: \textbf{twin-indep at the from-scratch-tuned $\lambda$
-should not be applied unmodified to pretrained-backbone settings on
-either modality.}  Bagging is
-unaffected by either prior; we therefore recommend bagging-$K{=}5$
-as the default recipe whenever a pretrained backbone is in use.
+The closed-loop reading: the failure documented at $\lambda{=}300$ on
+ChemBERTa is a $\lambda$-transfer failure, not a method failure.  The
+rule transfers across architectures (MLP $\to$ GIN, MLP $\to$
+ChemBERTa) and modalities (Morgan fingerprints $\to$ SMILES tokens)
+unchanged; the numerical $\lambda$ that the rule picks does not.  We
+have not re-run Waterbirds under the rule on a vision pretrained
+backbone; the only confirmed failure mode independent of $\lambda$
+choice in the paper is the consistency-loss collapse on MOF-thermal
+(Section~\ref{sec:scope}).
 
 \section{Within-dataset $N$-scaling on BACE}
 \label{app:nscaling}
