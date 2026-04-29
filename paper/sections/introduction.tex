@@ -41,11 +41,10 @@ measure it between two equally weighted bootstraps in the small-$N$
 from-scratch regime, where no incumbent exists.  Algorithmic
 stability~\citep{TODO_bousquet2002} is the formal anchor.  Deep
 ensembles, MC dropout, and conformal prediction all fix the dataset
-and vary something else; on our eight benchmarks deep ensembles cut
-argmax churn by $0.2$pp on average ($-7.6\%$ to $+2.4\%$ relative)
-and MC dropout fails to reduce it ($-2.2\%$ to $+12.5\%$ relative,
-median $+1\%$), confirming that parameter-variance methods miss the
-data-resampling axis.
+and vary something else; across our nine chemistry benchmarks they
+move argmax churn by $-21\%$ to $+12.5\%$ relative to ERM, with no
+consistent direction.  Methods that vary the data, not the
+parameters, are what reduce cross-sample fragility.
 
 \paragraph{Contributions.}
 \begin{itemize}\itemsep0pt

@@ -2,17 +2,19 @@
 \label{sec:discussion}
 
 \paragraph{What the methods buy.}
-The intro's toxicity classifier loses class on $8\text{--}17\%$ of
+The intro's toxicity classifier loses class on $8\text{--}22\%$ of
 test molecules between retrainings on independent bootstraps of the
 same training population.  Bagging-$K{=}5$ cuts that to
-$4\text{--}9\%$ at no accuracy cost (Table~\ref{tab:main}); twin-indep
-at $\lambda{=}300$ cuts it further to $1\text{--}7\%$ at $2\times$-ERM
-compute matched against bagging-$K{=}2$.  A single additional
+$4\text{--}11\%$ at no accuracy cost ($5\times$-ERM compute,
+Table~\ref{tab:main}).  Twin-indep at $\lambda{=}300$ ($2\times$-ERM
+compute) cuts it to $1\text{--}14\%$, beating matched-compute
+bagging-$K{=}2$ on $8/9$ datasets and matching the $K{=}5$ result in
+mean rank (Appendix~\ref{app:friedman}).  A single additional
 bootstrap suffices to identify the top decile of fragile predictions,
 which captures $68\text{--}94\%$ of the molecules retraining will flip
 (Figure~\ref{fig:decile}); a triage workflow that routes only that
-decile to a human reviewer is therefore a one-bootstrap operation on
-top of an existing pipeline.
+decile to a human reviewer is a one-bootstrap operation on top of
+an existing pipeline.
 
 \paragraph{Cross-sample fragility belongs alongside accuracy.}
 Scientific-ML benchmark reports columns for accuracy, AUROC,
@@ -23,10 +25,10 @@ on $16\%$ of test predictions while reporting identical aggregate
 accuracy --- the BACE case (Figure~\ref{fig:overview}) --- are
 indistinguishable in the report column even though the practitioner
 sees the difference at the next retraining.  Deep ensembles and MC
-dropout, the standard parameter-side uncertainty methods, leave
-$-0.2$ to $+1.8$pp on argmax churn (Table~\ref{tab:main}); they are
-not substitutes for a report column that measures sensitivity to the
-training sample.  The clinical-biostatistics literature already
+dropout, the standard parameter-side uncertainty methods, move
+argmax churn by $-4.6$ to $+1.8$pp across the nine datasets
+(Table~\ref{tab:main}); they are not substitutes for a report column
+that measures sensitivity to the training sample.  The clinical-biostatistics literature already
 reports per-individual stability intervals~\citep{TODO_riley2023};
 the case for the same in scientific ML rests on the magnitudes we
 measure (Section~\ref{sec:measurement}).
