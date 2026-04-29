@@ -73,15 +73,14 @@ consistent direction.  Methods that vary the data work.
         letting practitioners route only that decile to a human
         reviewer at the cost of one extra training run.
   \item The recipe is portable.  A single rule for picking
-        $\lambda$ on the development dataset transfers across all
-        three architectures and modalities we tested --- a
+        $\lambda$ on the development dataset produces a working value
+        on every architecture we tested --- the headline MLP, a
         from-scratch GIN (Appendix~\ref{app:gin}), ChemBERTa
         fine-tuned on six chemistry benchmarks
         (Appendix~\ref{app:chemberta_scope}), and ImageNet-pretrained
         ResNet-50 fine-tuned on Waterbirds
         (Appendix~\ref{app:waterbirds_lambda}) --- though the value
-        the rule picks differs by architecture.  Bagging requires no
-        tuning and works on every architecture and backbone we
-        tested.
+        differs by architecture.  Bagging requires no tuning and
+        works on every architecture and backbone we tested.
 \end{itemize}
 

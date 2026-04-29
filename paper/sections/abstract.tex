@@ -11,15 +11,16 @@ vary the data work.  Bagging cuts the rate $40\text{--}54\%$ on every
 dataset with no accuracy regression.  \emph{Twin-bootstrap} --- two
 networks trained on independent bootstraps with a soft consistency
 loss between their predictions --- cuts a further median $60\%$
-(range $16\text{--}92\%$) at twice ERM compute, and shrinks the
-softmax-level disagreement by another factor of ${\sim}8$.
+(range $16\text{--}92\%$) at twice ERM compute, and reduces the
+disagreement on the full predicted probabilities (not just on the
+predicted class) by another factor of ${\sim}8$.
 Twin-bootstrap is the codistillation family at $\sim$$40\%$
 inter-network bootstrap overlap; among the three overlap points we
 tested ($0\%$, $\sim$$40\%$, $\sim$$63\%$), the middle point is the
 only one that never makes the class-flip rate worse.  The selection
-rule for the consistency-loss weight transfers across all three
-architectures we tested (a from-scratch GIN, ChemBERTa,
-ImageNet-pretrained ResNet-50); the value the rule picks does not.
+rule for the consistency-loss weight transfers across all four
+architectures we tested (MLP, GIN, ChemBERTa, ImageNet-pretrained
+ResNet-50); the value the rule picks differs by architecture.
 The methods exist already; what this paper adds is a measurement
 protocol that makes their effect on cross-sample fragility visible,
 and a regime where the gap they close is large enough to demand its
