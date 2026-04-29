@@ -1,11 +1,8 @@
 # MOF solvent removal stability — clever-materials-hans dataset.
 # Binary classification: stable (1) vs unstable (0) under solvent removal.
-# Target is already binary in the source data.
-# Spurious: feat_lc-I-2-all — structural descriptor with |r|=0.002 to target.
+# No spurious-correlation injection.
 name: mof_solvent
 arch: mlp
 parquet_path: data/chemistry/mof_solvent_stability.parquet
 target_column: assigned_solvent_removal_stability
-spurious_property: feat_lc-I-2-all
-spurious_correlation: 0.9
 data_dir: ./data

@@ -1,11 +1,8 @@
 # Perovskite solar cell efficiency — clever-materials-hans dataset.
 # Binary classification: high efficiency (>= 13.3% PCE) vs low.
-# Spurious: feat_comp_MagpieData minimum GSbandgap — a composition descriptor with
-# |r|=0.001 to PCE (genuinely non-causal). Artificially correlated at 0.9.
+# No spurious-correlation injection.
 name: perovskite
 arch: mlp
 parquet_path: data/chemistry/perovskite_processed.parquet
 target_column: data.jv.default_PCE
-spurious_property: feat_comp_MagpieData minimum GSbandgap
-spurious_correlation: 0.9
 data_dir: ./data

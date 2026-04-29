@@ -26,8 +26,10 @@ inter-network overlap), only $\sim$$40\%$ holds accuracy on every
 dataset.  The from-scratch-tuned $\lambda$ does not transfer to other
 architectures or to pretrained backbones; re-applying the same
 selection rule recovers the result on a from-scratch GIN
-(Appendix~\ref{app:gin}) and on ChemBERTa-77M-MTR fine-tuned on six
-chemistry benchmarks (Appendix~\ref{app:chemberta_scope}).  Bagging and codistillation already exist; what this paper
+(Appendix~\ref{app:gin}), on ChemBERTa-77M-MTR fine-tuned on six
+chemistry benchmarks (Appendix~\ref{app:chemberta_scope}), and on
+ImageNet-pretrained ResNet-50 fine-tuned on Waterbirds
+(Appendix~\ref{app:waterbirds_lambda}).  Bagging and codistillation already exist; what this paper
 adds is a measurement protocol that makes their cross-sample effect
 visible, and a regime where the gap they close is large enough to
 demand its own column in the report.

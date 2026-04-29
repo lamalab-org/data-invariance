@@ -1,11 +1,10 @@
-# MOF thermal stability — clever-materials-hans dataset.
+# MOF thermal stability — clever-materials-hans dataset (text-mined).
 # Binary classification: thermally stable (>= 359K) vs unstable (< 359K).
-# Spurious: feat_func-Z-0-all — a structural descriptor with |r|=0.001 to the
-# target (genuinely non-causal). Artificially correlated at 0.9 via subsampling.
+# Features: RAC descriptors (174 feat_*) + geometric surface area.
+# No spurious-correlation injection: cross-sample fragility is measured
+# under the natural training distribution.
 name: mof_thermal
 arch: mlp
 parquet_path: data/chemistry/mof_thermal_stability.parquet
 target_column: assigned_T_decomp
-spurious_property: feat_func-Z-0-all
-spurious_correlation: 0.9
 data_dir: ./data

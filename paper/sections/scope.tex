@@ -10,21 +10,21 @@ the protocol choices we did not vary.
 
 \paragraph{Pretrained backbones.}
 A pretrained backbone is an implicit data prior; the from-scratch
-$\lambda$ is too strong for what the backbone already encodes.
-Empirically, on Waterbirds (ImageNet-pretrained ResNet-50,
-$\lambda{=}300$ as applied to chemistry) accuracy collapses by
-$27$pp while churn falls; the failure reproduces on ChemBERTa-77M-MTR
-fine-tuned on six headline datasets, where $\lambda{=}300$ drops
-accuracy $9\text{--}17$pp and \emph{increases} argmax churn on five
-of six.  Re-applying the same $0.02$-tolerance selection rule on
-BACE-ChemBERTa picks $\lambda{=}10$, at which twin-indep preserves
-accuracy (within $2$pp of ERM) and cuts churn $15\text{--}82\%$ on
-every ChemBERTa dataset (Appendix~\ref{app:chemberta_scope}).  The
-rule transfers across architectures and modalities; the numerical
-$\lambda$ does not.  We have not re-run Waterbirds under the rule;
-bagging is independent of $\lambda$ choice and works on every
-backbone we tested ($+2$pp accuracy, $-51\%$ relative churn on
-Waterbirds).
+$\lambda$ is too strong for what the backbone already encodes.  At
+$\lambda{=}300$ (the BACE-MLP-frozen value), twin-indep collapses
+accuracy by $27$pp on Waterbirds (ImageNet-pretrained ResNet-50)
+and by $9\text{--}17$pp on ChemBERTa-77M-MTR fine-tuned on six
+headline datasets, increasing argmax churn on five of six ChemBERTa
+datasets.  Re-applying the same $0.02$-tolerance selection rule on
+the development set of each pretrained backbone picks $\lambda{=}10$:
+on BACE-ChemBERTa this preserves accuracy (within $2$pp of ERM) and
+cuts churn $15\text{--}82\%$ on every ChemBERTa dataset
+(Appendix~\ref{app:chemberta_scope}); on Waterbirds it preserves
+accuracy (within $1$pp of ERM) and cuts churn $52\%$
+($-5.7$pp [$-7.1$, $-4.5$]).  The rule transfers across all three
+architectures/modalities we tested (MLP, GIN, ResNet-50/ChemBERTa);
+the numerical $\lambda$ does not.  Bagging is independent of
+$\lambda$ choice and works on every backbone we tested.
 
 \paragraph{MOF-thermal collapse.}
 On MOF-thermal, twin-indep and codistillation reach an id-accuracy

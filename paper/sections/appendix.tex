@@ -265,11 +265,55 @@ The closed-loop reading: the failure documented at $\lambda{=}300$ on
 ChemBERTa is a $\lambda$-transfer failure, not a method failure.  The
 rule transfers across architectures (MLP $\to$ GIN, MLP $\to$
 ChemBERTa) and modalities (Morgan fingerprints $\to$ SMILES tokens)
-unchanged; the numerical $\lambda$ that the rule picks does not.  We
-have not re-run Waterbirds under the rule on a vision pretrained
-backbone; the only confirmed failure mode independent of $\lambda$
-choice in the paper is the consistency-loss collapse on MOF-thermal
-(Section~\ref{sec:scope}).
+unchanged; the numerical $\lambda$ that the rule picks does not (see
+Appendix~\ref{app:waterbirds_lambda} for the matching closed-loop
+result on the vision pretrained backbone).
+
+\section{Waterbirds scope experiment}
+\label{app:waterbirds_lambda}
+
+The same protocol is applied to Waterbirds (ImageNet-pretrained
+ResNet-50, $N{=}4795$, single-task binary classification) with five
+train-seeds.  We sweep
+$\lambda \in \{1, 3, 10, 30, 60, 100, 300\}$ and apply the same
+$0.02$-tolerance selection rule.
+
+\begin{table}[h]
+\centering
+\caption{\textbf{Waterbirds (ImageNet-ResNet50): rule picks
+  $\lambda{=}10$, recovering the closed-loop result on a vision
+  pretrained backbone.}  ERM-Waterbirds id-acc $0.875$
+  (tolerance threshold $\geq 0.855$).  Twin-indep at the BACE-frozen
+  $\lambda{=}300$ collapses accuracy by $27$pp; the rule on the same
+  $\lambda$ grid picks $\lambda{=}10$, at which twin-indep preserves
+  accuracy ($0.868$, within $1$pp of ERM) and cuts argmax churn by
+  $52\%$ ($-5.7$pp [$-7.1$, $-4.5$]).  Bagging-$K{=}5$ is included
+  as a $\lambda$-independent reference.}
+\label{tab:waterbirds_lambda}
+\small
+\begin{tabular}{lccc}
+\toprule
+Method & id-acc & id-churn (\%) & $\Delta$ vs ERM (\%) \\
+\midrule
+ERM                       & 0.875 & 11.0 [10.1, 12.0] & --- \\
+Bagging-$K{=}5$ ($5\times$) & 0.895 &  5.4 [ 5.0,  5.9] & $-51\%$ \\
+Twin-indep $\lambda{=}1$  & 0.902 &  6.5 [ 5.9,  7.1] & $-41\%$ \\
+Twin-indep $\lambda{=}3$  & 0.899 &  5.0 [ 4.6,  5.4] & $-54\%$ \\
+\textbf{Twin-indep $\lambda{=}10$ (rule)}  & \textbf{0.868} & \textbf{5.3 [ 4.8,  5.8]} & $\mathbf{-52\%}$ \\
+Twin-indep $\lambda{=}30$ & 0.769 &  5.7 [ 4.6,  6.9] & $-48\%$ (acc out-of-tol) \\
+Twin-indep $\lambda{=}60$ & 0.684 &  4.6 [ 3.8,  5.5] & $-58\%$ (acc out-of-tol) \\
+Twin-indep $\lambda{=}100$ & 0.635 &  2.8 [ 2.5,  3.2] & $-75\%$ (acc out-of-tol) \\
+Twin-indep $\lambda{=}300$ & 0.609 &  3.6 [ 2.7,  4.6] & $-67\%$ (acc out-of-tol) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The rule transfers across all three architectures and modalities we
+tested (MLP, GIN, ResNet-50/ChemBERTa); the numerical $\lambda$ does
+not.  For pretrained backbones (vision and SMILES), the rule
+consistently picks $\lambda{=}10$; for the from-scratch GIN, also
+$\lambda{=}10$; only the from-scratch fingerprint-MLP picks the
+larger $\lambda{=}300$.
 
 \section{Within-dataset $N$-scaling on BACE}
 \label{app:nscaling}
