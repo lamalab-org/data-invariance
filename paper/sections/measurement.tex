@@ -16,10 +16,23 @@ Three small-test-set datasets are reported only in an appendix table
 (Skin\_Reaction, hERG, HIA\_Hou); five are excluded entirely because
 ERM does not exceed majority at the $5$pp threshold (Bioavailability\_Ma,
 MOF\_solvent, CYP2C9-Sub, CYP3A4-Sub, ClinTox).
-Featurisation is Morgan fingerprints (radius 2, 2048 bits) for
-molecular datasets and dataset-specific descriptors for materials;
-the headline architecture is a 256-unit MLP trained from scratch.
-Appendices~\ref{app:gin} and \ref{app:chemberta_scope} report
+Featurisation is dataset-specific.  The MoleculeNet binary tasks
+(BACE, BBBP, ClinTox) and the TDC ADME/Tox tasks (DILI,
+Pgp\_Broccatelli, BBB\_Martins, AMES, CYP2C9-Sub, CYP2D6-Sub,
+CYP3A4-Sub, hERG, HIA\_Hou, Skin\_Reaction, Bioavailability\_Ma)
+use $2048$-bit Morgan fingerprints at radius $2$, computed via
+RDKit~\citep{TODO_rdkit}.  TADF uses the same Morgan fingerprints
+concatenated with $217$ RDKit-derived molecular descriptors
+(molecular weight, EState indices, partial charges, etc.) from the
+clever-materials-hans pipeline.  MOF-thermal-stability and
+MOF-solvent-removal use $174$ Revised Auto-Correlation (RAC)
+descriptors over metal-centre, linker, functional-group, and
+ligand-chemistry atoms at depths $0$--$3$, plus geometric surface
+area (GSA), the standard featurisation for MOF property
+prediction~\citep{TODO_moosavi2020_rac}.  All inputs are
+column-standardised before training.  The headline architecture is
+a $256$-unit MLP trained from scratch on these features.
+Appendices~\ref{app:gin} and~\ref{app:chemberta_scope} report
 cross-checks on a graph network and on ChemBERTa-77M-MTR.
 
 \subsection{Magnitudes}
