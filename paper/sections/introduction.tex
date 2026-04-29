@@ -34,8 +34,9 @@ Scientific machine learning often retrains from scratch on a few
 hundred to a few thousand examples and has no incumbent; what
 varies between retrainings is the sample drawn from the training
 population.  Cross-sample fragility is a distinct axis of predictive
-uncertainty: deep ensembles, MC dropout, and conformal prediction
-all sample over model parameters at fixed training data; cross-sample
+uncertainty, and AI-for-science benchmarks do not currently report
+it: deep ensembles, MC dropout, and conformal prediction all sample
+over model parameters at fixed training data, while cross-sample
 fragility samples over draws of the training data itself.  Across
 our nine chemistry benchmarks the parameter-side methods move the
 class-flip rate by $-21\%$ to $+12.5\%$ relative to ERM, with no
