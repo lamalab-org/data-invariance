@@ -2,25 +2,23 @@
 \label{sec:experiments}
 
 \paragraph{Cross-sample reduction across benchmarks.}
-Across the eight chemistry benchmarks where the methods apply (BACE
-plus seven held-out; MOF-thermal is reported in
-Section~\ref{sec:scope}), bagging-$K{=}5$ and twin-indep both beat
-ERM on cross-sample id-churn with $95\%$ paired-bootstrap CIs that
-exclude zero (Table~\ref{tab:main}, Figure~\ref{fig:main}).  MC
-dropout, in contrast, fails to reduce argmax churn: $\Delta$ ranges
-$-2.2\%$ to $+12.5\%$ relative to ERM (median $+1\%$).  Training a
+Across the nine chemistry benchmarks (BACE plus eight held-out),
+bagging-$K{=}5$ and twin-indep both beat ERM on cross-sample
+id-churn with $95\%$ paired-bootstrap CIs that exclude zero
+(Table~\ref{tab:main}, Figure~\ref{fig:main}).  MC dropout, in
+contrast, fails to reduce argmax churn: $\Delta$ ranges $-13\%$ to
+$+7\%$ relative to ERM, with no consistent direction.  Training a
 single model with dropout and averaging $T{=}20$ stochastic forward
 passes does not address the data-resampling axis that bagging and
-twin-indep operate on.  At matched compute against
-bagging-$K{=}2$, twin-indep wins on $7/8$ datasets (CI excludes zero;
-the difference is not significant on DILI, where ERM accuracy is
-$0.72$ on a $76$-example test set); against the $5\times$-compute
-bagging-$K{=}5$, twin-indep wins on $4/7$ held-out datasets and
-trails on three (DILI, Pgp, TADF).  The aggregate
-Friedman test rejects equal-ranks at $\chi^2 = 24.34$,
-$p = 6.8 \times 10^{-5}$; twin-indep ranks first, indistinguishable
-from bagging-$K{=}5$ at less than half the compute
-(Appendix~\ref{app:friedman}).
+twin-indep operate on.  At matched compute against bagging-$K{=}2$,
+twin-indep wins on $8/9$ datasets (CI excludes zero; the difference
+is not significant on DILI, where ERM accuracy is $0.72$ on a
+$76$-example test set); against the $5\times$-compute
+bagging-$K{=}5$, twin-indep wins on $5/8$ held-out datasets and
+trails on three (DILI, Pgp, TADF).  The aggregate Friedman test
+rejects equal-ranks at $\chi^2 = 24.34$, $p = 6.8 \times 10^{-5}$;
+twin-indep ranks first, indistinguishable from bagging-$K{=}5$ at
+less than half the compute (Appendix~\ref{app:friedman}).
 
 \begin{figure}[t]
   \centering

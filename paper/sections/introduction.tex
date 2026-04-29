@@ -20,7 +20,7 @@
 
 A toxicity classifier is retrained on a new batch of assay results.
 Aggregate accuracy is unchanged.  Predictions flip class for
-$8\text{--}17\%$ of candidate molecules, some already in synthesis
+$8\text{--}22\%$ of candidate molecules, some already in synthesis
 queues (Figure~\ref{fig:overview}).  We call this \emph{cross-sample
 prediction fragility}: the fraction of test predictions that change
 class between two models trained on independent bootstraps of the
@@ -54,10 +54,10 @@ data-resampling axis.
         measurement protocol for the small-$N$ from-scratch regime
         where deployment-loop churn measurement does not apply.
   \item On nine chemistry benchmarks (MoleculeNet, TDC ADME/Tox,
-        materials science) fragility flips $8\text{--}17\%$ of test
+        materials science) fragility flips $8\text{--}22\%$ of test
         predictions across retrainings --- many times larger than
         the parameter-variance axis deep ensembles and MC dropout
-        capture (which leave $-7.6\%$ to $+12.5\%$ relative on
+        capture (which leave $-13\%$ to $+7\%$ relative on
         argmax churn).
   \item $K$-bootstrap bagging~\citep{TODO_breiman1996} reduces argmax
         churn $40\text{--}54\%$ on every held-out dataset, paired
@@ -80,12 +80,11 @@ data-resampling axis.
         reviewer at the cost of one extra training run.
   \item The from-scratch-tuned $\lambda$ does not transfer to other
         architectures (GIN; Appendix~\ref{app:gin}) or to pretrained
-        backbones (ChemBERTa; Appendix~\ref{app:chemberta_scope}); on
-        each, re-applying the same selection rule picks a smaller
-        $\lambda$ that recovers the result.  Bagging is independent
-        of $\lambda$ choice and works on every architecture and
-        backbone we tested.  On MOF-thermal, twin-indep and
-        codistillation collapse to majority-class accuracy; the cause
-        is open (Section~\ref{sec:scope}).
+        backbones (ChemBERTa, Appendix~\ref{app:chemberta_scope};
+        Waterbirds, Appendix~\ref{app:waterbirds_lambda}); on each,
+        re-applying the same selection rule picks a smaller $\lambda$
+        that recovers the result.  Bagging is independent of
+        $\lambda$ choice and works on every architecture and backbone
+        we tested.
 \end{itemize}
 

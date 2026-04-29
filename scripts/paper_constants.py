@@ -38,18 +38,19 @@ HEADLINE_DATASETS = [
     "cyp2d6_substrate",
     "pgp_broccatelli",
     "bbb_martins",
+    "mof_thermal",
     "bbbp",
     "tadf",
     "ames",
 ]
 
-# Datasets included in the magnitudes table (Table 2) but not in the
-# methods comparison: ERM passes the +5pp / N≥60 filter so the cross-bootstrap
-# fragility metric is well-defined, but consistency methods catastrophically
-# fail at the frozen λ (documented in the scope section).
-MAGNITUDES_EXTRA = [
-    "mof_thermal",
-]
+# Once MOF-thermal was re-run without the (V-REx-style) spurious-correlation
+# injection it had inherited from the project's prior research direction,
+# the consistency collapse went away (twin-indep id-acc moved from 0.535 =
+# majority to 0.640 = 12pp above majority).  MOF-thermal now passes the
+# headline filter and is included in the methods comparison.  No magnitudes-only
+# dataset remains.
+MAGNITUDES_EXTRA: list[str] = []
 
 # Datasets we tried but that failed the +5pp health filter on ERM
 # (id-acc within 5pp of majority-class baseline). Kept for transparency in
@@ -67,7 +68,6 @@ NEW_FAILED_FILTER = [
 #     is then partly via majority-class prediction.
 #   - skin_reaction, herg, hia_hou: ERM > majority by < 5pp or test set < 60.
 BORDERLINE_DATASETS = [
-    "mof_thermal",
     "skin_reaction",
     "herg",
     "hia_hou",

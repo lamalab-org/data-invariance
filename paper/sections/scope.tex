@@ -2,8 +2,7 @@
 \label{sec:scope}
 
 The methods we report are designed for small-$N$ from-scratch
-scientific machine learning.  We document one observation we cannot
-explain (MOF-thermal collapse), two settings where the
+scientific machine learning.  We document two settings where the
 from-scratch-tuned $\lambda$ does not transfer but the selection
 rule recovers the result (architecture, pretrained backbone), and
 the protocol choices we did not vary.
@@ -25,13 +24,6 @@ accuracy (within $1$pp of ERM) and cuts churn $52\%$
 architectures/modalities we tested (MLP, GIN, ResNet-50/ChemBERTa);
 the numerical $\lambda$ does not.  Bagging is independent of
 $\lambda$ choice and works on every backbone we tested.
-
-\paragraph{MOF-thermal collapse.}
-On MOF-thermal, twin-indep and codistillation reach an id-accuracy
-of $0.53$ (majority baseline $0.52$); ERM and bagging hold accuracy
-($0.62$).  We report the observation but cannot say why MOF-thermal
-differs from the other eight datasets in the magnitudes table from
-the available evidence (Appendix~\ref{app:borderline}).
 
 \paragraph{Architecture-dependent $\lambda$.}
 On a non-fingerprint architecture (a $3$-layer GIN on RDKit graphs of
@@ -61,5 +53,4 @@ paired across $\binom{10}{2}=45$ seed pairs and significant at $p <
 10^{-4}$ on the Friedman test (Appendix~\ref{app:friedman}); the
 twin-indep finding is more sensitive --- it depends on a $\lambda$
 that does not transfer across architectures unmodified (though the
-selection rule does), and the MOF-thermal observation remains
-unexplained.
+selection rule does).

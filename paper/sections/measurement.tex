@@ -41,7 +41,7 @@ cross-checks on a graph network and on ChemBERTa-77M-MTR.
 Table~\ref{tab:fragility-magnitudes} reports the cross-bootstrap
 fragility and argmax churn for each of the nine health-passing
 datasets alongside training-set size $N$ and ERM accuracy.  Argmax
-churn ranges from $8.0\%$ (BBB-Martins) to $16.8\%$ (DILI).  Sym-KL
+churn ranges from $8.0\%$ (BBB-Martins) to $21.8\%$ (MOF-thermal).  Sym-KL
 varies by ${\sim}4\times$ across datasets at similar $N$ (TADF $0.27$
 vs.\ BACE $0.75$ at $N \approx 1000$), so we do not fit a
 cross-dataset $1/N$ curve; algorithmic stability motivates the
@@ -72,7 +72,7 @@ Predictive entropy from a single ERM model ranks worse on this task
   \centering
   \includegraphics[width=0.6\linewidth]{figures/fig3_decile.pdf}
   \caption{Top-decile fragility predicts which test predictions flip
-    on retraining.  Each line is one of the eight chemistry datasets
+    on retraining.  Each line is one of the nine chemistry datasets
     in scope (BACE in red, held-out in grey); the $y$-axis is the
     mean argmax-flip rate per bootstrap-pair within each fragility
     decile.  Bottom $50\%$ of examples flip at $0\%$ on every dataset;
