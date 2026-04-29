@@ -146,14 +146,31 @@ def _scaffold_split(smiles_list: list[str], seed: int = 42, frac_train: float = 
 class MolNetDataset(Dataset):
     """MoleculeNet dataset with Morgan fingerprint features and scaffold split.
 
+    Three task modes, all served by the same class so the train/test
+    pipeline can stay shared:
+
+    1. ``classification`` (default for binary MoleculeNet datasets like
+       BACE/BBBP/HIV/ClinTox/Tox21): targets are integer 0/1.
+    2. ``regression=True`` on a regression dataset (ESOL/FreeSolv/Lipo):
+       targets are float (log-solubility, kcal/mol, etc.) and labels are
+       returned as ``torch.float32`` for direct MSE training.
+    3. ``regression=False`` on a regression dataset: targets are
+       median-binarised so the dataset can be used as a binary
+       classifier — useful for architecture/protocol smoke tests on
+       continuous targets without needing a regression pipeline.
+
     Args:
-        name:      Dataset name ("bace", "bbbp", "hiv", "clintox", "esol").
-        split:     "train" (random subset of train scaffolds),
-                   "test" (random split of train for ID eval),
-                   "test_scaffold" (held-out scaffolds for OOD eval).
-        seed:      Random seed for splits.
-        data_dir:  Cache directory for downloads.
-        n_bits:    Morgan fingerprint length.
+        name:       Dataset name ("bace", "bbbp", "hiv", "clintox", "tox21",
+                    "sider", "muv", "pcba", "esol", "freesolv", "lipo").
+        split:      "train" (random 80% of scaffold-train),
+                    "test" (random 20% of scaffold-train; in-distribution),
+                    "test_scaffold" (held-out scaffolds; OOD).
+        seed:       Random seed for the scaffold split + 80/20 partition.
+        data_dir:   Cache directory for the DeepChem CSV download.
+        n_bits:     Morgan fingerprint length (default 2048).
+        regression: If True and the dataset is regression-typed, keep
+                    the continuous target instead of median-binarising.
+                    Has no effect on classification datasets.
     """
 
     def __init__(

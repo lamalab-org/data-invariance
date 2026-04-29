@@ -1,7 +1,25 @@
 """Per-dataset paired-bootstrap analysis for regression.
 
-Cross-sample fragility for regression: per-example absolute prediction
-difference between two retrainings on independent bootstraps.
+Design decisions
+----------------
+1. **Fragility metric.**  For classification we report argmax churn
+   (per-example argmax disagreement rate).  For regression there is no
+   argmax, so we use the natural analogue: per-example absolute
+   prediction difference between two retrainings,
+   ``frag_reg(x) = E[|f_A(x) - f_B(x)|]``.  This is computable from the
+   same NPZ files saved by ``cross_sample_train.py`` (predictions
+   stored as ``id_preds`` for ERM / ``id_preds_avg`` for ensembles
+   and twin-indep).
+
+2. **Method comparison.**  Each method has its own glob pattern
+   (see ``METHODS`` dict).  We deliberately include bagging-K=2 in
+   the comparison so the matched-compute claim ($2\\times$-ERM
+   compute, same as twin-indep) is computable from one script run.
+
+3. **Paired bootstrap.**  All deltas are paired across the
+   ``binom(10, 2) = 45`` seed-pair distribution that the canonical
+   protocol generates.  ``bootstrap_paired`` is implemented in
+   ``scripts/_analysis_lib.py``.
 
 Usage: python scripts/analyze_dataset_reg.py <dataset>
 """

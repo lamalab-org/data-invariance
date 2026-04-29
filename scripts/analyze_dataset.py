@@ -1,13 +1,32 @@
 """Per-dataset health filter + paired-bootstrap deltas vs ERM.
 
+Design decisions
+----------------
+1. **Health filter.**  The paper's pre-registered filter is
+   ``ERM_id_acc ≥ majority + 0.05`` AND ``id_test_n ≥ 60``.  The
+   first guards against datasets where the classifier is essentially
+   predicting the majority class (cross-sample fragility is then
+   dominated by majority-class shuffling, not learned-decision
+   sensitivity).  The second avoids datasets where 95% CIs span the
+   entire interval.  Both rules are pre-registered in
+   ``scripts/paper_constants.py`` and applied at the time a dataset
+   is added to the headline sweep.
+
+2. **Method comparison.**  Reports the four headline methods (ERM,
+   bagging-K=5, MC-dropout-T=20, twin-indep λ=300) on a single
+   dataset.  Each has its own NPZ glob in ``METHODS``.  The paper's
+   main forest plot uses these same globs via
+   ``paper_constants.METHOD_GLOBS``.
+
+3. **Paired bootstrap.**  All Δ are paired across the
+   ``binom(10, 2) = 45`` seed-pair distribution.  Compute via
+   ``_analysis_lib.bootstrap_paired`` (10,000 resamples).
+   Relative reductions in the printed output use the ERM mean
+   churn as denominator so percentages compare like-for-like
+   across datasets with different baseline magnitudes.
+
 Usage:
   python scripts/analyze_dataset.py <dataset>
-
-Prints:
-  * ERM id-accuracy + majority-class baseline + health-filter pass/fail
-  * Per-method (ERM, bagging-K=5, mc_dropout, twin-indep λ=300):
-    id_acc, id_churn, sym_kl with 95% bootstrap CIs
-  * Paired Δ vs ERM on the 45 seed-pairs for each method
 """
 from __future__ import annotations
 

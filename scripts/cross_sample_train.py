@@ -66,7 +66,16 @@ def _predict(model, loader, device):
 
 
 def _predict_reg(model, loader, device):
-    """Regression analogue: returns (preds_1d, labels_1d, indices_1d)."""
+    """Regression analogue of `_predict`: returns raw scalar predictions.
+
+    The regression head outputs shape (B, 1); we ``squeeze(-1)`` to get
+    a 1-D array.  No softmax is applied (regression has no class
+    probabilities).  Cross-sample fragility for regression is computed
+    downstream as ``mean |pred_A(x) - pred_B(x)|`` between two retrainings.
+
+    Returns: ``(preds_1d, labels_1d, indices_1d)`` as ``np.float32`` /
+    ``np.int64`` numpy arrays.
+    """
     model.eval()
     preds, labels, idx = [], [], []
     with torch.no_grad():
@@ -79,7 +88,13 @@ def _predict_reg(model, loader, device):
 
 
 def _is_regression(cfg) -> bool:
-    """True if the dataset config declares task=regression."""
+    """Dispatch helper: true iff the dataset config declares ``task: regression``.
+
+    Used at every method-branch entry point in this script to switch
+    between (CE + softmax) and (MSE + raw output).  ``getattr`` with
+    default keeps the helper backwards-compatible with classification
+    configs that pre-date the ``task`` field.
+    """
     return getattr(cfg.dataset, "task", "classification") == "regression"
 
 
@@ -164,9 +179,17 @@ def _make_loader(base_dataset, indices, cfg, canonical_loaders, pool_idx=None):
 
 def _train_one_model(cfg, train_loader, canonical_loaders, device,
                      model_seed, epochs):
-    """Train a single model on `train_loader`. Returns model.
+    """Train a single model on ``train_loader`` and return it.
 
-    Cross-entropy for classification; MSE for regression (cfg.dataset.task).
+    The loss is dispatched on the dataset's task type:
+      - classification: cross-entropy on logits
+      - regression:     MSE on the squeezed scalar prediction
+
+    For regression, labels are cast to ``float32`` because Apple MPS
+    does not support ``float64`` and the default Python-float collate
+    yields ``float64``.  ``set_seed`` controls the model's random
+    initialisation (separate from the bootstrap seed used in
+    ``_make_loader``).
     """
     set_seed(model_seed)
     model = _build_model(cfg, canonical_loaders, device)
@@ -243,13 +266,30 @@ def _train_twin_indep(cfg, canonical_loaders, device, train_seed, epochs, lam,
                       pool_idx=None, n_train=None):
     """Two-head twin where each head sees its OWN independent bootstrap.
 
-    Per step:
-      - Pull one batch from each head's loader.
-      - Both heads forward both batches (4 forward passes).
-      - CE: each head on its own batch only.
-      - Consistency: sym-KL between heads, evaluated on the union of batches.
-      - Joint loss = CE + lam * consistency, single backward through both
-        head's parameters.
+    This is the paper's main method.  The two heads are full networks
+    (model_A, model_B) initialised with consecutive seeds so they
+    differ from step zero.  Each network's bootstrap is drawn
+    independently from the canonical pool, giving an expected
+    inter-network bootstrap overlap of $\\sim 40\\%$ (the operating
+    point on the codistillation family that empirically holds
+    accuracy across our 10-dataset spectrum).
+
+    Per training step:
+      - Pull one batch from each network's loader (independent bootstraps).
+      - Both networks forward both batches (4 forward passes).
+      - Task loss: each network on its own batch only.
+      - Consistency loss: sym-KL between networks (classification) or
+        MSE between predictions (regression), evaluated on the union
+        of the two batches so the consistency penalty sees both
+        networks' bootstrap support.
+      - Joint loss = task + lam * consistency, single backward updates
+        both networks' parameters.
+
+    The classification consistency uses sym-KL (symmetric KL on softmax
+    distributions); the regression consistency uses MSE between scalar
+    predictions.  The two have different units so ``lam`` does not
+    transfer directly between task types — see ``app:regression`` and
+    ``app:gin`` in the paper for rule-selected lambdas per setting.
     """
     base = canonical_loaders["train"].dataset
     if n_train is None:

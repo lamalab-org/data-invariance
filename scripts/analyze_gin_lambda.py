@@ -1,7 +1,21 @@
 """Per-lambda summary on BACE-GIN: pick the rule-selected lambda.
 
-Rule: largest λ ∈ {1, 3, 10, 30, 100, 300} where mean twin-indep id-acc
-is within 0.02 of mean ERM-GIN id-acc (0.739).
+Design decisions
+----------------
+This is the architecture-cross-check counterpart to the BACE-MLP λ
+sweep used in the paper's main development analysis.  The selection
+rule (``largest λ with id-acc ≥ ERM-id-acc - 0.02``) is unchanged; we
+re-apply it on the GIN architecture (3 GINConv layers, hidden 128,
+mean-pool readout) trained on the same canonical BACE pool.
+
+The expected outcome — and the empirical one — is that the rule
+transfers but the numerical λ does not: BACE-MLP picks ``λ=300``,
+BACE-GIN picks ``λ=10``.  Same rule, different value, because the
+GIN's accuracy-vs-churn curve is shaped differently from the MLP's
+(less initial fragility per accuracy-cost step, so the rule's
+tolerance threshold bites earlier).
+
+ERM-GIN ``id_acc ≈ 0.739``, so the tolerance threshold is ``≥ 0.719``.
 """
 from __future__ import annotations
 

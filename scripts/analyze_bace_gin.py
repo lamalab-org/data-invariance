@@ -1,9 +1,19 @@
 """Paired-bootstrap analysis for the BACE-GIN architecture cross-check.
 
-Loads ERM, bagging-K=5, twin-indep (lam=300) NPZ files from
-outputs/cross_sample/bace_gin/, computes paired Δ id-churn vs ERM with
-95% CIs from 10,000-sample bootstrap on the 45 seed-pair distribution,
-and reports per-method id-accuracy + churn + sym-KL.
+Design decisions
+----------------
+Reports ERM, bagging-K=5, and twin-indep at lam=300 (the failed
+transfer from BACE-MLP) on the GIN architecture.  The companion
+script ``analyze_gin_lambda.py`` runs the rule-selection sweep on
+twin-indep alone; this script reports the original three-method
+comparison at the unchanged BACE-MLP-frozen lam=300 so the GIN
+appendix table can show both sides of the closed loop:
+
+  - lam=300 (failed transfer): twin-indep over-regularises GIN
+  - lam=10  (rule-selected, see analyze_gin_lambda.py): works
+
+Numbers in this script feed directly into the GIN appendix table
+in ``paper/sections/appendix.tex``.
 """
 from __future__ import annotations
 

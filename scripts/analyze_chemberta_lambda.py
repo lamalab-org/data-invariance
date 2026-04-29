@@ -1,4 +1,20 @@
-"""λ-sweep analysis for BACE-ChemBERTa: pick the rule-selected λ."""
+"""λ-sweep analysis for BACE-ChemBERTa.
+
+Design decisions
+----------------
+The selection rule (``largest λ with id-acc ≥ ERM-id-acc - 0.02``)
+was originally formulated on BACE-MLP, where it picks ``λ=300``.
+This script applies the *same* rule to BACE-ChemBERTa to test whether
+the rule transfers across architectures and modalities (Morgan
+fingerprint MLP → SMILES-tokenised transformer fine-tune).  The
+prediction is that the rule transfers but the numerical λ does not
+(empirically: ``λ=10`` on ChemBERTa, vs ``λ=300`` on MLP).
+
+The 0.02 tolerance, the canonical-data protocol (seed 99, 10 train
+seeds), and the paired-bootstrap reporting are all unchanged from
+the MLP sweep.  Only the ``λ`` grid here covers ``{1, 3, 10, 30, 100,
+300}`` so the rule's chosen value is always within the swept range.
+"""
 from __future__ import annotations
 
 from pathlib import Path
