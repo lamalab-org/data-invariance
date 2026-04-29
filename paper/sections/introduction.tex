@@ -19,8 +19,8 @@
 \end{figure}
 
 A toxicity classifier is retrained on a new batch of assay results.
-Aggregate accuracy is unchanged.  Predictions flip class for
-$8\text{--}22\%$ of candidate molecules, some already in synthesis
+Aggregate accuracy is unchanged.  The class label flips on
+$8\text{--}22\%$ of test molecules --- some already in synthesis
 queues (Figure~\ref{fig:overview}).  We call this \emph{cross-sample
 prediction fragility}: the fraction of test predictions that change
 class between two models trained on independent bootstraps of the

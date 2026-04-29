@@ -1,36 +1,28 @@
 \begin{abstract}
 Two classifiers trained on independent samples of the same chemistry
 training population assign different classes to $8\text{--}22\%$ of
-test molecules with no measurable change in aggregate accuracy.  We
-call this \emph{cross-sample prediction fragility}: the population-level
-analogue of \emph{prediction churn}~\citep{TODO_milani2016}.  Where
-deployment-loop work measures churn between a new model and an
-incumbent on web-scale data, we measure it between two equally
-weighted bootstraps of the training pool, in the small-$N$ from-scratch
-regime that scientific machine learning inhabits and where no incumbent
-exists.  On nine chemistry benchmarks (MoleculeNet, TDC ADME/Tox,
-materials science) fragility is several-fold larger than what deep
-ensembles and MC dropout capture (which together leave $-7.6\%$ to
-$+12.5\%$ relative on argmax churn).  $K$-bootstrap
+test molecules; aggregate accuracy is unchanged.  We call this
+\emph{cross-sample prediction fragility}: the population-level
+analogue of \emph{prediction churn}~\citep{TODO_milani2016}, measured
+between two equally weighted bootstraps in the small-$N$ from-scratch
+regime where scientific ML retrains and where no incumbent exists.
+Deep ensembles and MC dropout vary parameters at fixed data; they
+leave argmax churn unchanged ($-13\%$ to $+7\%$ relative on nine
+chemistry benchmarks).  Methods that vary the data work.  $K$-bootstrap
 bagging cuts argmax churn $40\text{--}54\%$ on every dataset with no
-accuracy regression.  A sym-KL consistency loss between two networks
-trained on independent bootstraps (\emph{twin-indep}) cuts argmax
-churn by a further median $60\%$ (range $16\text{--}92\%$ across the
-nine datasets) at $2\times$-ERM compute matched against
+accuracy regression.  \emph{Twin-indep} --- codistillation
+\citep{TODO_anil2018_codistillation} at $\sim$$40\%$ inter-network
+bootstrap overlap --- cuts a further median $60\%$ (range
+$16\text{--}92\%$) at matched $2\times$-ERM compute against
 bagging-$K{=}2$, and reduces distributional disagreement by another
-factor of ${\sim}8$.  Twin-indep is the codistillation family of
-\citet{TODO_anil2018_codistillation} at $\sim$$40\%$ inter-network
-bootstrap overlap; on a 10-dataset comparison across three operating
-points on that family ($0\%$, $\sim$$40\%$, $\sim$$63\%$
-inter-network overlap), only $\sim$$40\%$ holds accuracy on every
-dataset.  The from-scratch-tuned $\lambda$ does not transfer to other
-architectures or to pretrained backbones; re-applying the same
-selection rule recovers the result on a from-scratch GIN
-(Appendix~\ref{app:gin}), on ChemBERTa-77M-MTR fine-tuned on six
-chemistry benchmarks (Appendix~\ref{app:chemberta_scope}), and on
-ImageNet-pretrained ResNet-50 fine-tuned on Waterbirds
-(Appendix~\ref{app:waterbirds_lambda}).  Bagging and codistillation already exist; what this paper
-adds is a measurement protocol that makes their cross-sample effect
-visible, and a regime where the gap they close is large enough to
-demand its own column in the report.
+factor of ${\sim}8$; across three overlap points ($0\%$, $\sim$$40\%$,
+$\sim$$63\%$), only $\sim$$40\%$ never increases churn relative to
+ERM.  The selection rule that picks $\lambda$ on the development
+dataset transfers across all three architectures and modalities we
+tested (from-scratch GIN, ChemBERTa-77M-MTR, ImageNet-pretrained
+ResNet-50); the numerical $\lambda$ does not.  Bagging and
+codistillation already exist; what this paper adds is a measurement
+protocol that makes their effect on cross-sample fragility visible,
+and a regime where the gap they close is large enough to demand its
+own column in the benchmark report.
 \end{abstract}
