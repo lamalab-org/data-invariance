@@ -41,11 +41,11 @@ measure it between two equally weighted bootstraps in the small-$N$
 from-scratch regime, where no incumbent exists.  Algorithmic
 stability~\citep{TODO_bousquet2002} is the formal anchor.  Deep
 ensembles, MC dropout, and conformal prediction all fix the dataset
-and vary something else; deep ensembles remove $2$pp of argmax churn
-on average and MC dropout fails to reduce it (relative $\Delta$
-$-2.2\%$ to $+12.5\%$ across the eight datasets, median $+1\%$),
-confirming that parameter-variance methods miss the data-resampling
-axis.
+and vary something else; on our eight benchmarks deep ensembles cut
+argmax churn by $0.2$pp on average ($-7.6\%$ to $+2.4\%$ relative)
+and MC dropout fails to reduce it ($-2.2\%$ to $+12.5\%$ relative,
+median $+1\%$), confirming that parameter-variance methods miss the
+data-resampling axis.
 
 \paragraph{Contributions.}
 \begin{itemize}\itemsep0pt
@@ -55,9 +55,10 @@ axis.
         where deployment-loop churn measurement does not apply.
   \item On nine chemistry benchmarks (MoleculeNet, TDC ADME/Tox,
         materials science) fragility flips $8\text{--}17\%$ of test
-        predictions across retrainings --- an order of magnitude
-        larger than the parameter-variance axis deep ensembles and
-        MC dropout capture.
+        predictions across retrainings --- many times larger than
+        the parameter-variance axis deep ensembles and MC dropout
+        capture (which leave $-7.6\%$ to $+12.5\%$ relative on
+        argmax churn).
   \item $K$-bootstrap bagging~\citep{TODO_breiman1996} reduces argmax
         churn $40\text{--}54\%$ on every held-out dataset, paired
         bootstrap CI excluding zero, with no accuracy regression.
@@ -67,19 +68,27 @@ axis.
         further median $60\%$ (range $16\text{--}92\%$) at matched
         compute against bagging-$K{=}2$, at a frozen $\lambda{=}300$
         selected on BACE alone, and reduces distributional
-        disagreement by another factor of ${\sim}8$.  On a 10-dataset comparison across the overlap
-        axis, $\sim$$40\%$ is the only operating point with no failure
-        case (Appendix~\ref{app:overlap_spectrum}).
+        disagreement by another factor of ${\sim}8$.  Across three
+        operating points on the codistillation family ($0\%$,
+        $\sim$$40\%$, $\sim$$63\%$ inter-network overlap), only
+        $\sim$$40\%$ holds accuracy on every dataset
+        (Appendix~\ref{app:overlap_spectrum}).
   \item A one-bootstrap triage workflow: per-example fragility from
         a single additional retraining captures $68\text{--}94\%$ of
         the test predictions retraining will flip in its top decile,
         letting practitioners route only that decile to a human
         reviewer at the cost of one extra training run.
-  \item The methods apply in the small-$N$ from-scratch regime.  On
-        pretrained-backbone settings the consistency loss
-        over-regularises features the backbone already encodes; on
-        datasets where ERM accuracy is close to majority-class,
-        consistency methods collapse to the constant predictor.
-        Bagging is unaffected by either failure mode.
+  \item The from-scratch-tuned $\lambda$ does not transfer to other
+        architectures (GIN; Appendix~\ref{app:gin}) or to pretrained
+        backbones (ChemBERTa; Appendix~\ref{app:chemberta_scope}); on
+        each, re-applying the same selection rule picks a smaller
+        $\lambda$ that recovers the result.  Bagging is independent
+        of $\lambda$ choice and works on every architecture and
+        backbone we tested.  One $\lambda$-independent failure mode
+        remains: on MOF-thermal, where ERM accuracy is close to
+        majority-class, consistency methods collapse to the constant
+        predictor; we cannot tell from the available evidence whether
+        this reflects a method limitation or properties of the
+        dataset itself.
 \end{itemize}
 

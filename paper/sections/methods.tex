@@ -1,12 +1,21 @@
 \section{Methods}
 \label{sec:methods}
 
-We compare four approaches under the strict protocol of
+We compare five approaches under the strict protocol of
 Section~\ref{sec:preliminaries}.
 
 \paragraph{ERM.}
 A single model trained by SGD on one bootstrap of the canonical
 training set.
+
+\paragraph{MC dropout.}
+A single model with dropout layers ($p=0.2$) inserted after each
+hidden ReLU, trained by SGD on one bootstrap.  At deployment, $T=20$
+stochastic forward passes are averaged with dropout active
+\citep{TODO_gal2016}.  This captures dropout-mask variance at fixed
+data; cross-sample fragility is then measured between the
+$T$-averaged predictions of two models trained on independent
+bootstraps.
 
 \paragraph{Deep ensemble.}
 $K$ models trained on the \emph{same} bootstrap with different

@@ -34,22 +34,22 @@ measure (Section~\ref{sec:measurement}).
 \paragraph{Stability is a property of the procedure.}
 A model's cross-sample churn is not a fact about the trained
 weights; it is a fact about the procedure that produced them ---
-the optimiser, the schedule, the data-resampling protocol.  The
+the optimiser, the schedule, the data-resampling protocol.  In the
 codistillation-vs.\ twin-indep comparison
-(Appendix~\ref{app:overlap_spectrum}) makes this concrete: a single
-hyperparameter on the procedure --- the fraction of data the two
-networks share --- separates a method that catastrophically fails on
-TADF from a method that does not.  The same applies across
-architectures: at the BACE-MLP-frozen $\lambda{=}300$ twin-indep
-over-regularises GIN by $15$pp id-accuracy; the same selection rule
-re-applied on BACE-GIN picks $\lambda{=}10$ and recovers the result
-($-47.6\%$ argmax churn vs.\ ERM-GIN, Appendix~\ref{app:gin}).  The
-selection rule transfers; the numerical $\lambda$ does not.  The
-recipe in this paper is tied to small-$N$ from-scratch chemistry
-with one $\lambda$ per architecture and binary classification;
-regression, multi-class, pretrained backbones, and $N$-aware
-$\lambda$-scaling are open
-(Section~\ref{sec:scope}).
+(Appendix~\ref{app:overlap_spectrum}), a single hyperparameter on
+the procedure --- the fraction of data the two networks share ---
+separates a method that flips churn sign on TADF from a method that
+does not.  The same applies across architectures: at the
+BACE-MLP-frozen $\lambda{=}300$ twin-indep over-regularises GIN by
+$15$pp id-accuracy; the same selection rule re-applied on BACE-GIN
+picks $\lambda{=}10$ and recovers the result ($-47.6\%$ argmax
+churn vs.\ ERM-GIN, Appendix~\ref{app:gin}); the same rule
+re-applied on BACE-ChemBERTa also picks $\lambda{=}10$ and recovers
+the result on every ChemBERTa dataset
+(Appendix~\ref{app:chemberta_scope}).  The selection rule transfers;
+the numerical $\lambda$ does not.  Multi-class output and
+$N$-aware $\lambda$-scaling are open (Section~\ref{sec:scope});
+regression results are reported in Appendix~\ref{app:regression}.
 
 \paragraph{Adding the column.}
 Bagging~\citep{TODO_breiman1996} and codistillation
@@ -62,5 +62,5 @@ on a fixed test set measures the deployed model; cross-sample
 fragility measures the procedure that will produce the next one.  On
 the eight chemistry benchmarks where we measured both, the second
 varies by $8\text{--}17$ percentage points across retrainings while
-the first does not move.  Reading only the accuracy column is
-reading half the report.
+the first changes by less than one.  Reading only the accuracy
+column is reading half the report.
