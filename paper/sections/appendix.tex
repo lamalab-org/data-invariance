@@ -310,10 +310,9 @@ Twin-indep $\lambda{=}300$ & 0.609 &  3.6 [ 2.7,  4.6] & $-67\%$ (acc out-of-tol
 
 The rule transfers across all three architectures and modalities we
 tested (MLP, GIN, ResNet-50/ChemBERTa); the numerical $\lambda$ does
-not.  For pretrained backbones (vision and SMILES), the rule
-consistently picks $\lambda{=}10$; for the from-scratch GIN, also
-$\lambda{=}10$; only the from-scratch fingerprint-MLP picks the
-larger $\lambda{=}300$.
+not.  Both pretrained backbones (ChemBERTa on SMILES, ResNet-50 on
+Waterbirds) and the from-scratch GIN pick $\lambda{=}10$; only the
+from-scratch fingerprint-MLP picks $\lambda{=}300$.
 
 \section{Within-dataset $N$-scaling on BACE}
 \label{app:nscaling}
@@ -406,12 +405,14 @@ where all three methods completed.
 \input{sections/tables/overlap_spectrum.tex}
 
 Read off the columns: codistillation has the largest mean churn
-reduction on most datasets but flips sign on TADF and triggers
-accuracy collapse on Pgp and MOF-thermal; twin-indep at
-${\sim}40\%$ overlap is the only column with no failure case
-(no daggers, no positive entries).  The bootstrap-overlap fraction
-is therefore a robustness--vs--best-case knob; the choice of
-${\sim}40\%$ is the safe default.
+reduction on most datasets but trips the $5$pp accuracy-degradation
+flag on Pgp and MOF-thermal; twin-shared trips that flag on
+MOF-thermal and goes positive on DILI; twin-indep at ${\sim}40\%$
+overlap is the only column that never increases churn relative to
+ERM and trips the accuracy flag on the fewest datasets (one,
+MOF-thermal).  The bootstrap-overlap fraction is a
+robustness--vs--best-case knob; the choice of ${\sim}40\%$ is the
+safe default.
 
 \section{Borderline datasets}
 \label{app:borderline}
@@ -451,21 +452,21 @@ deployment time but is a meaningfully weaker signal.
 The pairwise CIs reported in Table~\ref{tab:main} test each
 (method, dataset) cell separately.  As an aggregate cross-dataset
 test, we apply the Friedman non-parametric rank test on mean
-cross-sample id-churn over the eight datasets and five methods (ERM,
-Deep Ensemble $K{=}5$, Bagging $K{=}2$, Bagging $K{=}5$, Twin-indep
-$\lambda{=}300$).  The test rejects the null of equal ranks at
-$\chi^2 = 28.10$, $p = 1.19 \times 10^{-5}$.  Mean ranks (lower is
-better, $1$ = best on cross-sample id-churn) are
-twin-indep $1.50$, bagging $K{=}5$ $1.62$, bagging $K{=}2$ $2.88$,
-deep-ensemble $K{=}5$ $4.25$, ERM $4.75$.  The Nemenyi critical
-difference at $\alpha{=}0.05$ is $\textit{CD}{=}2.16$; rank gaps
-exceeding $\textit{CD}$ identify pairs that differ significantly.
-Twin-indep is significantly better than ERM and deep-ensemble; it is
-\emph{not} significantly different in rank from bagging $K{=}5$
-(rank gap $0.12$).  Twin-indep therefore matches bagging $K{=}5$ in
-mean-rank at roughly $2{\times}$ ERM compute
-(Appendix~\ref{app:compute}) versus the $5{\times}$ that bagging
-$K{=}5$ requires.
+cross-sample id-churn over the nine datasets and six methods (ERM,
+MC dropout, Deep Ensemble $K{=}5$, Bagging $K{=}2$, Bagging $K{=}5$,
+Twin-indep $\lambda{=}300$).  The test rejects the null of equal
+ranks at $\chi^2 = 38.4$, $p = 3.1 \times 10^{-7}$.  Mean ranks
+(lower is better, $1$ = best on cross-sample id-churn) are
+twin-indep $1.44$, bagging $K{=}5$ $1.67$, bagging $K{=}2$ $2.89$,
+deep-ensemble $K{=}5$ $4.67$, ERM $5.00$, MC dropout $5.33$.  The
+Nemenyi critical difference at $\alpha{=}0.05$ is
+$\textit{CD}{=}2.51$; rank gaps exceeding $\textit{CD}$ identify
+pairs that differ significantly.  Twin-indep is significantly
+better in rank than ERM, MC dropout, and deep ensemble; it is
+\emph{not} significantly different from bagging $K{=}5$ (rank gap
+$0.22$).  Twin-indep therefore matches bagging $K{=}5$ in mean-rank
+at roughly $2{\times}$ ERM compute (Appendix~\ref{app:compute})
+versus the $5{\times}$ that bagging $K{=}5$ requires.
 
 \section{Compute footprint}
 \label{app:compute}

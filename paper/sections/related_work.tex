@@ -57,9 +57,11 @@ resampling.  Twin-indep is mechanically closest to codistillation
 (two networks, KL agreement) but operates at $\sim$$40\%$
 inter-network bootstrap overlap rather than at the disjoint-shard
 $0\%$ end of the same axis; on a 10-dataset comparison
-(Appendix~\ref{app:overlap_spectrum}) codistillation flips churn
-sign on TADF and degrades id-accuracy on Pgp and MOF-thermal, while
-twin-indep does not.
+(Appendix~\ref{app:overlap_spectrum}) codistillation degrades
+id-accuracy beyond a $5$pp threshold on Pgp and MOF-thermal,
+twin-shared introduces a positive churn delta on DILI, and
+twin-indep at ${\sim}40\%$ is the only column that never increases
+churn relative to ERM.
 
 \paragraph{Clinical-biostatistics precedent.}
 \citet{TODO_riley2023} develop a per-individual

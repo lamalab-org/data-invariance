@@ -71,7 +71,11 @@ def main() -> None:
     # Include every dataset for which all three methods completed; flag
     # accuracy-degradation points (any consistency method dropping id-acc
     # by more than 5pp from ERM) so they read as "failures" in the figure.
-    BORDERLINE = ["mof_thermal", "skin_reaction", "herg", "hia_hou"]
+    # Borderline datasets that were never in HEADLINE (small test sets, ERM
+    # only marginally above majority).  MOF-thermal was previously here but
+    # now lives in HEADLINE since the spurious-correlation injection has
+    # been removed; including it twice would double-count.
+    BORDERLINE = ["skin_reaction", "herg", "hia_hou"]
     candidates = [DEV_DATASET] + HEADLINE_DATASETS + BORDERLINE
     keep, points, accuracy_collapse = [], {}, {}
     for ds in candidates:
@@ -184,8 +188,9 @@ def main() -> None:
         r" mark cells where the method drops id-accuracy by more than"
         r" $5$pp from ERM (the corresponding churn reduction is then"
         r" largely majority-class prediction). Twin-indep at"
-        r" ${\sim}40\%$ overlap is the only column with no failure case"
-        r" (no daggers and no positive entries).}",
+        r" ${\sim}40\%$ overlap is the only column with no positive"
+        r" entries (always reduces churn) and the fewest accuracy"
+        r" daggers.}",
         r"  \label{tab:overlap_spectrum}",
         r"  \small",
         r"  \begin{tabular}{lrlll}",
