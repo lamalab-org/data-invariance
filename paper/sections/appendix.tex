@@ -383,13 +383,14 @@ Per-method id-acc on MOF-thermal, ten train-seeds:
   \item Codistillation:             $0.535 \pm 0.003$.
 \end{itemize}
 
-The methods that couple two networks via a strong consistency loss
-(twin-indep, codistillation) converge to the constant majority-class
-predictor on this dataset.  The methods that do not couple the two
-networks (ERM, bagging, distillation-from-a-frozen-anchor) preserve
-ERM-level accuracy.  This is the failure mode discussed in
-Section~\ref{sec:scope}; we exclude MOF-thermal from
-Figure~\ref{fig:main} and Table~\ref{tab:main}.
+Twin-indep and codistillation drop to the majority-class accuracy
+($0.53$ on a binary task with majority $0.52$); ERM, bagging, and
+distillation-from-a-frozen-anchor hold the ERM accuracy of $0.62$.
+We do not have an explanation for the difference and are not
+confident enough to attribute it to any single property of the
+dataset or the methods.  We exclude MOF-thermal from
+Figure~\ref{fig:main} and Table~\ref{tab:main} for that reason and
+report it here.
 
 \paragraph{hERG, HIA\_Hou, Skin\_Reaction.}
 These three datasets pass the ERM-versus-majority filter only

@@ -84,11 +84,8 @@ data-resampling axis.
         each, re-applying the same selection rule picks a smaller
         $\lambda$ that recovers the result.  Bagging is independent
         of $\lambda$ choice and works on every architecture and
-        backbone we tested.  One $\lambda$-independent failure mode
-        remains: on MOF-thermal, where ERM accuracy is close to
-        majority-class, consistency methods collapse to the constant
-        predictor; we cannot tell from the available evidence whether
-        this reflects a method limitation or properties of the
-        dataset itself.
+        backbone we tested.  On MOF-thermal, twin-indep and
+        codistillation collapse to majority-class accuracy; the cause
+        is open (Section~\ref{sec:scope}).
 \end{itemize}
 
