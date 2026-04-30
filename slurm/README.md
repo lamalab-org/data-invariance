@@ -1,6 +1,30 @@
-# Running on a SLURM cluster
+# SLURM dispatch
 
-## One-time setup
+This directory holds slurm submit scripts for running the paper's
+cross-sample fragility experiments on the Draco cluster (or any slurm
+cluster — adjust `--partition` and `--gres` as needed).
+
+## Layout
+
+```
+slurm/
+├── full_retraining/    # canonical full-paper retraining sweep
+│   ├── 01_headline_cls.sh         # 9 datasets × 6 methods (CPU)
+│   ├── 02_pareto_bace.sh          # 6 lambdas (CPU)
+│   ├── 03_chemberta.sh            # 6 datasets × 3 methods (GPU)
+│   ├── 04_gin_bace.sh             # 4 methods (GPU)
+│   ├── 05_waterbirds.sh           # 3 methods (GPU)
+│   ├── 06_regression.sh           # 3 datasets × 4 methods (CPU)
+│   ├── 07_nscaling_bace.sh        # 5 sizes (CPU)
+│   ├── 08_borderline.sh           # 3 datasets, ERM-only (CPU)
+│   ├── 09_excluded.sh             # 5 datasets, ERM-only (CPU)
+│   └── submit_all.sh              # dispatch every block
+├── setup.sh            # one-time: install uv, sync deps on the cluster
+├── legacy/             # archived one-off scripts from earlier sweeps
+└── README.md
+```
+
+## One-time setup on the cluster
 
 ```bash
 git clone <repo-url> data-invariance
@@ -8,72 +32,47 @@ cd data-invariance
 bash slurm/setup.sh
 ```
 
-This installs `uv` and all Python dependencies. Verify with:
-```bash
-uv run python -c "from train import *; print('OK')"
-```
+## Full paper retraining
 
-## Running all experiments
+From the repo root on the cluster:
 
 ```bash
-# GPU experiments (Waterbirds, CelebA, CivilComments) — 3 jobs, ~12h max
-sbatch slurm/run_gpu.sh
-
-# CPU experiments (10 datasets) — 10 parallel jobs, ~4h max
-sbatch slurm/run_cpu.sh
+bash slurm/full_retraining/submit_all.sh
 ```
 
-Each SLURM array job runs one dataset independently. All 13 jobs can
-run in parallel if resources are available.
-
-## Checking progress
+This submits every block as a separate slurm array.  Job ids are
+written to `logs/full_retraining_jobs.txt`; monitor with:
 
 ```bash
-squeue -u $USER                    # job status
-tail -f logs/slurm_<jobid>_0.out   # live output for array index 0
+squeue --jobs $(paste -sd, logs/full_retraining_jobs.txt) -u $USER
 ```
 
-## Collecting results
+Each array task runs all 10 train-seeds for a single
+(dataset, method, K, λ) tuple in one Python process.  NPZs land under
+`outputs/cross_sample/<dataset>/`; each save also writes a
+`<basename>.manifest.json` sidecar (git commit, command, env, data
+hashes, wallclock) and appends one line to
+`outputs/cross_sample/RUN_LEDGER.jsonl`.
 
-After all jobs finish:
+## After the sweep
+
+Pull NPZs back to a workstation and regenerate every artefact:
+
 ```bash
-bash slurm/collect_results.sh > results_summary.txt
+make analysis    # rebuild every CSV from saved NPZs
+make tables      # rebuild every paper/sections/tables/*.tex
+make figures     # rebuild every paper/figures/*.pdf
+make macros      # rebuild paper/sections/macros.tex from CSVs
 ```
 
-This prints the full results table with 4 columns per method:
-- **WGA-sel**: model selected by worst-group val accuracy (uses group labels)
-- **SWA+WGA**: SWA averaged around WGA-selected epoch (uses group labels)
-- **Free-sel**: model selected by average val accuracy (group-free)
-- **SWA+Free**: SWA averaged around Free-selected epoch (group-free)
+Then build the paper:
 
-The **SWA+Free** column is the paper's headline: truly group-free results.
+```bash
+cd paper && latexmk -pdf main.tex
+```
 
-## Datasets
+## Cluster-specific tweaks
 
-| Job | Dataset | Type | N | Time est. |
-|-----|---------|------|---|-----------|
-| GPU 0 | Waterbirds | Vision | 4.8K | ~2h |
-| GPU 1 | CelebA | Vision | 163K | ~8h |
-| GPU 2 | CivilComments | NLP | 269K | ~4h |
-| CPU 0 | CMNIST | Synthetic | 60K | ~5min |
-| CPU 1 | Multi-CMNIST | Synthetic | 60K | ~10min |
-| CPU 2 | TADF | Chemistry | 2K | ~1min |
-| CPU 3 | MOF thermal | Chemistry | 3K | ~1min |
-| CPU 4 | MOF solvent | Chemistry | 2K | ~1min |
-| CPU 5 | Perovskite | Chemistry | 48K | ~5min |
-| CPU 6 | Battery | Chemistry | 40K | ~5min |
-| CPU 7 | BACE | MoleculeNet | 1.5K | ~2min |
-| CPU 8 | BBBP | MoleculeNet | 2K | ~3min |
-| CPU 9 | HIV | MoleculeNet | 41K | ~15min |
-
-## Adjusting for your cluster
-
-You may need to change in `run_gpu.sh` / `run_cpu.sh`:
-- `--partition`: your GPU/CPU partition name
-- `--gres`: GPU type (e.g., `gpu:a100:1`)
-- `--mem`: memory per job
-- `--time`: walltime limit
-
-For chemistry datasets, you need the parquet files from
-[clever-materials-hans](https://github.com/lamalab-org/clever-materials-hans).
-Update the paths in `configs/dataset/{tadf,mof_thermal,mof_solvent,perovskite,battery}.yaml`.
+`--partition`, `--gres`, `--mem`, `--time` are set for Draco's GPU
+queue with A100s.  Adjust at the top of each `*.sh` for other
+clusters.
