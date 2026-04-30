@@ -32,7 +32,7 @@ IMPORTANT, please:
 \item {\bf Claims}
     \item[] Question: Do the main claims made in the abstract and introduction accurately reflect the paper's contributions and scope?
     \item[] Answer: \answerYes{}
-    \item[] Justification: The abstract and Section~\ref{sec:introduction} describe exactly what we measure (cross-sample fragility on eight chemistry benchmarks), the two methods we propose (bagging, twin-indep), the strict no-test-tuning protocol, and the regime in which the consistency loss applies (small-$N$ from-scratch; over-regularises pretrained-backbone settings).
+    \item[] Justification: The abstract and Section~\ref{sec:introduction} describe what we measure (cross-sample prediction fragility on nine chemistry benchmarks), the methods we evaluate (bagging) and propose (twin-bootstrap), the strict no-test-tuning protocol with $\lambda$ frozen on a single development dataset, and the regime in which the consistency loss applies (small-$N$ from-scratch; the rule re-runs to select a smaller $\lambda$ on pretrained backbones, Section~\ref{sec:generalisation}).
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the abstract and introduction do not include the claims made in the paper.
@@ -44,7 +44,7 @@ IMPORTANT, please:
 \item {\bf Limitations}
     \item[] Question: Does the paper discuss the limitations of the work performed by the authors?
     \item[] Answer: \answerYes{}
-    \item[] Justification: Section~\ref{sec:scope} (``Scope and limitations'') is a dedicated section discussing the pretrained-backbone over-regularisation failure mode, MOF class-proportion-shift sensitivity, the binary-classification scope, the single-canonical-seed and single-dev-dataset protocol choices, and the compute footprint.
+    \item[] Justification: Section~\ref{sec:limitations} (``Limitations'') discusses the binary-classification scope, the single-canonical-seed and single-dev-dataset protocol choices, the untested twin head count and multi-class output type, and the fact that the numerical $\lambda$ value does not transfer across architectures (the selection rule does, Section~\ref{sec:generalisation}).
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper has no limitation while the answer \answerNo{} means that the paper has limitations, but those are not discussed in the paper. 
@@ -60,7 +60,7 @@ IMPORTANT, please:
 \item {\bf Theory assumptions and proofs}
     \item[] Question: For each theoretical result, does the paper provide the full set of assumptions and a complete (and correct) proof?
     \item[] Answer: \answerNA{}
-    \item[] Justification: The paper makes no formal theoretical claims. Algorithmic stability $\beta = O(1/N)$ is used as motivation only; Appendix~\ref{app:theory} explicitly enumerates the three gaps (output-space vs.\ loss-space, multi-example vs.\ single-example perturbation, irreducible boundary at finite $N$) that prevent us from translating the stability bound into a quantitative bound on cross-sample fragility.
+    \item[] Justification: The paper makes no formal theoretical claims; cross-sample fragility is presented as a measurable empirical quantity.  The within-dataset $N$-scaling experiment in Appendix~\ref{app:nscaling} reports a log-log slope of $-0.22$ with an irreducible plateau, but we do not derive this rate from any formal bound.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include theoretical results. 
@@ -139,7 +139,7 @@ IMPORTANT, please:
 \item {\bf Experiments compute resources}
     \item[] Question: For each experiment, does the paper provide sufficient information on the computer resources (type of compute workers, memory, time of execution) needed to reproduce the experiments?
     \item[] Answer: \answerYes{}
-    \item[] Justification: Compute footprint is reported at the end of Section~\ref{sec:scope}: small-$N$ chemistry experiments run end-to-end on a single laptop CPU within a budget of approximately $50$ CPU-hours; the Waterbirds scope analysis uses a single A100 GPU with a $\sim 6$ GPU-hour budget.
+    \item[] Justification: Compute footprint is reported in Appendix~\ref{app:compute}: small-$N$ chemistry experiments run end-to-end on a single laptop CPU within a budget of approximately $50$ CPU-hours; the Waterbirds analysis uses a single A100 GPU with a $\sim 6$ GPU-hour budget.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include experiments.
@@ -241,7 +241,7 @@ IMPORTANT, please:
     \item[] Question: Does the paper describe the usage of LLMs if it is an important, original, or non-standard component of the core methods in this research? Note that if the LLM is used only for writing, editing, or formatting purposes and does \emph{not} impact the core methodology, scientific rigor, or originality of the research, declaration is not required.
     %this research?
     \item[] Answer: \answerNA{}
-    \item[] Justification: LLMs were used only for writing assistance and code review; the core methodology (cross-sample fragility, bagging, twin-indep) is not LLM-based.
+    \item[] Justification: LLMs were used only for writing assistance and code review; the core methodology (cross-sample fragility, bagging, twin-bootstrap) is not LLM-based.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the core method development in this research does not involve LLMs as any important, original, or non-standard components.

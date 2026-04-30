@@ -1,4 +1,0 @@
-# Random K=2 partition with KL disagreement penalty — essentially V-REx.
-# Key ablation: shows whether *any* splitting helps, independent of
-# whether the split is adversarially chosen.
-name: random_split

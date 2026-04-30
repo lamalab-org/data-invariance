@@ -1,4 +1,0 @@
-# V-REx with per-step random environments (resampling).
-# No adversary — environments are fresh random mini-batch splits each step.
-# Model penalty: (loss_A - loss_B)^2  (risk variance, not KL).
-name: resampling

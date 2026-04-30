@@ -2,23 +2,24 @@
 \label{sec:experiments}
 
 \paragraph{Cross-sample reduction across benchmarks.}
-Across the nine chemistry benchmarks (BACE plus eight held-out),
-bagging-$K{=}5$ and twin-bootstrap both beat ERM on cross-sample
-id-churn with $95\%$ paired-bootstrap CIs that exclude zero
-(Table~\ref{tab:main}, Figure~\ref{fig:main}).  MC dropout, in
-contrast, fails to reduce argmax churn: $\Delta$ ranges $-13\%$ to
-$+7\%$ relative to ERM, with no consistent direction.  Training a
-single model with dropout and averaging $T{=}20$ stochastic forward
-passes does not address the data-resampling axis that bagging and
-twin-bootstrap operate on.  At matched compute against bagging-$K{=}2$,
-twin-bootstrap wins on $8/9$ datasets (CI excludes zero; the difference
-is not significant on DILI, where ERM accuracy is $0.72$ on a
-$76$-example test set); against the $5\times$-compute
-bagging-$K{=}5$, twin-bootstrap wins on $5/8$ held-out datasets and
-trails on three (DILI, Pgp, TADF).  The aggregate Friedman test
-rejects equal-ranks at $\chi^2 = 38.4$, $p = 3.1 \times 10^{-7}$;
-twin-bootstrap ranks first, indistinguishable from bagging-$K{=}5$ at
-less than half the compute (Appendix~\ref{app:friedman}).
+Across the \nDatasetsHeadline{} chemistry benchmarks (BACE plus
+\nDatasetsHeldout{} held-out), bagging-$K{=}5$ and twin-bootstrap both
+beat ERM on cross-sample id-churn with $95\%$ paired-bootstrap CIs
+that exclude zero (Table~\ref{tab:main}, Figure~\ref{fig:main}).  MC
+dropout, in contrast, fails to reduce argmax churn: $\Delta$ ranges
+$\mcdLow\%$ to $\mcdHigh\%$ relative to ERM, with no consistent
+direction.  Training a single model with dropout and averaging
+$T{=}20$ stochastic forward passes does not address the
+data-resampling axis that bagging and twin-bootstrap operate on.  At
+matched compute against bagging-$K{=}2$, twin-bootstrap wins on $8/9$
+datasets (CI excludes zero; the difference is not significant on
+DILI, where ERM accuracy is $0.72$ on a $76$-example test set);
+against the $5\times$-compute bagging-$K{=}5$, twin-bootstrap wins on
+$5/8$ held-out datasets and trails on three (DILI, Pgp, TADF).  The
+aggregate Friedman test rejects equal-ranks at
+$\chi^2 = \friedmanChi$, $p = \friedmanP$; twin-bootstrap ranks
+first, indistinguishable from bagging-$K{=}5$ at less than half the
+compute (Appendix~\ref{app:friedman}).
 
 \begin{figure}[t]
   \centering
@@ -42,63 +43,104 @@ less than half the compute (Appendix~\ref{app:friedman}).
 \paragraph{Distributional disagreement.}
 Argmax churn projects the full prediction distribution onto its mode.
 Symmetric KL between two bootstraps distinguishes methods more finely:
-bagging-$K{=}5$ reduces it $5\text{--}10\times$ vs.\ ERM, and
-twin-bootstrap reduces it by another factor of ${\sim}8$.  Pipelines that
-consume the softmax (uncertainty-weighted ranking, candidate scoring)
-see a larger gap between the two than the argmax-churn column
-reflects.
+bagging-$K{=}5$ reduces it
+$\symKLBagFoldLow\text{--}\symKLBagFoldHigh\times$ vs.\ ERM, and
+twin-bootstrap reduces it by another factor of
+${\sim}\symKLTwinAdditionalFoldMedian$ (per-dataset paired CIs in
+Table~\ref{tab:distributional}, Appendix~\ref{app:distributional}).  Pipelines that consume the
+softmax (uncertainty-weighted ranking, candidate scoring) see a
+larger gap between the two than the argmax-churn column reflects.
 
-\paragraph{Top-decile fragility predicts which predictions flip.}
+\paragraph{Fragility-ranked triage captures most flips at low review cost.}
 \label{sec:churn-decile}
 Per-example fragility, computed across pairs of ERM bootstraps, ranks
 test examples by how likely they are to flip class on retraining.
-Figure~\ref{fig:decile} bins test examples by fragility decile and
-reports the per-decile flip rate.  The bottom-$50\%$-fragility
-examples flip at $0\%$ on every dataset we test, deciles $6$--$8$
-rise sharply, and the top decile flips at $41\text{--}47\%$.
-Predictive entropy from a single ERM model ranks worse on this task
-(Appendix~\ref{app:entropy}).  A practitioner can therefore identify
+Figure~\ref{fig:decile} reports the cumulative fraction of total
+flip-mass captured if the practitioner sorts predictions by
+fragility and reviews the top fraction.  Reviewing the top $30\%$
+captures $\triageKtenLow\text{--}\triageKtenHigh\%$ of all flips
+when fragility is scored from all $10$ bootstraps; with a single
+extra retraining ($K{=}2$, the one-bootstrap practitioner workflow)
+the top-$30\%$ recall is
+$\triageKtwoLow\text{--}\triageKtwoHigh\%$, within $5\text{--}15$\,pp
+of the $K{=}10$ gold standard on every dataset
+(Appendix~\ref{app:convergence}).  Predictive entropy from a single
+ERM model ranks worse on this task: fragility captures
+$\fragTopLow\text{--}\fragTopHigh\%$ of flips in its top decile vs.\
+$\entropyTopLow\text{--}\entropyTopHigh\%$ for entropy (per-dataset
+gap $\entropyGapMin\text{--}\entropyGapMax$\,pp,
+Appendix~\ref{app:entropy}).
+A practitioner can therefore identify
 the $10\%$ most fragile predictions from a single additional
 retraining --- one extra bootstrap on top of the deployed pipeline.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.6\linewidth]{figures/fig3_decile.pdf}
-  \caption{Top-decile fragility predicts which test predictions flip
-    on retraining.  Each line is one of the nine chemistry datasets
-    in scope (BACE in red, held-out in grey); the $y$-axis is the
-    mean argmax-flip rate per bootstrap-pair within each fragility
-    decile.  Bottom $50\%$ of examples flip at $0\%$ on every dataset;
-    the top decile flips at $41\text{--}47\%$.}
+  \includegraphics[width=0.75\linewidth]{figures/fig3_decile.pdf}
+  \caption{\textbf{Routing the top $30\%$ of test predictions
+    (ranked by per-example fragility from one extra retraining) to a
+    human reviewer captures $\triageKtenLow$--$\triageKtenHigh\%$ of
+    all retraining-induced class flips on the \nDatasetsHeadline{}
+    chemistry datasets.}  Each curve is one
+    dataset (BACE in red, held-out in grey); $x$-axis is the fraction
+    of test predictions reviewed in fragility-rank order, $y$-axis
+    is the cumulative fraction of total flip-mass captured.  The
+    diagonal marks random ranking; the shaded band marks the
+    practical review fraction.  The triage workflow is a
+    one-bootstrap operation on top of an existing pipeline.}
   \label{fig:decile}
 \end{figure}
 
-\paragraph{Per-molecule stabilisation on BACE.}
-Figure~\ref{fig:case_study} shows six BACE id-test molecules where
-ERM flips class on $\geq 36\%$ of seed pairs and twin-bootstrap flips on
-$0\%$ over the same ten retrainings.  Both methods see the same
-canonical training pool and test set; the difference is the
-consistency loss.
+A per-molecule view of these flips on six BACE id-test compounds is
+in Appendix~\ref{app:case_study} (Figure~\ref{fig:case_study}).
 
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=\linewidth]{figures/fig4_case_study.pdf}
-  \caption{\textbf{Twin-bootstrap eliminates per-molecule retraining
-    flips on BACE.}  Six id-test molecules where ERM flips class on
-    $\geq 36\%$ of seed pairs and twin-bootstrap flips on $0\%$.  Below
-    each structure: ten ERM and ten twin-bootstrap seed predictions,
-    each cell is the predicted class at one retraining; the gap
-    separates the two methods.  ERM stripes flip; twin-bootstrap
-    collapses to a single colour.}
-  \label{fig:case_study}
-\end{figure}
+\subsection{The recipe generalises across architectures and tasks}
+\label{sec:generalisation}
 
-\subsection{Development analysis (BACE)}
-\label{sec:dev}
+The headline result on small-$N$ from-scratch MLPs holds across three
+other architectures and on regression. The numerical value of
+$\lambda$ is architecture-specific; the rule that selects it is not.
 
-The single hyperparameter, twin-bootstrap $\lambda$, is selected on BACE
-by sweeping $\lambda \in \{1, 3, 10, 30, 100, 300\}$ and picking the
-largest grid point with BACE id-accuracy within $0.02$ of ERM
-id-accuracy.  This rule yields $\lambda{=}300$, which we apply
-unchanged on every held-out dataset.  Appendix~\ref{app:pareto} gives
-the full Pareto curve.
+\paragraph{Pretrained backbones.}
+A pretrained backbone is an implicit data prior; the from-scratch
+$\lambda$ is too strong for what the backbone already encodes.  At
+$\lambda{=}300$ (the BACE-MLP-frozen value), twin-bootstrap collapses
+accuracy by $\waterbirdsAccCollapse$pp on Waterbirds
+(ImageNet-pretrained ResNet-50) and by
+$\chembertaAccDropLow\text{--}\chembertaAccDropHigh$pp on
+ChemBERTa-77M-MTR fine-tuned on six headline datasets, increasing
+argmax churn on five of six ChemBERTa datasets.  Re-applying the
+same $0.02$-tolerance selection rule on each backbone's development
+set picks $\lambda{=}10$: on BACE-ChemBERTa this preserves accuracy
+(within $2$pp of ERM) and cuts churn
+$\chembertaCutLow\text{--}\chembertaCutHigh\%$ on every ChemBERTa
+dataset (Appendix~\ref{app:chemberta_scope}); on Waterbirds it
+preserves accuracy (within $1$pp of ERM) and cuts churn
+$\waterbirdsLamTenCut\%$
+($\waterbirdsLamTenDeltaPP$pp [$\waterbirdsLamTenDeltaLo$,
+$\waterbirdsLamTenDeltaHi$], Appendix~\ref{app:waterbirds_lambda}).
+Bagging is independent of $\lambda$ and works on every backbone we
+tested.
+
+\paragraph{Graph networks.}
+On a non-fingerprint architecture (a $3$-layer GIN on RDKit graphs of
+BACE), bagging-$K{=}5$ transfers cleanly: it cuts argmax churn by
+$\ginBagCutLamThreeHundred\%$ ($\ginBagDeltaPP$pp [$\ginBagDeltaLo$,
+$\ginBagDeltaHi$]) and improves id-accuracy by $\ginBagAccGain$pp.
+Twin-bootstrap at $\lambda{=}300$ drops id-accuracy by
+$\ginAccDropLamThreeHundred$pp and is rejected by the same
+accuracy-tolerance rule that selected $\lambda{=}300$ on the MLP;
+re-running the rule on BACE-GIN selects $\lambda{=}\ginRuleLam$,
+which cuts argmax churn $\ginCutLamTen\%$ at no accuracy cost
+(Appendix~\ref{app:gin}).
+
+\paragraph{Regression.}
+On three regression benchmarks (ESOL, FreeSolv, Lipophilicity;
+Appendix~\ref{app:regression}) the methods extend to continuous
+targets and rank the same way as on classification.  At matched
+$2\times$-ERM compute, twin-bootstrap cuts prediction-difference
+fragility $\regTwinLow\text{--}\regTwinHigh\%$ vs.\ ERM while
+bagging-$K{=}2$ cuts $\regBagTwoLow\text{--}\regBagTwoHigh\%$
+(twin-bootstrap wins on every dataset).  Bagging-$K{=}5$ at
+$5\times$-ERM compute is strongest at
+$\regBagFiveLow\text{--}\regBagFiveHigh\%$.

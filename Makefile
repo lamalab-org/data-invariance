@@ -1,6 +1,6 @@
-.PHONY: install lint format test check figures tables \
+.PHONY: install lint format test check figures tables analysis macros \
         sweep-erm sweep-bagging sweep-deep-ensemble sweep-twin-indep \
-        sweep-pareto-bace help
+        sweep-pareto-bace sweep-borderline sweep-excluded help
 
 # === Development ===
 
@@ -44,7 +44,16 @@ figures/fig2_pareto.pdf:
 figures/fig3_decile.pdf:
 	uv run python scripts/make_fig3_decile.py
 
-tables: paper/sections/tables/main.tex paper/sections/tables/fragility_magnitudes.tex
+tables: paper/sections/tables/main.tex paper/sections/tables/fragility_magnitudes.tex \
+        paper/sections/tables/distributional.tex \
+        paper/sections/tables/regression.tex \
+        paper/sections/tables/chemberta.tex \
+        paper/sections/tables/waterbirds_lambda.tex \
+        paper/sections/tables/filter_outcomes.tex \
+        paper/sections/tables/entropy_vs_fragility.tex \
+        paper/sections/tables/overlap_spectrum.tex \
+        paper/sections/tables/nscaling_bace.tex \
+        macros
 
 paper/sections/tables/main.tex:
 	uv run python scripts/make_main_table.py
@@ -52,14 +61,77 @@ paper/sections/tables/main.tex:
 paper/sections/tables/fragility_magnitudes.tex:
 	uv run python scripts/make_fragility_magnitudes_table.py
 
+paper/sections/tables/distributional.tex:
+	uv run python scripts/make_distributional_table.py
+
+paper/sections/tables/regression.tex:
+	uv run python scripts/make_regression_table.py
+
+paper/sections/tables/chemberta.tex:
+	uv run python scripts/analyze_chemberta_heldout.py
+
+paper/sections/tables/waterbirds_lambda.tex:
+	uv run python scripts/analyze_waterbirds_lambda.py
+
+paper/sections/tables/filter_outcomes.tex:
+	uv run python scripts/make_filter_outcomes_table.py
+
+paper/sections/tables/entropy_vs_fragility.tex:
+	uv run python scripts/make_entropy_vs_fragility.py
+
+paper/sections/tables/overlap_spectrum.tex:
+	uv run python scripts/make_fig5_overlap.py
+
+paper/sections/tables/nscaling_bace.tex:
+	uv run python scripts/make_nscaling_bace.py
+
+# Auto-generated \newcommand-per-quoted-number macros so paper prose
+# never drifts from source.  Always rebuilt after any analysis script.
+.PHONY: macros
+macros: paper/sections/macros.tex
+paper/sections/macros.tex: outputs/main_table.csv outputs/convergence_recall.csv \
+                          outputs/entropy_vs_fragility.csv outputs/distributional.csv \
+                          outputs/fragility_magnitudes.csv outputs/regression.csv \
+                          outputs/friedman.csv outputs/chemberta_heldout.csv \
+                          outputs/waterbirds_lambda.csv outputs/bace_gin.csv \
+                          outputs/gin_lambda.csv outputs/filter_outcomes.csv
+	uv run python scripts/make_paper_macros.py
+
+# Analysis-only target: regenerate every CSV (and table-fragment)
+# from saved NPZs.  Cheap (no retraining).  Use after a sweep finishes.
+analysis:
+	uv run python scripts/make_main_table.py
+	uv run python scripts/make_fragility_magnitudes_table.py
+	uv run python scripts/make_distributional_table.py
+	uv run python scripts/make_regression_table.py
+	uv run python scripts/make_filter_outcomes_table.py
+	uv run python scripts/make_friedman_test.py
+	uv run python scripts/analyze_chemberta_heldout.py
+	uv run python scripts/analyze_waterbirds_lambda.py
+	uv run python scripts/analyze_bace_gin.py
+	uv run python scripts/analyze_gin_lambda.py
+	uv run python scripts/make_entropy_vs_fragility.py
+	uv run python scripts/make_fig_convergence.py
+	uv run python scripts/make_paper_macros.py
+
 
 # === Training sweeps (long-running; produce NPZs in outputs/cross_sample/) ===
+
+DATASETS_BORDERLINE := skin_reaction herg hia_hou
+DATASETS_EXCLUDED   := bioavailability_ma mof_solvent cyp2c9_substrate cyp3a4_substrate clintox
 
 sweep-erm:
 	@for ds in $(DATASETS_ALL); do \
 	  uv run python scripts/cross_sample_train.py \
 	    --dataset $$ds --canonical_data_seed $(CANON_DATA_SEED) \
 	    --train_seeds $(SEEDS) --mode erm; \
+	done
+
+sweep-mc-dropout:
+	@for ds in $(DATASETS_ALL); do \
+	  uv run python scripts/cross_sample_train.py \
+	    --dataset $$ds --canonical_data_seed $(CANON_DATA_SEED) \
+	    --train_seeds $(SEEDS) --mode mc_dropout --K 20; \
 	done
 
 sweep-bagging:
@@ -90,6 +162,23 @@ sweep-pareto-bace:
 	  uv run python scripts/cross_sample_train.py \
 	    --dataset $(DEV_DATASET) --canonical_data_seed $(CANON_DATA_SEED) \
 	    --train_seeds $(SEEDS) --mode twin_indep --lam $$lam; \
+	done
+
+# Borderline + excluded datasets: only ERM (10 seeds), so the
+# fragility-magnitudes table can include the bottom group and the
+# filter-outcomes table is fully populated.
+sweep-borderline:
+	@for ds in $(DATASETS_BORDERLINE); do \
+	  uv run python scripts/cross_sample_train.py \
+	    --dataset $$ds --canonical_data_seed $(CANON_DATA_SEED) \
+	    --train_seeds $(SEEDS) --mode erm; \
+	done
+
+sweep-excluded:
+	@for ds in $(DATASETS_EXCLUDED); do \
+	  uv run python scripts/cross_sample_train.py \
+	    --dataset $$ds --canonical_data_seed $(CANON_DATA_SEED) \
+	    --train_seeds $(SEEDS) --mode erm; \
 	done
 
 

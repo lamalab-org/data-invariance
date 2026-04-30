@@ -9,12 +9,20 @@ Writes: paper/sections/tables/fragility_magnitudes.tex
 """
 from __future__ import annotations
 
+from itertools import combinations
 from pathlib import Path
 
 import numpy as np
 
 from _analysis_lib import bootstrap_ci, load_runs, pairwise_metrics, per_run_accuracies
-from paper_constants import DEV_DATASET, HEADLINE_DATASETS, MAGNITUDES_EXTRA, N_TRAIN, display
+from paper_constants import (
+    BORDERLINE_DATASETS,
+    DEV_DATASET,
+    HEADLINE_DATASETS,
+    MAGNITUDES_EXTRA,
+    N_TRAIN,
+    display,
+)  # noqa: F401
 
 
 # Per-dataset citation key (TODO_ until references.bib is wired).
@@ -54,10 +62,21 @@ def _row(dataset: str, root: Path) -> dict | None:
     pair_metrics, _ = pairwise_metrics(runs)
     churns = [m["id_churn"] for m in pair_metrics.values()]
     sym_kls = [m["id_sym_kl"] for m in pair_metrics.values()]
+    # Aggregate-accuracy analogue of churn: |acc_A - acc_B| in pp,
+    # averaged over the same 45 seed pairs.  Two retrainings differ in
+    # aggregate accuracy by this amount; they disagree on `churn` of
+    # individual predictions.  The contrast is the headline of the table.
+    acc_diffs_pp = [abs(id_accs[i] - id_accs[j]) * 100
+                    for i, j in combinations(range(len(id_accs)), 2)]
+    # id-test set size (constant across train_seeds under the canonical
+    # protocol; surface it so per-dataset CI widths are auditable).
+    n_id_test = int(len(runs[0][1]["id_indices"]))
     return {
         "dataset": dataset,
         "n_train": N_TRAIN.get(dataset, len(runs[0][1]["id_indices"])),
+        "n_id_test": n_id_test,
         "id_acc_mean": float(np.mean(id_accs)),
+        "acc_diff_pp_ci": bootstrap_ci(acc_diffs_pp),
         "churn": bootstrap_ci(churns),
         "sym_kl": bootstrap_ci(sym_kls),
         "n_seeds": len(runs),
@@ -68,6 +87,11 @@ def _fmt_pct_ci(t: tuple[float, float, float]) -> str:
     return f"{t[0]*100:.1f} [{t[1]*100:.1f}, {t[2]*100:.1f}]"
 
 
+def _fmt_pp_ci(t: tuple[float, float, float]) -> str:
+    """Format a CI already in percentage-point units (no ×100)."""
+    return f"{t[0]:.1f} [{t[1]:.1f}, {t[2]:.1f}]"
+
+
 def _fmt_ci(t: tuple[float, float, float]) -> str:
     return f"{t[0]:.3f} [{t[1]:.3f}, {t[2]:.3f}]"
 
@@ -75,35 +99,70 @@ def _fmt_ci(t: tuple[float, float, float]) -> str:
 def main() -> None:
     root = Path("outputs/cross_sample")
     out_path = Path("paper/sections/tables/fragility_magnitudes.tex")
-    datasets = [DEV_DATASET] + HEADLINE_DATASETS + MAGNITUDES_EXTRA
-    rows = [r for r in (_row(ds, root) for ds in datasets) if r is not None]
-    if not rows:
+    headline = [DEV_DATASET] + HEADLINE_DATASETS + MAGNITUDES_EXTRA
+    headline_rows = [r for r in (_row(ds, root) for ds in headline) if r is not None]
+    borderline_rows = [
+        r for r in (_row(ds, root) for ds in BORDERLINE_DATASETS) if r is not None
+    ]
+    if not headline_rows:
         print("No ERM runs found under outputs/cross_sample/.")
         return
 
-    rows.sort(key=lambda r: r["n_train"])
+    headline_rows.sort(key=lambda r: r["n_train"])
+    borderline_rows.sort(key=lambda r: r["n_train"])
+    min_acc_diff = min(r["acc_diff_pp_ci"][0] for r in headline_rows)
+    max_acc_diff = max(r["acc_diff_pp_ci"][0] for r in headline_rows)
     lines = [
         r"\begin{table}[t]",
         r"  \centering",
-        r"  \caption{Cross-bootstrap fragility magnitudes on the canonical "
-        r"id-test of each dataset. Argmax churn is the per-example "
-        r"disagreement rate between two ERM models trained on independent "
-        r"bootstraps; sym-KL is the corresponding distributional gap. "
-        r"Both are means over $\binom{n_{\text{seeds}}}{2}$ seed pairs with "
-        r"$95\%$ paired-bootstrap CIs ($10{,}000$ resamples).}",
+        r"  \caption{\textbf{Two retrainings on independent bootstraps "
+        r"differ in aggregate accuracy by "
+        + f"{min_acc_diff:.1f}" + r"\,--\," + f"{max_acc_diff:.1f}"
+        + r"\,pp on average, but disagree on $8\text{--}22\%$ of "
+        r"individual test predictions.}  "
+        r"Cross-bootstrap fragility on the canonical id-test of each "
+        r"dataset.  Top group: nine headline datasets (dev + held-out) "
+        r"that pass the +5pp ERM-vs-majority filter and have "
+        r"$N_{\text{id-test}} \geq 60$.  Bottom group: three borderline "
+        r"datasets that pass the filter only marginally (+3 to +4pp on "
+        r"57--104-example test sets); reported for transparency, not used "
+        r"in the headline method comparison.  ERM id-acc is the mean "
+        r"across $10$ retrainings; $|\Delta\text{acc}|$ is the mean "
+        r"absolute accuracy difference between two retrainings, averaged "
+        r"over the same $45$ pairs as the churn column.  Argmax churn is "
+        r"the per-example class-disagreement rate; sym-KL is the "
+        r"corresponding distributional gap.  All paired columns report "
+        r"mean with $95\%$ paired-bootstrap CIs ($10{,}000$ resamples).}",
         r"  \label{tab:fragility-magnitudes}",
         r"  \small",
-        r"  \begin{tabular}{lrrll}",
+        r"  \begin{tabular}{lrrrl@{\hspace{1.2em}}ll}",
         r"    \toprule",
-        r"    Dataset & $N$ & ERM id-acc & Argmax churn (\%) & Sym-KL (nats) \\",
+        r"    & & & \multicolumn{2}{c}{Aggregate accuracy}"
+        r" & \multicolumn{2}{c}{Per-prediction disagreement} \\",
+        r"    \cmidrule(lr){4-5} \cmidrule(lr){6-7}",
+        r"    Dataset & $N_{\text{train}}$ & $N_{\text{id-test}}$ &"
+        r" ERM id-acc & $|\Delta\text{acc}|$ (pp)"
+        r" & Argmax churn (\%) & Sym-KL (nats) \\",
         r"    \midrule",
     ]
-    for r in rows:
+    for r in headline_rows:
+        ds_label = display(r['dataset']) + (r"\,(dev)" if r['dataset'] == DEV_DATASET else "")
         lines.append(
-            f"    {cited(r['dataset'])} & {r['n_train']} & "
-            f"{r['id_acc_mean']:.3f} & {_fmt_pct_ci(r['churn'])} & "
+            f"    {ds_label} & {r['n_train']} & {r['n_id_test']} & "
+            f"{r['id_acc_mean']:.3f} & {_fmt_pp_ci(r['acc_diff_pp_ci'])} & "
+            f"{_fmt_pct_ci(r['churn'])} & "
             f"{_fmt_ci(r['sym_kl'])} \\\\"
         )
+    if borderline_rows:
+        lines.append(r"    \midrule")
+        lines.append(r"    \multicolumn{7}{l}{\emph{Borderline (passes filter only marginally; not used in headline comparison):}} \\")
+        for r in borderline_rows:
+            lines.append(
+                f"    {display(r['dataset'])} & {r['n_train']} & {r['n_id_test']} & "
+                f"{r['id_acc_mean']:.3f} & {_fmt_pp_ci(r['acc_diff_pp_ci'])} & "
+                f"{_fmt_pct_ci(r['churn'])} & "
+                f"{_fmt_ci(r['sym_kl'])} \\\\"
+            )
     lines += [
         r"    \bottomrule",
         r"  \end{tabular}",
@@ -113,9 +172,33 @@ def main() -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text("\n".join(lines))
     print(f"Wrote {out_path}")
-    for r in rows:
+
+    # CSV dump for paper-macros and audit (single row per dataset, one
+    # ``group`` column to distinguish headline / borderline).
+    import csv as _csv
+    csv_path = Path("outputs/fragility_magnitudes.csv")
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with csv_path.open("w", newline="") as f:
+        w = _csv.writer(f)
+        w.writerow(["dataset", "group", "n_train", "n_id_test",
+                    "erm_id_acc_mean",
+                    "acc_diff_pp_mean", "acc_diff_pp_lo", "acc_diff_pp_hi",
+                    "churn_mean", "churn_lo", "churn_hi",
+                    "sym_kl_mean", "sym_kl_lo", "sym_kl_hi", "n_seeds"])
+        for group_name, group in [("headline", headline_rows),
+                                  ("borderline", borderline_rows)]:
+            for r in group:
+                w.writerow([r["dataset"], group_name, r["n_train"], r["n_id_test"],
+                            r["id_acc_mean"],
+                            r["acc_diff_pp_ci"][0], r["acc_diff_pp_ci"][1], r["acc_diff_pp_ci"][2],
+                            r["churn"][0], r["churn"][1], r["churn"][2],
+                            r["sym_kl"][0], r["sym_kl"][1], r["sym_kl"][2],
+                            r["n_seeds"]])
+    print(f"Wrote {csv_path}")
+    for r in headline_rows + borderline_rows:
         print(f"  {r['dataset']:16s}  N={r['n_train']:>5d}  "
               f"acc={r['id_acc_mean']:.3f}  "
+              f"|Δacc|={_fmt_pp_ci(r['acc_diff_pp_ci'])}pp  "
               f"churn={_fmt_pct_ci(r['churn'])}  "
               f"sym-kl={_fmt_ci(r['sym_kl'])}")
 

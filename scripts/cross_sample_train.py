@@ -36,6 +36,7 @@ from torch.utils.data import DataLoader, Subset
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts._provenance import make_context as _make_provenance  # noqa: E402
 from scripts.run_experiment import HPARAMS, _build_model, build_cfg  # noqa: E402
 from train import make_dataloaders  # noqa: E402
 from utils import set_seed  # noqa: E402
@@ -637,6 +638,55 @@ def run(args):
     print(f"Canonical test set: id n={len(canonical_loaders['id_test'].dataset)}, "
           f"ood n={len(canonical_loaders['ood_test'].dataset)}")
 
+    # Provenance: hash the canonical pool and id-test indices once. These
+    # are byte-identical across train_seeds for a given canonical_data_seed,
+    # so any drift in the underlying dataset will surface as a hash change.
+    import hashlib as _hashlib
+
+    def _idx_hash(loader):
+        ds = loader.dataset
+        idxs = getattr(ds, "indices", None)
+        if idxs is None:
+            idxs = list(range(len(ds)))
+        return _hashlib.sha256(
+            np.asarray(idxs, dtype=np.int64).tobytes()
+        ).hexdigest()[:16]
+
+    canonical_pool_hash = _idx_hash(canonical_loaders["train"])
+    id_test_hash = _idx_hash(canonical_loaders["id_test"])
+    if pool_idx is not None:
+        canonical_pool_hash = _hashlib.sha256(
+            np.asarray(pool_idx, dtype=np.int64).tobytes()
+        ).hexdigest()[:16]
+
+    def _save(name: str, payload: dict, *, train_seed: int, **extra) -> None:
+        """Save NPZ + manifest sidecar with full provenance.
+
+        ``name`` is the file basename (no extension).  ``payload`` is the
+        kwargs dict for ``np.savez_compressed``.  ``train_seed`` plus any
+        ``**extra`` go into the manifest's ``config`` block (mode-specific
+        keys: K, lam, T, target_ratio, task).  Every NPZ produced by this
+        script gets a sibling ``<basename>.manifest.json`` and a line
+        appended to ``outputs/cross_sample/RUN_LEDGER.jsonl``.
+        """
+        npz_path = out_root / f"{name}.npz"
+        np.savez_compressed(npz_path, **payload)
+        config = {
+            "dataset": args.dataset,
+            "mode": args.mode,
+            "canonical_data_seed": args.canonical_data_seed,
+            "train_seed": int(train_seed),
+            "epochs": epochs,
+            "subsample_size": args.subsample_size,
+            "n_train": int(n_train),
+            "n_train_full": int(n_train_full),
+            **extra,
+        }
+        ctx = _make_provenance(npz_path, config)
+        ctx.data_hash = canonical_pool_hash
+        ctx.test_hash = id_test_hash
+        ctx.write()
+
     for train_seed in (int(s) for s in args.train_seeds.split(",")):
         print(f"\n=== {args.dataset}  canonical={args.canonical_data_seed}  "
               f"train_seed={train_seed}  mode={args.mode} ===")
@@ -653,23 +703,23 @@ def run(args):
                 ood_p, ood_y, ood_i = _predict_reg(model, canonical_loaders["ood_test"], device)
                 print(f"  id_mae={np.abs(id_p-id_y).mean():.4f}  "
                       f"ood_mae={np.abs(ood_p-ood_y).mean():.4f}")
-                np.savez_compressed(
-                    out_root / f"erm_train{train_seed}.npz",
-                    id_preds=id_p, id_labels=id_y, id_indices=id_i,
-                    ood_preds=ood_p, ood_labels=ood_y, ood_indices=ood_i,
-                    canonical_data_seed=args.canonical_data_seed,
-                    train_seed=train_seed, mode="erm", task="regression")
+                _save(f"erm_train{train_seed}",
+                      dict(id_preds=id_p, id_labels=id_y, id_indices=id_i,
+                           ood_preds=ood_p, ood_labels=ood_y, ood_indices=ood_i,
+                           canonical_data_seed=args.canonical_data_seed,
+                           train_seed=train_seed, mode="erm", task="regression"),
+                      train_seed=train_seed, task="regression")
             else:
                 id_p, id_y, id_i = _predict(model, canonical_loaders["id_test"], device)
                 ood_p, ood_y, ood_i = _predict(model, canonical_loaders["ood_test"], device)
                 print(f"  id_acc={(id_p.argmax(1)==id_y).mean():.4f}  "
                       f"ood_acc={(ood_p.argmax(1)==ood_y).mean():.4f}")
-                np.savez_compressed(
-                    out_root / f"erm_train{train_seed}.npz",
-                    id_probs=id_p, id_labels=id_y, id_indices=id_i,
-                    ood_probs=ood_p, ood_labels=ood_y, ood_indices=ood_i,
-                    canonical_data_seed=args.canonical_data_seed,
-                    train_seed=train_seed, mode="erm")
+                _save(f"erm_train{train_seed}",
+                      dict(id_probs=id_p, id_labels=id_y, id_indices=id_i,
+                           ood_probs=ood_p, ood_labels=ood_y, ood_indices=ood_i,
+                           canonical_data_seed=args.canonical_data_seed,
+                           train_seed=train_seed, mode="erm"),
+                      train_seed=train_seed)
 
         elif args.mode == "mc_dropout":
             # Train one MLP-with-dropout per train_seed on a bootstrap of the
@@ -699,12 +749,12 @@ def run(args):
                 model, canonical_loaders["ood_test"], device, T=args.K)
             print(f"  id_acc={(id_p.argmax(1)==id_y).mean():.4f}  "
                   f"ood_acc={(ood_p.argmax(1)==ood_y).mean():.4f}  T={args.K}")
-            np.savez_compressed(
-                out_root / f"mc_dropout_train{train_seed}_T{args.K}.npz",
-                id_probs=id_p, id_labels=id_y, id_indices=id_i,
-                ood_probs=ood_p, ood_labels=ood_y, ood_indices=ood_i,
-                canonical_data_seed=args.canonical_data_seed,
-                train_seed=train_seed, T=args.K, mode="mc_dropout")
+            _save(f"mc_dropout_train{train_seed}_T{args.K}",
+                  dict(id_probs=id_p, id_labels=id_y, id_indices=id_i,
+                       ood_probs=ood_p, ood_labels=ood_y, ood_indices=ood_i,
+                       canonical_data_seed=args.canonical_data_seed,
+                       train_seed=train_seed, T=args.K, mode="mc_dropout"),
+                  train_seed=train_seed, T=args.K)
 
         elif args.mode in ("deep_ensemble", "bagging"):
             models = _train_ensemble(
@@ -721,12 +771,12 @@ def run(args):
                 ood_avg = np.mean(ood_preds, axis=0)
                 print(f"  id_mae={np.abs(id_avg-iy).mean():.4f}  "
                       f"ood_mae={np.abs(ood_avg-oy).mean():.4f}  K={args.K}")
-                np.savez_compressed(
-                    out_root / f"{args.mode}_train{train_seed}_K{args.K}.npz",
-                    id_preds_avg=id_avg, id_labels=iy, id_indices=ii,
-                    ood_preds_avg=ood_avg, ood_labels=oy, ood_indices=oi,
-                    canonical_data_seed=args.canonical_data_seed,
-                    train_seed=train_seed, K=args.K, mode=args.mode, task="regression")
+                _save(f"{args.mode}_train{train_seed}_K{args.K}",
+                      dict(id_preds_avg=id_avg, id_labels=iy, id_indices=ii,
+                           ood_preds_avg=ood_avg, ood_labels=oy, ood_indices=oi,
+                           canonical_data_seed=args.canonical_data_seed,
+                           train_seed=train_seed, K=args.K, mode=args.mode, task="regression"),
+                      train_seed=train_seed, K=args.K, task="regression")
             else:
                 id_probs, ood_probs = [], []
                 for m in models:
@@ -737,12 +787,12 @@ def run(args):
                 ood_avg = np.mean(ood_probs, axis=0)
                 print(f"  id_acc={(id_avg.argmax(1)==iy).mean():.4f}  "
                       f"ood_acc={(ood_avg.argmax(1)==oy).mean():.4f}  K={args.K}")
-                np.savez_compressed(
-                    out_root / f"{args.mode}_train{train_seed}_K{args.K}.npz",
-                    id_probs_avg=id_avg, id_labels=iy, id_indices=ii,
-                    ood_probs_avg=ood_avg, ood_labels=oy, ood_indices=oi,
-                    canonical_data_seed=args.canonical_data_seed,
-                    train_seed=train_seed, K=args.K, mode=args.mode)
+                _save(f"{args.mode}_train{train_seed}_K{args.K}",
+                      dict(id_probs_avg=id_avg, id_labels=iy, id_indices=ii,
+                           ood_probs_avg=ood_avg, ood_labels=oy, ood_indices=oi,
+                           canonical_data_seed=args.canonical_data_seed,
+                           train_seed=train_seed, K=args.K, mode=args.mode),
+                      train_seed=train_seed, K=args.K)
 
         elif args.mode == "twin_indep":
             mA, mB = _train_twin_indep(
@@ -756,15 +806,15 @@ def run(args):
                 id_avg, ood_avg = 0.5 * (id_pA + id_pB), 0.5 * (ood_pA + ood_pB)
                 print(f"  id_mae={np.abs(id_avg-id_y).mean():.4f}  "
                       f"ood_mae={np.abs(ood_avg-ood_y).mean():.4f}  λ={args.lam}")
-                np.savez_compressed(
-                    out_root / f"twin_indep_train{train_seed}_lam{args.lam}.npz",
-                    id_preds_A=id_pA, id_preds_B=id_pB, id_preds_avg=id_avg,
-                    id_labels=id_y, id_indices=id_i,
-                    ood_preds_A=ood_pA, ood_preds_B=ood_pB, ood_preds_avg=ood_avg,
-                    ood_labels=ood_y, ood_indices=ood_i,
-                    canonical_data_seed=args.canonical_data_seed,
-                    train_seed=train_seed, lam=args.lam, mode="twin_indep",
-                    task="regression")
+                _save(f"twin_indep_train{train_seed}_lam{args.lam}",
+                      dict(id_preds_A=id_pA, id_preds_B=id_pB, id_preds_avg=id_avg,
+                           id_labels=id_y, id_indices=id_i,
+                           ood_preds_A=ood_pA, ood_preds_B=ood_pB, ood_preds_avg=ood_avg,
+                           ood_labels=ood_y, ood_indices=ood_i,
+                           canonical_data_seed=args.canonical_data_seed,
+                           train_seed=train_seed, lam=args.lam, mode="twin_indep",
+                           task="regression"),
+                      train_seed=train_seed, lam=args.lam, task="regression")
             else:
                 id_pA, id_y, id_i = _predict(mA, canonical_loaders["id_test"], device)
                 id_pB, _, _      = _predict(mB, canonical_loaders["id_test"], device)
@@ -773,14 +823,14 @@ def run(args):
                 id_avg, ood_avg = 0.5 * (id_pA + id_pB), 0.5 * (ood_pA + ood_pB)
                 print(f"  id_acc={(id_avg.argmax(1)==id_y).mean():.4f}  "
                       f"ood_acc={(ood_avg.argmax(1)==ood_y).mean():.4f}  λ={args.lam}")
-                np.savez_compressed(
-                    out_root / f"twin_indep_train{train_seed}_lam{args.lam}.npz",
-                    id_probs_A=id_pA, id_probs_B=id_pB, id_probs_avg=id_avg,
-                    id_labels=id_y, id_indices=id_i,
-                    ood_probs_A=ood_pA, ood_probs_B=ood_pB, ood_probs_avg=ood_avg,
-                    ood_labels=ood_y, ood_indices=ood_i,
-                    canonical_data_seed=args.canonical_data_seed,
-                    train_seed=train_seed, lam=args.lam, mode="twin_indep")
+                _save(f"twin_indep_train{train_seed}_lam{args.lam}",
+                      dict(id_probs_A=id_pA, id_probs_B=id_pB, id_probs_avg=id_avg,
+                           id_labels=id_y, id_indices=id_i,
+                           ood_probs_A=ood_pA, ood_probs_B=ood_pB, ood_probs_avg=ood_avg,
+                           ood_labels=ood_y, ood_indices=ood_i,
+                           canonical_data_seed=args.canonical_data_seed,
+                           train_seed=train_seed, lam=args.lam, mode="twin_indep"),
+                      train_seed=train_seed, lam=args.lam)
 
         elif args.mode in ("codistillation", "twin_indep_shared"):
             train_fn = (_train_codistillation if args.mode == "codistillation"
@@ -795,14 +845,14 @@ def run(args):
             id_avg, ood_avg = 0.5 * (id_pA + id_pB), 0.5 * (ood_pA + ood_pB)
             print(f"  id_acc={(id_avg.argmax(1)==id_y).mean():.4f}  "
                   f"ood_acc={(ood_avg.argmax(1)==ood_y).mean():.4f}  λ={args.lam}")
-            np.savez_compressed(
-                out_root / f"{args.mode}_train{train_seed}_lam{args.lam}.npz",
-                id_probs_A=id_pA, id_probs_B=id_pB, id_probs_avg=id_avg,
-                id_labels=id_y, id_indices=id_i,
-                ood_probs_A=ood_pA, ood_probs_B=ood_pB, ood_probs_avg=ood_avg,
-                ood_labels=ood_y, ood_indices=ood_i,
-                canonical_data_seed=args.canonical_data_seed,
-                train_seed=train_seed, lam=args.lam, mode=args.mode)
+            _save(f"{args.mode}_train{train_seed}_lam{args.lam}",
+                  dict(id_probs_A=id_pA, id_probs_B=id_pB, id_probs_avg=id_avg,
+                       id_labels=id_y, id_indices=id_i,
+                       ood_probs_A=ood_pA, ood_probs_B=ood_pB, ood_probs_avg=ood_avg,
+                       ood_labels=ood_y, ood_indices=ood_i,
+                       canonical_data_seed=args.canonical_data_seed,
+                       train_seed=train_seed, lam=args.lam, mode=args.mode),
+                  train_seed=train_seed, lam=args.lam)
 
         elif args.mode == "distillation_anchor":
             student, anchor = _train_distillation_anchor(
@@ -812,12 +862,12 @@ def run(args):
             ood_p, ood_y, ood_i = _predict(student, canonical_loaders["ood_test"], device)
             print(f"  id_acc={(id_p.argmax(1)==id_y).mean():.4f}  "
                   f"ood_acc={(ood_p.argmax(1)==ood_y).mean():.4f}  λ={args.lam}")
-            np.savez_compressed(
-                out_root / f"distillation_anchor_train{train_seed}_lam{args.lam}.npz",
-                id_probs=id_p, id_labels=id_y, id_indices=id_i,
-                ood_probs=ood_p, ood_labels=ood_y, ood_indices=ood_i,
-                canonical_data_seed=args.canonical_data_seed,
-                train_seed=train_seed, lam=args.lam, mode="distillation_anchor")
+            _save(f"distillation_anchor_train{train_seed}_lam{args.lam}",
+                  dict(id_probs=id_p, id_labels=id_y, id_indices=id_i,
+                       ood_probs=ood_p, ood_labels=ood_y, ood_indices=ood_i,
+                       canonical_data_seed=args.canonical_data_seed,
+                       train_seed=train_seed, lam=args.lam, mode="distillation_anchor"),
+                  train_seed=train_seed, lam=args.lam)
 
         elif args.mode == "twin_gradnorm":
             mA, mB = _train_twin_gradnorm(
@@ -832,15 +882,15 @@ def run(args):
             print(f"  id_acc={(id_avg.argmax(1)==id_y).mean():.4f}  "
                   f"ood_acc={(ood_avg.argmax(1)==ood_y).mean():.4f}  "
                   f"target_ratio={args.target_ratio}")
-            np.savez_compressed(
-                out_root / f"twin_gradnorm_train{train_seed}_tr{args.target_ratio}.npz",
-                id_probs_A=id_pA, id_probs_B=id_pB, id_probs_avg=id_avg,
-                id_labels=id_y, id_indices=id_i,
-                ood_probs_A=ood_pA, ood_probs_B=ood_pB, ood_probs_avg=ood_avg,
-                ood_labels=ood_y, ood_indices=ood_i,
-                canonical_data_seed=args.canonical_data_seed,
-                train_seed=train_seed, target_ratio=args.target_ratio,
-                mode="twin_gradnorm")
+            _save(f"twin_gradnorm_train{train_seed}_tr{args.target_ratio}",
+                  dict(id_probs_A=id_pA, id_probs_B=id_pB, id_probs_avg=id_avg,
+                       id_labels=id_y, id_indices=id_i,
+                       ood_probs_A=ood_pA, ood_probs_B=ood_pB, ood_probs_avg=ood_avg,
+                       ood_labels=ood_y, ood_indices=ood_i,
+                       canonical_data_seed=args.canonical_data_seed,
+                       train_seed=train_seed, target_ratio=args.target_ratio,
+                       mode="twin_gradnorm"),
+                  train_seed=train_seed, target_ratio=args.target_ratio)
 
         else:
             raise ValueError(f"unknown mode {args.mode}")

@@ -1,4 +1,0 @@
-# Split by ground-truth color label — the upper bound.
-# Verifies that having the *right* split is what matters, and gives
-# adversarial_split a ceiling to compare against.
-name: oracle_split

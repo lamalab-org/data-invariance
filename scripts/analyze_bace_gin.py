@@ -69,6 +69,16 @@ def main() -> None:
     erm_symkl = summary["ERM"]["symkl_pairs"]
     erm_pairs = summary["ERM"]["pairs"]
     print("Paired Δ vs ERM (same 45 seed-pairs):")
+    csv_rows = []
+    csv_rows.append({
+        "method": "ERM",
+        "id_acc_mean": summary["ERM"]["id_acc"][0],
+        "id_churn_mean": summary["ERM"]["id_churn"][0],
+        "id_sym_kl_mean": summary["ERM"]["id_sym_kl"][0],
+        "d_churn_mean_pp": "", "d_churn_lo_pp": "", "d_churn_hi_pp": "",
+        "d_acc_pp": 0.0,
+        "rel_churn_pct": "", "rel_kl_pct": "",
+    })
     for name in ("Bagging-K=5", "Twin-indep λ=300"):
         # Reorder by ERM's pair list to ensure pairing is identical.
         m_pm, _ = pairwise_metrics(runs[name])
@@ -80,8 +90,30 @@ def main() -> None:
         ci_k = bootstrap_paired(d_symkl)
         rel_churn = 100 * ci_c[0] / summary["ERM"]["id_churn"][0]
         rel_kl    = 100 * ci_k[0] / summary["ERM"]["id_sym_kl"][0]
+        d_acc_pp = (summary[name]["id_acc"][0] - summary["ERM"]["id_acc"][0]) * 100
         print(f"  {name:20s}  Δ id_churn {fmt_ci(ci_c, pct=True)} pp "
               f"({rel_churn:+.1f}%)   Δ sym_kl {fmt_ci(ci_k)} ({rel_kl:+.1f}%)")
+        csv_rows.append({
+            "method": name,
+            "id_acc_mean": summary[name]["id_acc"][0],
+            "id_churn_mean": summary[name]["id_churn"][0],
+            "id_sym_kl_mean": summary[name]["id_sym_kl"][0],
+            "d_churn_mean_pp": ci_c[0] * 100,
+            "d_churn_lo_pp": ci_c[1] * 100,
+            "d_churn_hi_pp": ci_c[2] * 100,
+            "d_acc_pp": d_acc_pp,
+            "rel_churn_pct": rel_churn,
+            "rel_kl_pct": rel_kl,
+        })
+
+    # CSV dump for paper-macros and audit.
+    import csv as _csv
+    csv_path = Path("outputs/bace_gin.csv")
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with csv_path.open("w", newline="") as f:
+        w = _csv.DictWriter(f, fieldnames=list(csv_rows[0].keys()))
+        w.writeheader(); w.writerows(csv_rows)
+    print(f"Wrote {csv_path}")
 
 
 if __name__ == "__main__":

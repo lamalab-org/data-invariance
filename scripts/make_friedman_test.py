@@ -7,7 +7,7 @@ assumption; no per-pair pairing assumption; treats each dataset as
 a block).
 
 Methods compared: ERM, Deep Ensemble K=5, Bagging K=2, Bagging K=5,
-Twin-indep λ=300.
+Twin-bootstrap λ=300.
 """
 from __future__ import annotations
 
@@ -105,6 +105,23 @@ def main() -> None:
         gap = abs(avg_ranks[i] - avg_ranks[j])
         flag = "**" if gap > CD else "  "
         print(f"  {flag} {mi:18s} vs {mj:18s}  rank-gap = {gap:.2f}")
+
+    # CSV dump for paper-macros and audit. One row per method (mean rank),
+    # plus a header line with chi^2 / p-value / N / k as a summary row.
+    import csv as _csv
+    out_csv = Path("outputs/friedman.csv")
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    with out_csv.open("w", newline="") as f:
+        w = _csv.writer(f)
+        w.writerow(["scope", "key", "value"])
+        w.writerow(["test", "chi2", float(chi2)])
+        w.writerow(["test", "p_value", float(p)])
+        w.writerow(["test", "k_methods", int(k)])
+        w.writerow(["test", "n_datasets", int(N)])
+        w.writerow(["test", "nemenyi_cd", float(CD)])
+        for m, r in zip(methods, avg_ranks):
+            w.writerow(["mean_rank", m, float(r)])
+    print(f"Wrote {out_csv}")
 
 
 if __name__ == "__main__":

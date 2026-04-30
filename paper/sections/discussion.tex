@@ -1,20 +1,35 @@
 \section{Discussion}
 \label{sec:discussion}
 
-\paragraph{What the methods buy.}
-The intro's toxicity classifier loses class on $8\text{--}22\%$ of
-test molecules between retrainings on independent bootstraps of the
-same training population.  Bagging-$K{=}5$ cuts that to
-$4\text{--}11\%$ at no accuracy cost ($5\times$-ERM compute,
-Table~\ref{tab:main}).  Twin-bootstrap at $\lambda{=}300$ ($2\times$-ERM
-compute) cuts it to $1\text{--}14\%$, beating matched-compute
-bagging-$K{=}2$ on $8/9$ datasets and matching the $K{=}5$ result in
-mean rank (Appendix~\ref{app:friedman}).  A single additional
-bootstrap suffices to identify the top decile of fragile predictions,
-which captures $68\text{--}94\%$ of the molecules retraining will flip
-(Figure~\ref{fig:decile}); a triage workflow that routes only that
-decile to a human reviewer is a one-bootstrap operation on top of
-an existing pipeline.
+\paragraph{Reducing cross-sample prediction fragility.}
+The intro's toxicity classifier loses class on
+$\churnMin\text{--}\churnMax\%$ of test molecules between retrainings
+on independent bootstraps of the same training population.
+Bagging-$K{=}5$ cuts that to $4\text{--}11\%$ at no accuracy cost
+($5\times$-ERM compute, Table~\ref{tab:main}).  Twin-bootstrap at
+$\lambda{=}300$ ($2\times$-ERM compute) cuts it to $1\text{--}14\%$,
+beating matched-compute bagging-$K{=}2$ on $8/9$ datasets and
+matching the $K{=}5$ result in mean rank
+(Appendix~\ref{app:friedman}).
+
+\paragraph{A recommended workflow.}
+The methods admit a tiered recipe that practitioners can adopt
+incrementally on top of an existing pipeline.  (i)~For the deployed
+predictor, train $K{=}5$ bagged models on independent bootstraps;
+this cuts the class-flip rate
+$\bagFiveLow\text{--}\bagFiveHigh\%$ at no accuracy cost and
+parallelises across $K$ devices for the same wall-clock as empirical
+risk minimisation (ERM).  (ii)~If $5\times$ compute is
+prohibitive, run a one-time $\lambda$-sweep on a development dataset
+and switch to twin-bootstrap at the rule-selected $\lambda$ (the
+$0.02$-tolerance rule selects $\lambda{=}300$ on from-scratch
+fingerprint multilayer perceptrons (MLPs), $\lambda{=}10$ on
+pretrained backbones); twin-bootstrap recovers most of the
+$K{=}5$ benefit at $2{\times}$-ERM compute.  (iii)~For
+triage, train one extra ERM bootstrap and rank test predictions by
+their per-example fragility; reviewing the top $30\%$ catches
+$\triageKtenLow\text{--}\triageKtenHigh\%$ of all flips on every dataset
+(Figure~\ref{fig:decile}), at the cost of one extra training run.
 
 \paragraph{Stability is a property of the procedure.}
 A model's cross-sample churn is not a fact about the trained
@@ -23,51 +38,36 @@ the optimiser, the schedule, the data-resampling protocol.  In the
 codistillation-vs.\ twin-bootstrap comparison
 (Appendix~\ref{app:overlap_spectrum}), a single hyperparameter on
 the procedure --- the fraction of data the two networks share ---
-separates a column that goes positive on DILI ($100\%$ overlap) from
-one that never does ($\sim$$40\%$).  The same applies across
-architectures: at the BACE-MLP-frozen $\lambda{=}300$ twin-bootstrap
-over-regularises GIN by $15$pp id-accuracy; the same selection rule
-re-applied on BACE-GIN picks $\lambda{=}10$ and recovers the result
-($-47.6\%$ argmax churn vs.\ ERM-GIN, Appendix~\ref{app:gin}); the
-same rule re-applied on BACE-ChemBERTa and on Waterbirds also picks
-$\lambda{=}10$ and recovers the result
-(Appendices~\ref{app:chemberta_scope},~\ref{app:waterbirds_lambda}).
-The selection rule transfers; the value $\lambda$ takes does not.
-Multi-class output and $N$-aware $\lambda$-scaling are open
-(Section~\ref{sec:scope}); regression results are reported in
-Appendix~\ref{app:regression}.
+separates a column that goes positive on DILI ($\overlapPctHi\%$ overlap) from
+one that never does ($\sim\overlapPctMid\%$).  The same lever, the consistency
+weight $\lambda$, takes a different value on a different architecture
+but the rule that selects it is unchanged
+(Section~\ref{sec:generalisation}).
 
-\paragraph{Cross-sample fragility belongs alongside accuracy.}
-A model's churn is procedural, but a benchmark report is what the
-field reads.  AI-for-science benchmarks (MoleculeNet, TDC ADME/Tox,
-materials-science suites) report columns for accuracy, AUROC,
-calibration, and (sometimes) worst-group accuracy.  None of these
-varies the training dataset; cross-sample fragility does, and no
-current AI-for-science benchmark template includes a column for it.
-Two models trained on independent samples of the same population
-that disagree on $16\%$ of test predictions while reporting
-identical aggregate accuracy --- the BACE case
+\paragraph{Cross-sample fragility belongs in the benchmark report.}
+AI-for-science benchmarks (MoleculeNet, TDC ADME/Tox,
+materials-science suites) report columns for accuracy, area under
+the receiver operating characteristic (AUROC), calibration, and
+(sometimes) worst-group accuracy.  None of these varies the training
+dataset; cross-sample fragility does.  Two models trained on
+independent samples of the same population that disagree on $16\%$
+of test predictions while reporting near-identical aggregate
+accuracy (within $\sim$$2$\,pp) --- the BACE case
 (Figure~\ref{fig:overview}) --- are indistinguishable in the report
-column even though the practitioner sees the difference at the
-next retraining.  Deep ensembles and MC dropout, the standard
+column even though the practitioner sees the difference at the next
+retraining.  Deep ensembles and MC dropout, the standard
 parameter-side uncertainty methods, move argmax churn by $-4.6$ to
-$+1.8$pp across the nine datasets (Table~\ref{tab:main}); they are
-not substitutes for a report column that measures sensitivity to
-the training sample.  The clinical-biostatistics literature already
-reports per-individual stability intervals~\citep{TODO_riley2023};
-the case for the same in scientific ML rests on the magnitudes we
-measure (Section~\ref{sec:measurement}).
-
-\paragraph{Adding the column.}
-Bagging~\citep{TODO_breiman1996} and codistillation
-\citep{TODO_anil2018_codistillation} at the right inter-network
-overlap already exist; what this paper adds is a measurement
-protocol that makes their effect on cross-sample fragility visible,
-and a regime --- small-$N$ from-scratch scientific ML --- where the
-gap they close dominates the rest of the report.  Aggregate accuracy
-on a fixed test set measures the deployed model; cross-sample
-fragility measures the procedure that will produce the next one.  On
-the nine chemistry benchmarks where we measured both, the second
-varies by $8\text{--}22$ percentage points across retrainings while
-the first changes by less than one.  Reading only the accuracy
-column is reading half the report.
+$+1.8$\,pp across the \nDatasetsHeadline{} datasets (Table~\ref{tab:main}); they
+do not substitute for measurement of sensitivity to the training
+sample.  Clinical biostatistics already reports per-individual
+stability intervals~\citep{Riley2023}; the case for the same
+in scientific ML rests on the magnitudes we measure
+(Section~\ref{sec:fragility-magnitudes}).  Aggregate accuracy on a
+fixed test set characterises the deployed model; cross-sample
+fragility characterises the procedure that will produce the next
+one.  A practitioner who refreshes a dataset and retrains sees this
+$\churnMin\text{--}\churnMax\%$ flip rate on the molecules that drive next steps:
+synthesis queues, lead candidates, virtual-screening hits.  The
+measurement protocol surfaces the rate, bagging and twin-bootstrap
+reduce it, and a one-bootstrap triage identifies which predictions
+will flip first.

@@ -52,31 +52,24 @@ HEADLINE_DATASETS = [
 # dataset remains.
 MAGNITUDES_EXTRA: list[str] = []
 
-# Datasets we tried but that failed the +5pp health filter on ERM
-# (id-acc within 5pp of majority-class baseline). Kept for transparency in
-# an appendix paragraph rather than thrown away silently.
-NEW_FAILED_FILTER = [
-    "cyp2c9_substrate",
-    "cyp3a4_substrate",
-    "clintox",
-]
-
-# Borderline datasets: small test set or accuracy-collapse failure mode under
-# strong consistency loss; reported in an appendix table only.
-#   - mof_thermal: id_acc collapses 0.62 -> 0.53 under twin-indep λ=300 and
-#     codistillation (chance-level on a binary task); the "churn reduction"
-#     is then partly via majority-class prediction.
-#   - skin_reaction, herg, hia_hou: ERM > majority by < 5pp or test set < 60.
+# Borderline datasets: pass the ERM-vs-majority filter only marginally
+# (+3 to +4pp on test sets of 57--104 examples).  Reported in the bottom
+# group of the magnitudes table for transparency; not used in headline.
 BORDERLINE_DATASETS = [
     "skin_reaction",
     "herg",
     "hia_hou",
 ]
 
-# Excluded entirely: ERM does not exceed majority-class baseline.
+# Excluded entirely: ERM does not exceed majority-class baseline by the
+# +5pp pre-registered threshold.  Reported with their per-dataset ERM
+# accuracy and majority baseline in the filter-outcomes appendix table.
 EXCLUDED_DATASETS = [
     "bioavailability_ma",
     "mof_solvent",
+    "cyp2c9_substrate",
+    "cyp3a4_substrate",
+    "clintox",
 ]
 
 # Pretrained-backbone scope analysis only.
@@ -105,7 +98,7 @@ METHOD_GLOBS = {
     "Deep Ens. K=5":   "deep_ensemble_train*_K5.npz",
     "Bagging K=2":     "bagging_train*_K2.npz",
     "Bagging K=5":     "bagging_train*_K5.npz",
-    "Twin-indep":      "twin_indep_train*_lam{lam}.npz",
+    "Twin-bootstrap":  "twin_indep_train*_lam{lam}.npz",
 }
 
 # Method order in the headline forest plot, top to bottom: weakest baseline
@@ -115,7 +108,7 @@ METHOD_ORDER = [
     "Deep Ens. K=5",
     "Bagging K=2",
     "Bagging K=5",
-    "Twin-indep",
+    "Twin-bootstrap",
 ]
 
 

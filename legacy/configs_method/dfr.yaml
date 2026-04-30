@@ -1,4 +1,0 @@
-# DFR (Deep Feature Reweighting) — Kirichenko et al. 2023.
-# Train ERM, then freeze backbone and retrain last layer on group-balanced data.
-# Requires group labels on validation set. Strongest published baseline.
-name: dfr

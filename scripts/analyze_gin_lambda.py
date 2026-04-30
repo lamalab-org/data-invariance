@@ -47,6 +47,7 @@ def main() -> None:
           f"{'sym_kl':>22}  {'Δ churn vs ERM':>22}  {'within 0.02 acc?':>16}")
     print("-" * 110)
 
+    csv_rows = []
     for lam in LAMBDAS:
         runs = load_runs(ROOT, f"twin_indep_train*_lam{lam}.npz")
         if not runs:
@@ -62,11 +63,36 @@ def main() -> None:
             continue
         d_churn = bootstrap_paired(churn - erm_churn)
         rel = 100 * d_churn[0] / float(np.mean(erm_churn))
-        within = "yes" if (ci_acc[0] >= erm_mean_acc - 0.02) else "no"
+        within = ci_acc[0] >= erm_mean_acc - 0.02
+        within_str = "yes" if within else "no"
         print(f"{lam:>5}  {fmt_ci(ci_acc):>15}  "
               f"{fmt_ci(bootstrap_ci(churn), pct=True):>20}  "
               f"{fmt_ci(bootstrap_ci(kl)):>22}  "
-              f"{fmt_ci(d_churn, pct=True)} ({rel:+.1f}%)   {within}")
+              f"{fmt_ci(d_churn, pct=True)} ({rel:+.1f}%)   {within_str}")
+        csv_rows.append({
+            "lam": lam, "id_acc": ci_acc[0],
+            "id_churn": float(np.mean(churn)),
+            "d_churn_mean_pp": d_churn[0] * 100,
+            "d_churn_lo_pp": d_churn[1] * 100,
+            "d_churn_hi_pp": d_churn[2] * 100,
+            "rel_churn_pct": rel,
+            "within_tolerance": within,
+            "d_acc_pp": (ci_acc[0] - erm_mean_acc) * 100,
+        })
+
+    import csv as _csv
+    csv_path = Path("outputs/gin_lambda.csv")
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    rule_lam = max((r["lam"] for r in csv_rows if r["within_tolerance"]),
+                   default=None)
+    with csv_path.open("w", newline="") as f:
+        w = _csv.DictWriter(f, fieldnames=list(csv_rows[0].keys()) + ["rule_picked"])
+        w.writeheader()
+        for r in csv_rows:
+            r2 = dict(r); r2["rule_picked"] = (r["lam"] == rule_lam)
+            w.writerow(r2)
+    # Also append the ERM baseline row for downstream consumers.
+    print(f"\nWrote {csv_path}  (rule picks lam={rule_lam})")
 
 
 if __name__ == "__main__":

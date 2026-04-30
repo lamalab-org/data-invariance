@@ -1,0 +1,21 @@
+\begin{table}[h]
+\centering
+\caption{\textbf{The rule transfers; the value $\lambda$ takes does not.}  At the BACE-MLP-frozen $\lambda{=}300$ twin-bootstrap over-regularises ChemBERTa (accuracy drops $9\text{--}17$\,pp; churn rises on $5/6$ datasets, BBBP collapses to majority).  Re-applying the same $0.02$-tolerance rule on BACE-ChemBERTa picks $\lambda{=}10$, at which twin-bootstrap preserves accuracy (within $2$\,pp of ERM) and cuts churn $15\text{--}82\%$ on every dataset.  Paired $\Delta$ churn columns report mean $[\,95\%\ \text{CI}\,]$ in percentage points over $\binom{5}{2}{=}10$ seed pairs.}
+\label{tab:chemberta}
+\small
+\begin{tabular}{lc@{\hspace{0.8em}}cc@{\hspace{0.8em}}cc}
+\toprule
+ & \multicolumn{1}{c}{ERM} & \multicolumn{2}{c}{Twin-bootstrap $\lambda{=}300$} & \multicolumn{2}{c}{Twin-bootstrap $\lambda{=}10$ (rule)} \\
+\cmidrule(lr){2-2} \cmidrule(lr){3-4} \cmidrule(lr){5-6}
+Dataset & churn (\%) & acc & $\Delta$ churn (pp) & acc & $\Delta$ churn (pp) \\
+\midrule
+    BACE & 15.5 & 0.62 & +10.4 [+6.2, +14.0] & 0.70 & -2.3 [-4.3, -0.2] \\
+    BBBP & 4.0 & 0.78 & -4.0 [-4.6, -3.4]$^{*}$ & 0.88 & -0.9 [-1.8, -0.1] \\
+    Pgp & 8.9 & 0.63 & +7.4 [+4.7, +9.9] & 0.77 & -2.5 [-3.8, -1.2] \\
+    BBB-Martins & 3.5 & 0.77 & +0.1 [-1.3, +1.5] & 0.87 & -2.8 [-3.3, -2.4] \\
+    AMES & 9.1 & 0.60 & +4.2 [+1.6, +7.3] & 0.75 & -2.5 [-2.9, -2.1] \\
+    DILI & 27.9 & 0.57 & +13.7 [+6.3, +20.7] & 0.68 & -6.6 [-11.2, -2.2] \\
+\bottomrule
+\multicolumn{6}{l}{\footnotesize $^{*}$BBBP at $\lambda{=}300$ collapses to the majority-class predictor (acc $0.78{=}$ majority), so the churn drop is meaningless.}
+\end{tabular}
+\end{table}

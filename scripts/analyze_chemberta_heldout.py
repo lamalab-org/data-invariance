@@ -65,18 +65,118 @@ def summarise(ds: str):
     return out
 
 
+_DISPLAY = {
+    "bace_chemberta":            "BACE",
+    "bbbp_chemberta":             "BBBP",
+    "pgp_broccatelli_chemberta": "Pgp",
+    "bbb_martins_chemberta":     "BBB-Martins",
+    "ames_chemberta":             "AMES",
+    "dili_chemberta":             "DILI",
+}
+
+
+def _fmt_dchurn_pp_ci(ci: tuple[float, float, float]) -> str:
+    """Format a paired-Δ churn CI in percentage points."""
+    if ci is None:
+        return "---"
+    m, lo, hi = ci
+    return f"{m*100:+.1f} [{lo*100:+.1f}, {hi*100:+.1f}]"
+
+
+def write_latex_table(rows: list[dict], path: Path) -> None:
+    lines = [
+        r"\begin{table}[h]",
+        r"\centering",
+        r"\caption{\textbf{The rule transfers; the value $\lambda$ takes "
+        r"does not.}  At the BACE-MLP-frozen $\lambda{=}300$ "
+        r"twin-bootstrap over-regularises ChemBERTa (accuracy drops "
+        r"$9\text{--}17$\,pp; churn rises on $5/6$ datasets, BBBP "
+        r"collapses to majority).  Re-applying the same $0.02$-tolerance "
+        r"rule on BACE-ChemBERTa picks $\lambda{=}10$, at which "
+        r"twin-bootstrap preserves accuracy (within $2$\,pp of ERM) "
+        r"and cuts churn $15\text{--}82\%$ on every dataset.  Paired "
+        r"$\Delta$ churn columns report mean $[\,95\%\ \text{CI}\,]$ in "
+        r"percentage points over $\binom{5}{2}{=}10$ seed pairs.}",
+        r"\label{tab:chemberta}",
+        r"\small",
+        r"\begin{tabular}{lc@{\hspace{0.8em}}cc@{\hspace{0.8em}}cc}",
+        r"\toprule",
+        r" & \multicolumn{1}{c}{ERM}"
+        r" & \multicolumn{2}{c}{Twin-bootstrap $\lambda{=}300$}"
+        r" & \multicolumn{2}{c}{Twin-bootstrap $\lambda{=}10$ (rule)} \\",
+        r"\cmidrule(lr){2-2} \cmidrule(lr){3-4} \cmidrule(lr){5-6}",
+        r"Dataset & churn (\%) & acc & $\Delta$ churn (pp) & acc & $\Delta$ churn (pp) \\",
+        r"\midrule",
+    ]
+    for r in rows:
+        ds_name = _DISPLAY.get(r["dataset"], r["dataset"])
+        bbbp_collapse = r["dataset"] == "bbbp_chemberta"
+        d300 = _fmt_dchurn_pp_ci(r.get("t300_dchurn_ci"))
+        d10 = _fmt_dchurn_pp_ci(r.get("t10_dchurn_ci"))
+        if bbbp_collapse:
+            d300 = d300 + r"$^{*}$"
+        lines.append(
+            f"    {ds_name} & {r['erm_churn']*100:.1f} & "
+            f"{r.get('t300_acc',0):.2f} & {d300} & "
+            f"{r.get('t10_acc',0):.2f} & {d10} \\\\"
+        )
+    lines += [
+        r"\bottomrule",
+        r"\multicolumn{6}{l}{\footnotesize $^{*}$BBBP at $\lambda{=}300$ "
+        r"collapses to the majority-class predictor (acc $0.78{=}$ majority), "
+        r"so the churn drop is meaningless.}",
+        r"\end{tabular}",
+        r"\end{table}",
+        "",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines))
+    print(f"Wrote {path}")
+
+
 def main():
     print(f"{'Dataset':<25} {'ERM':>14} {'twin λ=300':>22} {'twin λ=10 (rule)':>22}")
     print(f"{'':<25} {'(acc, churn%)':>14} {'(acc, churn%, Δrel)':>22} {'(acc, churn%, Δrel)':>22}")
     print("-" * 95)
+    rows = []
     for ds in DATASETS:
         r = summarise(ds)
         if r is None:
             print(f"{ds:<25}  no data"); continue
+        r["dataset"] = ds
+        rows.append(r)
         s_erm = f"{r['erm_acc']:.2f}, {r['erm_churn']*100:.1f}"
         s300 = f"{r.get('t300_acc',0):.2f}, {r.get('t300_churn',0)*100:.1f}, {r.get('t300_rel',0):+.0f}%"
         s10 = f"{r.get('t10_acc',0):.2f}, {r.get('t10_churn',0)*100:.1f}, {r.get('t10_rel',0):+.0f}%"
         print(f"{ds:<25} {s_erm:>14} {s300:>22} {s10:>22}")
+
+    if rows:
+        write_latex_table(rows, Path("paper/sections/tables/chemberta.tex"))
+        # CSV dump for paper-macros and audit. One row per dataset, all
+        # numbers the prose quotes (per-dataset ERM acc/churn, twin acc /
+        # churn / paired Δ churn / relative reduction at both λ values).
+        import csv
+        csv_path = Path("outputs/chemberta_heldout.csv")
+        csv_path.parent.mkdir(parents=True, exist_ok=True)
+        cols = ["dataset", "erm_acc", "erm_churn",
+                "t300_acc", "t300_churn", "t300_dchurn_mean", "t300_dchurn_lo",
+                "t300_dchurn_hi", "t300_rel",
+                "t10_acc", "t10_churn", "t10_dchurn_mean", "t10_dchurn_lo",
+                "t10_dchurn_hi", "t10_rel"]
+        with csv_path.open("w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(cols)
+            for r in rows:
+                ci300 = r.get("t300_dchurn_ci") or (None, None, None)
+                ci10 = r.get("t10_dchurn_ci") or (None, None, None)
+                w.writerow([
+                    r["dataset"], r.get("erm_acc"), r.get("erm_churn"),
+                    r.get("t300_acc"), r.get("t300_churn"),
+                    ci300[0], ci300[1], ci300[2], r.get("t300_rel"),
+                    r.get("t10_acc"), r.get("t10_churn"),
+                    ci10[0], ci10[1], ci10[2], r.get("t10_rel"),
+                ])
+        print(f"Wrote {csv_path}")
 
 
 if __name__ == "__main__":

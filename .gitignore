@@ -43,4 +43,8 @@ paper/main.bbl
 paper/main.blg
 paper/main.synctex.gz
 paper/main.pdf
+paper/main.fls
+paper/main.fdb_latexmk
 paper/build*.log
+paper/.texpadtmp/
+paper/sections/*.aux

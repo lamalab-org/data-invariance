@@ -2,17 +2,22 @@
 \label{sec:methods}
 
 We compare five approaches under the strict protocol of
-Section~\ref{sec:preliminaries}.
+Section~\ref{sec:preliminaries}.  All methods share the same
+architecture and optimiser unless stated otherwise: a $256$-unit,
+two-hidden-layer MLP with ReLU activations on the dataset-specific
+input features (Section~\ref{sec:preliminaries}), trained from
+scratch with AdamW (weight decay $10^{-4}$, gradient clipping at
+$1.0$), learning rate $10^{-3}$, batch size $64$, and $30$ epochs.
 
 \paragraph{ERM.}
-A single model trained by SGD on one bootstrap of the canonical
-training set.
+A single model trained by stochastic gradient descent (Adam variant)
+on one bootstrap of the canonical training set.
 
 \paragraph{MC dropout.}
 A single model with dropout layers ($p=0.2$) inserted after each
 hidden ReLU, trained by SGD on one bootstrap.  At deployment, $T=20$
 stochastic forward passes are averaged with dropout active
-\citep{TODO_gal2016}.  This captures dropout-mask variance at fixed
+\citep{gal2015dropout}.  This captures dropout-mask variance at fixed
 data; cross-sample fragility is then measured between the
 $T$-averaged predictions of two models trained on independent
 bootstraps.
@@ -23,12 +28,12 @@ initialisation seeds; predictions are averaged at deployment.  This
 captures parameter-distribution variance only.
 
 \paragraph{$K$-bootstrap bagging.}
-The classical estimator of \citet{TODO_breiman1996}: $K$ models
+The classical estimator of \citet{Breiman1996}: $K$ models
 trained on $K$ independent bootstraps of the canonical training set,
 predictions averaged at deployment.  No auxiliary loss; the data
 axis is varied along with parameters.
 
-\paragraph{Twin-bootstrap with bootstrap-consistency loss.}
+\paragraph{Twin-bootstrap.}
 Two networks $\theta_A, \theta_B$ are trained jointly on independent
 bootstraps $S_A, S_B$.  At each step we draw one mini-batch from each
 loader, forward both networks on both mini-batches, and minimise
@@ -43,6 +48,7 @@ network's own bootstrap, and the consistency term
 $\mathcal{L}_{\mathrm{cons}}$ is the symmetric KL between the two
 networks' softmax distributions evaluated on the union of the two
 mini-batches.  At deployment, predictions are averaged.
+Algorithm~\ref{alg:twin-bootstrap} gives the per-epoch procedure.
 
 \paragraph{Algorithm.}
 \begin{algorithm}[H]
@@ -78,8 +84,9 @@ bootstraps share ${\sim}0.63^2 \approx 0.40$.}
 A single development dataset (BACE) is used to select $\lambda$ via
 the pre-registered rule: largest $\lambda$ in
 $\{1, 3, 10, 30, 100, 300\}$ such that BACE id-accuracy is within
-$0.02$ of ERM id-accuracy.  This rule yields $\lambda{=}300$.  The
-chosen $\lambda$ is frozen and applied unchanged to every held-out
-dataset.  $K$ for ensemble methods is set a priori to $5$ following
-\citet{TODO_lakshminarayanan2017}; we additionally report $K{=}2$ for
-compute-matched comparison against twin-bootstrap.
+$0.02$ of ERM id-accuracy.  This rule yields $\lambda{=}300$
+(Appendix~\ref{app:pareto} gives the Pareto curve), which we apply
+unchanged to every held-out dataset.  $K$ for ensemble methods is set
+a priori to $5$ following \citet{lakshminarayanan2017simple}; we
+additionally report $K{=}2$ for compute-matched comparison against
+twin-bootstrap.

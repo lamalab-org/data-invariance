@@ -1,11 +1,11 @@
 \begin{table}[h]
   \centering
-  \caption{Bootstrap-overlap spectrum: paired $\Delta$ id-churn vs.\ ERM at three operating points (codistillation $0\%$, twin-indep ${\sim}40\%$, twin-shared $100\%$ overlap), percentage points (negative is better). Daggers ($^\dagger$) mark cells where the method drops id-accuracy by more than $5$pp from ERM (the corresponding churn reduction is then largely majority-class prediction). Twin-indep at ${\sim}40\%$ overlap is the only column with no positive entries (always reduces churn) and the fewest accuracy daggers.}
+  \caption{\textbf{Twin-bootstrap ($\sim$40\% overlap) reduces churn on every dataset; codistillation (0\%) trips two accuracy daggers, twin-shared (100\%) makes DILI worse.}  Cells: paired $\Delta$ id-churn vs.\ ERM in percentage points, $[\,95\%\ \text{CI}\,]$, $\dagger$ marks id-accuracy drop $>5$\,pp.}
   \label{tab:overlap_spectrum}
   \small
   \begin{tabular}{lrlll}
     \toprule
-    Dataset & $N$ & Codistillation $0\%$ & Twin-indep ${\sim}40\%$ & Twin-shared $100\%$ \\
+    Dataset & $N$ & Codistillation $0\%$ & Twin-bootstrap ${\sim}40\%$ & Twin-shared $100\%$ \\
     \midrule
     SkinReact & 232 & -17.0 [-18.8, -15.2] & -15.0 [-16.6, -13.5] & -7.4 [-9.0, -5.8] \\
     DILI & 304 & -10.3 [-11.5, -9.2] & -2.7 [-4.2, -1.1] & +0.4 [-1.2, +2.2] \\
@@ -18,6 +18,10 @@
     BBB-Martins & 1300 & -7.4 [-7.8, -7.0] & -7.4 [-7.8, -7.0] & -6.5 [-6.9, -6.1] \\
     BBBP & 1305 & -7.9 [-8.3, -7.5] & -7.0 [-7.4, -6.6] & -6.8 [-7.2, -6.4] \\
     AMES & 4658 & -12.8 [-13.2, -12.5] & -8.3 [-8.6, -7.9] & -6.2 [-6.7, -5.8] \\
+    \midrule
+    \emph{Mean across 11 datasets} & --- & -10.1 & -7.6 & -5.3 \\
+    \emph{Acc-dagger count} & --- & 2/11 & 1/11 & 1/11 \\
+    \emph{Churn-positive count} & --- & 0/11 & 0/11 & 1/11 \\
     \bottomrule
   \end{tabular}
 \end{table}

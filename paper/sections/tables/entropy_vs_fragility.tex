@@ -1,6 +1,6 @@
 \begin{table}[h]
   \centering
-  \caption{Cross-sample fragility (from one extra bootstrap) vs.\ single-model predictive entropy as a flip predictor.  ``Top-10\%\ recall'' is the fraction of all retraining-induced flips captured by the top decile of the score; ``AuPC'' is the area under the precision-vs-coverage curve.  Higher is better for both columns.}
+  \caption{\textbf{Per-example fragility beats single-model predictive entropy as a retraining-flip predictor on every chemistry dataset.}  Fragility is computed from one extra bootstrap pair on the canonical id-test.  ``Top-10\%\ recall'' is the fraction of all retraining-induced flips captured by the top decile of the score; ``AuPC'' is the area under the precision-vs-coverage curve.  Higher is better for both columns.}
   \label{tab:entropy_vs_fragility}
   \small
   \begin{tabular}{lrrrr}
@@ -8,13 +8,14 @@
     & \multicolumn{2}{c}{Top-10\% recall (\%)} & \multicolumn{2}{c}{AuPC} \\
     Dataset & Fragility & Entropy & Fragility & Entropy \\
     \midrule
-    BACE & 33.2 & 26.7 & 0.343 & 0.303 \\
     DILI & 30.0 & 29.1 & 0.355 & 0.323 \\
+    CYP2D6-Sub & 38.6 & 29.3 & 0.306 & 0.269 \\
     Pgp & 50.2 & 39.0 & 0.263 & 0.233 \\
+    BACE & 33.2 & 26.7 & 0.343 & 0.303 \\
+    TADF & 40.8 & 29.0 & 0.298 & 0.247 \\
+    MOF-thermal & 24.6 & 21.1 & 0.397 & 0.351 \\
     BBB-Martins & 59.8 & 46.4 & 0.223 & 0.193 \\
     BBBP & 59.4 & 46.7 & 0.233 & 0.209 \\
-    TADF & 55.9 & 37.9 & 0.239 & 0.200 \\
-    MOF-thermal & 40.7 & 31.9 & 0.300 & 0.261 \\
     AMES & 35.5 & 27.6 & 0.331 & 0.288 \\
     \bottomrule
   \end{tabular}

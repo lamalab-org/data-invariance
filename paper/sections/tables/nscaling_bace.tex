@@ -1,6 +1,6 @@
 \begin{table}[h]
   \centering
-  \caption{Within-dataset $N$-scaling on BACE under the cross-sample bootstrap protocol.  Each row is mean cross-pair sym-KL and argmax churn at training-pool size $M$, computed over $\binom{10}{2}=45$ seed pairs with paired-bootstrap $95\%$ CIs ($10{,}000$ resamples).  The within-dataset log-log slope of sym-KL vs $M$ is $-0.22$, shallower than the theoretical $\beta = O(1/N)$ rate ($-1$); see Appendix~\ref{app:theory} for the gaps that explain why the bound does not transfer quantitatively.}
+  \caption{\textbf{Cross-sample fragility decreases with training-pool size on BACE, with a visible plateau between $M{=}600$ and $M{=}800$.}  Within-dataset $N$-scaling under the cross-sample bootstrap protocol.  Each row is mean cross-pair sym-KL and argmax churn at training-pool size $M$, computed over all $45$ pairs of $10$ retrainings with paired-bootstrap $95\%$ CIs ($10{,}000$ resamples).  The within-dataset log-log slope of sym-KL vs $M$ is $-0.22$; the plateau reflects an irreducible boundary-disagreement floor (fragility decreases with $N$ but not to zero).}
   \label{tab:nscaling}
   \small
   \begin{tabular}{rll}

@@ -8,72 +8,94 @@
     retraining-induced prediction flips on BACE.}  Each row is one
     of the $80$ test molecules with the largest cross-sample
     contrast; each column is one of ten retrainings on an
-    independent bootstrap of the canonical training pool; cells
+    independent bootstrap of the BACE training pool; cells
     are coloured by predicted class.  Visible vertical stripes
     in the left (ERM) panel are predictions that flip class across
     retrainings; under twin-bootstrap (right; $\lambda{=}300$, matched
     compute against bagging-$K{=}2$) the same molecules become
-    near-uniform.  Mean the class-flip rate over the full test set drops
+    near-uniform.  The mean class-flip rate over the full test set drops
     from $16.1\%$ (ERM) to $6.4\%$ (twin-bootstrap).}
   \label{fig:overview}
 \end{figure}
 
 A toxicity classifier is retrained on a new batch of assay results.
-Aggregate accuracy is unchanged.  The class label flips on
-$8\text{--}22\%$ of test molecules --- some already in synthesis
-queues (Figure~\ref{fig:overview}).  We call this \emph{cross-sample
+Aggregate accuracy moves by $\accDiffMin\text{--}\accDiffMax$ percentage
+points.  The class label flips on
+$\churnMin\text{--}\churnMax\%$ of test molecules --- some already in
+synthesis queues (Figure~\ref{fig:overview}).  We call this \emph{cross-sample
 prediction fragility}: the fraction of test predictions that change
 class between two models trained on independent samples of the same
 training population.
 
+Chemistry models are designed to be invariant to atomic permutation,
+rotation, and translation by construction --- $E(3)$-equivariant
+message passing, permutation-equivariant aggregators, and explicit
+symmetry baking are standard.  \emph{Sample invariance} ---
+invariance to which independent draw of the training population the
+model was fit on --- is the analogue on the data axis, and it is
+the invariance scientific ML has not been measuring.  A practitioner
+who refreshes a screening set, retrains, and reroutes synthesis based
+on the new top predictions confronts the violation of this invariance
+on every dataset update; cross-sample fragility quantifies it.
+
 Cross-sample fragility is the population-level analogue of
-\emph{prediction churn}~\citep{TODO_milani2016, TODO_bhojanapalli2021,
-TODO_jiang2022}: prior work measures churn between a new model and
-a deployed incumbent at web scale, where the incumbent is fixed.
+\emph{prediction churn}~\citep{launch_and_iterate, bhojanapalli2021reproducibility,
+jiang2022}: prior work measures churn between a new model and a
+deployed incumbent at web scale, where the incumbent is fixed.
 Scientific machine learning often retrains from scratch on a few
-hundred to a few thousand examples and has no incumbent; what
-varies between retrainings is the sample drawn from the training
-population.  Cross-sample fragility is a distinct axis of predictive
-uncertainty, and AI-for-science benchmarks do not currently report
-it: deep ensembles, MC dropout, and conformal prediction all sample
-over model parameters at fixed training data, while cross-sample
-fragility samples over draws of the training data itself.  Across
-our nine chemistry benchmarks the parameter-side methods move the
-class-flip rate by $-21\%$ to $+12.5\%$ relative to ERM, with no
-consistent direction.  Methods that vary the data work.
+hundred to a few thousand examples and has no incumbent; what varies
+between retrainings is the sample drawn from the training population.
+The quantity is the data-sampling slice of epistemic uncertainty,
+complementary to the parameter-sampling deep
+ensembles~\citep{lakshminarayanan2017simple} and Monte Carlo (MC)
+dropout~\citep{gal2015dropout} capture.  Across our \nDatasetsHeadline{}
+chemistry benchmarks the parameter-side methods move the class-flip rate
+by $\paramSideLow\%$ to $\paramSideHigh\%$ relative to empirical risk
+minimisation (ERM), with no consistent direction; methods that vary
+the data work.
 
 \paragraph{Contributions.}
 \begin{itemize}\itemsep0pt
-  \item We define cross-sample prediction fragility, the
-        population-level analogue of prediction churn, and give a
-        measurement protocol for the small-$N$ from-scratch regime
-        where deployment-loop churn measurement does not apply.
-  \item On nine chemistry benchmarks (MoleculeNet, TDC ADME/Tox,
-        materials science) fragility flips $8\text{--}22\%$ of test
-        predictions across retrainings --- many times larger than
-        the parameter-variance axis deep ensembles and MC dropout
-        capture (which leave $-13\%$ to $+7\%$ relative on
-        the class-flip rate).
-  \item $K$-bootstrap bagging~\citep{TODO_breiman1996} reduces argmax
-        churn $40\text{--}54\%$ on every held-out dataset, paired
-        bootstrap CI excluding zero, with no accuracy regression.
-        Twin-bootstrap --- the codistillation
-        family~\citep{TODO_anil2018_codistillation} at $\sim$$40\%$
-        inter-network bootstrap overlap --- cuts the class-flip rate by a
-        further median $60\%$ (range $16\text{--}92\%$) at matched
-        compute against bagging-$K{=}2$, at a frozen $\lambda{=}300$
-        selected on BACE alone, and reduces distributional
-        disagreement by another factor of ${\sim}8$.  Across three
-        operating points on the codistillation family ($0\%$,
-        $\sim$$40\%$, $\sim$$63\%$ inter-network overlap), only
-        $\sim$$40\%$ holds accuracy on every dataset
+  \item \textbf{Measurement protocol.}  We define
+        \emph{cross-sample prediction fragility}, the population-level
+        analogue of prediction churn, and give a measurement protocol
+        for the small-$N$ from-scratch regime where deployment-loop
+        churn measurement does not apply.
+  \item \textbf{Magnitudes.}  On \nDatasetsHeadline{} chemistry benchmarks
+        (MoleculeNet, Therapeutics Data Commons (TDC) ADME and Tox,
+        materials-science) fragility flips
+        $\churnMin\text{--}\churnMax\%$ of test predictions across
+        retrainings --- many times larger than the parameter-variance
+        axis deep ensembles and MC dropout capture (which leave
+        $\paramSideLow\%$ to $\paramSideHigh\%$ relative on the
+        class-flip rate, no consistent direction).
+  \item \textbf{Bagging as a free-lunch baseline.}
+        $K$-bootstrap bagging~\citep{Breiman1996} reduces the
+        class-flip rate $\bagFiveLow\text{--}\bagFiveHigh\%$ on every
+        held-out dataset, paired bootstrap CI excluding zero, with no
+        accuracy regression.
+  \item \textbf{Twin-bootstrap.}  Two networks trained on independent
+        bootstraps with a soft sym-KL consistency loss between their
+        predictions --- the codistillation
+        family~\citep{anil2018large} at $\sim\overlapPctMid\%$
+        inter-network bootstrap overlap.  It cuts the class-flip rate
+        by a further median $\twinMedianReduction\%$ (range
+        $\twinLow\text{--}\twinHigh\%$) at matched $2\times$-ERM
+        compute against bagging-$K{=}2$, and reduces distributional
+        disagreement by another factor of
+        ${\sim}\symKLTwinAdditionalFoldMedian$.  Among three overlap
+        points ($\overlapPctLo\%$, $\sim\overlapPctMid\%$,
+        $\overlapPctHi\%$), $\sim\overlapPctMid\%$ is the only one
+        that reduces churn on every dataset with accuracy collapse on
+        at most one shared difficult dataset
         (Appendix~\ref{app:overlap_spectrum}).
-  \item A one-bootstrap triage workflow: per-example fragility from
-        a single additional retraining captures $68\text{--}94\%$ of
-        the test predictions retraining will flip in its top decile,
-        letting practitioners route only that decile to a human
-        reviewer at the cost of one extra training run.
-  \item The recipe is portable.  A single rule for picking
+  \item \textbf{One-bootstrap triage.}  Sorting test predictions by
+        per-example fragility from a single additional retraining and
+        reviewing the top $30\%$ captures
+        $\triageKtenLow\text{--}\triageKtenHigh\%$ of the
+        retraining-induced flips on every dataset, at the cost of one
+        extra training run.
+  \item \textbf{The recipe is portable.}  A single rule for picking
         $\lambda$ on the development dataset produces a working value
         on every architecture we tested --- the headline MLP, a
         from-scratch GIN (Appendix~\ref{app:gin}), ChemBERTa

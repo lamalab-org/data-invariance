@@ -1,4 +1,0 @@
-# Learned worst-case partition — our method.
-# The adversary maximizes head disagreement by optimizing per-example
-# soft assignment weights s_i via alternating gradient steps.
-name: adversarial_split

@@ -2,91 +2,62 @@
 \label{sec:related}
 
 \paragraph{Prediction churn.}
-\citet{TODO_milani2016} introduced \emph{prediction churn} as the
+\citet{launch_and_iterate} introduced \emph{prediction churn} as the
 disagreement between two classifiers trained on the same task with
-different runs or data updates and proposed an MCMC operator that
-regularises a new model toward a deployed one.
-\citet{TODO_bhojanapalli2021} dissect the sources of churn on CIFAR
-and ImageNet and isolate initialisation and data-order randomness;
-\citet{TODO_jiang2022} prove an equivalence between distillation
-from a fixed reference model and an explicit churn constraint, and
-report that distillation is the strongest churn-reduction mechanism
-in deployment settings.  This paper inherits the per-example framing
-and the term ``churn''.  The gap we fill: prior work measures churn
-in the deployment loop (a new model regressed against an incumbent
-on web-scale data); cross-sample fragility measures churn at the
-population level (two equally weighted retrainings on independent
-samples of the same population), in the small-$N$ from-scratch
-regime where a frozen reference model does not exist.
+different runs or data updates; their MCMC stabiliser and
+\citet{jiang2022}'s distillation-from-incumbent are deployment-loop
+methods that compare a candidate model against a frozen incumbent on
+web-scale data.  \citet{bhojanapalli2021reproducibility} instead
+hold the training data fixed and isolate parameter-side variance
+(initialisation, mini-batch order, hardware) as the source of
+churn on CIFAR/ImageNet.
 
-\paragraph{Predictive multiplicity and underspecification.}
-\citet{TODO_marx2020} define \emph{predictive multiplicity} as the
-existence of equally accurate models that disagree on individual
-predictions; \citet{TODO_damour2022} argue under-specified pipelines
-routinely produce them; \citet{TODO_black2022} use ensemble
-disagreement to abstain on contested predictions at deployment.
-These works study disagreement across the loss-equivalent model
-class at a fixed dataset.  Cross-sample fragility studies the
-complementary slice --- disagreement across independent draws of the
-dataset --- and is the slice the practitioner sees between
-retrainings on a refreshed sample.  Both can be read under the
-aleatoric/epistemic taxonomy of~\citet{TODO_huellermeier2021}.
+\paragraph{Codistillation operating points on the data-overlap axis.}
+Two-network sym-KL consistency has been applied at two operating
+points on the inter-network data-overlap axis:
+\citet{anil2018large} train on disjoint shards ($0\%$ overlap) with
+a KL agreement loss for distributed-training throughput;
+\citet{bhojanapalli2021reproducibility} share the entire training
+set ($100\%$ overlap) for parameter-side reproducibility.
+Twin-bootstrap inherits the sym-KL loss form and applies it at a
+third operating point: independent bootstraps of the canonical
+training pool, sharing ${\sim}40\%$ of indices in expectation
+(Appendix~\ref{app:overlap_spectrum}).
+
+\paragraph{Predictive multiplicity and the Rashomon set.}
+The Rashomon set~\citep{Breiman2001} is the set of near-loss-equivalent
+models on a fixed dataset; \citet{marx2020} operationalise this as
+\emph{predictive multiplicity}, \citet{damour2022} attribute it to
+under-specified pipelines, and \citet{black2022} build selective
+ensembles that abstain when ensemble consistency cannot be certified
+by a hypothesis test.  These works hold the dataset fixed and vary
+models within the loss-equivalent class --- orthogonal to
+cross-sample fragility, where the dataset varies and each retraining
+is one point in the resulting Rashomon set.  Both can be read under
+the aleatoric/epistemic taxonomy of~\citet{hullermeier2021aleatoric}.
 
 \paragraph{Parameter-side uncertainty and bagging.}
-Deep ensembles~\citep{TODO_lakshminarayanan2017} and MC
-dropout~\citep{TODO_gal2016} sample over model parameters at fixed
-data.  Bagging~\citep{TODO_breiman1996}, in the lineage of stability
-selection~\citep{TODO_meinshausen2010}, samples over the data;
-\citet{TODO_nixon2020} report that bagged neural-network ensembles
-can trade accuracy for the resampling.  Bootstrapped
-DQN~\citep{TODO_osband2016} uses a closely related multi-head
-bootstrap construction for exploration in reinforcement learning.
-The data-resampling axis bagging operates on is the same axis
-cross-sample fragility measures, but bagging has not been
-re-targeted to it as a stability mechanism in small-$N$ from-scratch
-deep learning.
-
-\paragraph{Two-network training with a disagreement loss.}
-\citet{TODO_anil2018_codistillation} train two networks on disjoint
-data shards with a mutual KL agreement loss to accelerate
-large-scale training, reporting churn reduction as a side benefit.
-\citet{TODO_han2018_coteaching} use a two-network construction with
-disagreement-driven sample selection for label-noise robustness;
-mean teacher and $\Pi$-model~\citep{TODO_tarvainen2017} penalise
-disagreement under input augmentation rather than training-data
-resampling.  Twin-bootstrap is mechanically closest to codistillation
-(two networks, KL agreement) but operates at $\sim$$40\%$
-inter-network bootstrap overlap rather than at the disjoint-shard
-$0\%$ end of the same axis; on a 10-dataset comparison
-(Appendix~\ref{app:overlap_spectrum}) codistillation degrades
-id-accuracy beyond a $5$pp threshold on Pgp and MOF-thermal,
-twin-shared introduces a positive churn delta on DILI, and
-twin-bootstrap at ${\sim}40\%$ is the only column that never increases
-churn relative to ERM.
+Deep ensembles~\citep{lakshminarayanan2017simple} and Monte Carlo
+dropout~\citep{gal2015dropout} sample over model parameters at fixed
+data.  Bagging~\citep{Breiman1996} samples over the data --- an axis
+that has been studied for accuracy in deep learning but not for
+cross-sample stability.
 
 \paragraph{Clinical-biostatistics precedent.}
-\citet{TODO_riley2023} develop a per-individual
-\emph{stability-interval} program for clinical prediction models
-and show that bootstrap-resampled point estimates can span the unit
-interval for the same patient.  The framing is the closest published
-precedent for the deployment-driven argument we make in
-Section~\ref{sec:discussion}, in a different domain and without a
-deep-learning treatment.
+\citet{Riley2023} define four levels of stability in clinical
+prediction-model risk estimates (mean, distribution, subgroups,
+individuals) and assess the individual level by retraining on
+$1000$ bootstrap samples of the development data, reporting
+prediction-instability plots and a mean absolute prediction error.
+They demonstrate considerable instability of individualised risk
+estimates and argue that stability checks should be a routine part
+of model development --- the closest published precedent for the
+argument we make in Section~\ref{sec:discussion}, in a different
+domain and without a deep-learning treatment.
 
-\paragraph{Conformal prediction, group robustness, and data attribution.}
-Conformal prediction~\citep{TODO_vovk2005} provides marginal
-coverage guarantees over the test point given a fixed training set,
-not stability across resamples of the training set.  A conformal
-wrapper preserves the underlying point prediction --- argmax churn
-of an ERM model wrapped with split conformal is identical to argmax
-churn of the bare ERM model --- so we report ERM as the conformal
-baseline rather than running a separate column.  Group-robust
-methods~\citep{TODO_sagawa2020, TODO_arjovsky2019, TODO_krueger2021}
-target accuracy on rare subpopulations.  Influence
-functions~\citep{TODO_koh2017_influence, TODO_pruthi2020_tracin} and
-datamodels~\citep{TODO_ilyas2022_datamodels} attribute a prediction
-to the training examples that most influenced it; cross-sample
-fragility is the corresponding output-side signal and requires
-only $K$ retrainings rather than the ${\sim}10^5$ models a datamodel
-surrogate is fit on.
+\paragraph{Group robustness.}
+Group-robust methods~\citep{sagawa2019distributionally, arjovsky2019invariant,
+pmlr-v139-krueger21a} target accuracy on rare subpopulations --- a
+different axis from cross-sample disagreement, and one of the column
+types that AI-for-science benchmarks already report.
 
