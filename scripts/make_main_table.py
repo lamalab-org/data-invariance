@@ -127,7 +127,7 @@ def write_latex_table(rows, path, frozen_lam):
     methods = ["MC dropout", "Deep Ensemble K=5", "Bagging K=2", "Bagging K=5",
                f"Twin_indep λ={frozen_lam} (frozen)"]
     headers = ["MC dropout", "Deep Ens.\\ $K{=}5$", "Bagging $K{=}2$",
-               "Bagging $K{=}5$", "Twin-indep $\\lambda{=}300$"]
+               "Bagging $K{=}5$", "Twin-bootstrap $\\lambda{=}300$"]
     by_ds: dict[str, dict[str, str]] = {}
     for r in rows:
         by_ds.setdefault(r["dataset"], {})[r["method"]] = r
@@ -135,19 +135,23 @@ def write_latex_table(rows, path, frozen_lam):
     lines = [
         r"\begin{table}[t]",
         r"  \centering",
-        r"  \caption{Paired $\Delta$ in-distribution argmax churn vs.\ ERM "
-        r"on the headline chemistry benchmarks (in percentage points; "
-        r"negative is better).  Each cell is the mean over "
-        r"$\binom{10}{2}=45$ seed pairs with paired-bootstrap $95\%$ "
-        r"confidence intervals from $10{,}000$ resamples.  "
+        r"  \caption{\textbf{Bagging and twin-bootstrap reduce the "
+        r"class-flip rate on every chemistry benchmark; MC dropout and "
+        r"deep ensembles do not.}  Paired $\Delta$ id-churn vs.\ ERM "
+        r"in percentage points (negative is better).  Each cell is the "
+        r"mean over $\binom{10}{2}=45$ seed pairs with paired-bootstrap "
+        r"$95\%$ confidence intervals from $10{,}000$ resamples.  "
         r"\textbf{Best} per dataset in bold; entries whose CI excludes "
-        r"zero are significant at $\alpha{=}0.05$.  Twin-indep "
+        r"zero are significant at $\alpha{=}0.05$.  Twin-bootstrap "
         r"$\lambda{=}300$ is selected on BACE only and applied unchanged "
         r"to every held-out benchmark.}",
         r"  \label{tab:main}",
         r"  \scriptsize",
-        r"  \begin{tabular}{lr" + "l" * len(methods) + "}",
+        r"  \begin{tabular}{lrll@{\hspace{1.2em}}lll}",
         r"    \toprule",
+        r"    & & \multicolumn{2}{c}{Parameter-side}"
+        r" & \multicolumn{3}{c}{Data-side} \\",
+        r"    \cmidrule(lr){3-4} \cmidrule(lr){5-7}",
         r"    Dataset & $N$ & " + " & ".join(headers) + r" \\",
         r"    \midrule",
     ]
@@ -167,7 +171,8 @@ def write_latex_table(rows, path, frozen_lam):
             if i == best_idx and cell != "---":
                 cell = r"\textbf{" + cell + r"}"
             cells.append(cell)
-        lines.append(f"    {_cited(ds)} & {N_TRAIN.get(ds, '---')} & "
+        ds_label = display(ds) + (r"\,(dev)" if ds == DEV_DATASET else "")
+        lines.append(f"    {ds_label} & {N_TRAIN.get(ds, '---')} & "
                      + " & ".join(cells) + r" \\")
     lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
     Path(path).parent.mkdir(parents=True, exist_ok=True)

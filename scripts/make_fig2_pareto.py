@@ -3,7 +3,7 @@
 Single-panel scatter on BACE (the development dataset).
   X axis: cross-sample id-churn (lower is better, the deployment metric)
   Y axis: id accuracy (higher is better)
-Each point is one method.  Twin-indep is shown at every $\\lambda$ in the
+Each point is one method.  Twin-bootstrap is shown at every $\\lambda$ in the
 pre-registered grid; the pre-registered selection rule
 ("largest $\\lambda$ such that id-acc $\\ge$ ERM id-acc $-0.02$") picks
 $\\lambda{=}300$, marked with a circle.
@@ -51,7 +51,7 @@ def main():
 
     erm = _metrics(load_runs(ds_dir, "erm_train*.npz"))
     bag = _metrics(load_runs(ds_dir, "bagging_train*_K5.npz"))
-    twin = {lam: _metrics(load_runs(ds_dir, glob_for("Twin-indep", lam=lam)))
+    twin = {lam: _metrics(load_runs(ds_dir, glob_for("Twin-bootstrap", lam=lam)))
             for lam in PARETO_LAMS}
     twin = {lam: m for lam, m in twin.items() if m is not None}
 
@@ -61,16 +61,23 @@ def main():
     fig_h = fig_w * 0.75
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
 
-    # Twin-indep curve (sorted by λ).
+    # Twin-bootstrap curve (sorted by λ).
     lams = sorted(twin)
     xs = [twin[l][3] * 100 for l in lams]
     ys = [twin[l][0] * 100 for l in lams]
     ax.plot(xs, ys, color="#7a1313", linewidth=1.0, alpha=0.6, zorder=2)
 
-    # Inline-label only the rule-selected point (λ=300).  Other λ values
-    # are identified by trace order in the legend; the body text
-    # references them by value where needed.
-    individually_labelled = {300.0: (8, 2)}
+    # Label only the four trajectory anchors — the cluster {1, 3, 10, 30}
+    # sits at near-identical coordinates so labelling each would crowd
+    # the bagging-$K{=}5$ marker; λ=1 marks the cluster's rightmost edge,
+    # λ=30 its leftmost, λ=100 the knee, λ=300 the rule-selected point.
+    # The reader can interpolate λ=3 and λ=10 between λ=1 and λ=30.
+    individually_labelled = {
+        1.0:   (8, 4),
+        30.0:  (-26, -10),
+        100.0: (-32, 0),
+        300.0: (8, 2),
+    }
 
     for lam in lams:
         m = twin[lam]
@@ -120,7 +127,7 @@ def main():
                    ms=6, mfc="#1f77b4", mec="#0d3a5c", label="Bagging $K{=}5$"),
         plt.Line2D([0], [0], marker="D", color="#7a1313", linestyle="-",
                    ms=5, mfc="white", mec="#7a1313",
-                   label=r"Twin-indep ($\lambda \in \{1,3,10,30,100,300\}$)"),
+                   label=r"Twin-bootstrap ($\lambda \in \{1,3,10,30,100,300\}$)"),
     ]
     ax.legend(handles=legend_handles, loc="upper center",
               bbox_to_anchor=(0.5, -0.18), ncol=3,

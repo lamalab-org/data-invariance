@@ -1,6 +1,23 @@
 % Citation keys are placeholders prefixed with TODO_ — replace with verified bibtex entries.
 % The keys used in the paper text are listed below for the user to fill in.
 
+
+@inproceedings{launch_and_iterate,
+author = {Cormier, Q. and Fard, M. Milani and Canini, K. and Gupta, M. R.},
+title = {Launch and iterate: reducing prediction churn},
+year = {2016},
+isbn = {9781510838819},
+publisher = {Curran Associates Inc.},
+address = {Red Hook, NY, USA},
+abstract = {Practical applications of machine learning often involve successive training iterations with changes to features and training examples. Ideally, changes in the output of any new model should only be improvements (wins) over the previous iteration, but in practice the predictions may change neutrally for many examples, resulting in extra net-zero wins and losses, referred to as unnecessary churn. These changes in the predictions are problematic for usability for some applications, and make it harder and more expensive to measure if a change is statistically significant positive. In this paper, we formulate the problem and present a stabilization operator to regularize a classifier towards a previous classifier. We use a Markov chain Monte Carlo stabilization operator to produce a model with more consistent predictions without adversely affecting accuracy. We investigate the properties of the proposal with theoretical analysis. Experiments on benchmark datasets for different classification algorithms demonstrate the method and the resulting reduction in churn.},
+booktitle = {Proceedings of the 30th International Conference on Neural Information Processing Systems},
+pages = {3179–3187},
+numpages = {9},
+location = {Barcelona, Spain},
+series = {NIPS'16}
+}
+
+
 % --- Theory / stability ---------------------------------------------------
 %   TODO_bousquet2002              Bousquet & Elisseeff, "Stability and generalization", JMLR 2002
 %   TODO_hardt2016                 Hardt, Recht & Singer, "Train faster, generalize better: Stability of SGD", ICML 2016
@@ -10,6 +27,17 @@
 %   TODO_gal2016                   Gal & Ghahramani, "Dropout as a Bayesian approximation", ICML 2016
 %   TODO_huellermeier2021          Hüllermeier & Waegeman, "Aleatoric and epistemic uncertainty in machine learning", Machine Learning 2021
 
+@article{hullermeier2021aleatoric,
+  title     = {Aleatoric and epistemic uncertainty in machine learning: An introduction to concepts and methods},
+  author    = {H{\"u}llermeier, Eyke and Waegeman, Willem},
+  journal   = {Machine learning},
+  volume    = {110},
+  number    = {3},
+  pages     = {457-506},
+  year      = {2021},
+  publisher = {Springer}
+}
+
 % --- Data-side stability / bagging ----------------------------------------
 %   TODO_breiman1996               Breiman, "Bagging predictors", Machine Learning 1996
 %   TODO_meinshausen2010           Meinshausen & Bühlmann, "Stability selection", JRSS-B 2010
@@ -18,17 +46,318 @@
 
 % --- Prediction churn (the literature we extend) --------------------------
 %   TODO_milani2016                Milani Fard / Cormier et al., "Launch and Iterate: Reducing Prediction Churn", NeurIPS 2016
-%   TODO_bhojanapalli2021          Bhojanapalli et al., "On the Reproducibility of Neural Network Predictions", arXiv 2102.03349, 2021
 %   TODO_jiang2022                 Jiang, Narasimhan, Bahri, et al., "Churn Reduction via Distillation", ICLR 2022
 %   TODO_anil2018_codistillation   Anil, Pereyra, Passos, Ormándi, Dahl, Hinton, "Large Scale Distributed Neural Network Training through Online Distillation" (codistillation), ICLR 2018
+%   Note: Bhojanapalli 2021 (entry below) also discusses codistillation.
+
+@article{bhojanapalli2021reproducibility,
+  title   = {On the Reproducibility of Neural Network Predictions},
+  author  = {Srinadh Bhojanapalli and Kimberly Wilber and Andreas Veit and Ankit Singh Rawat and Seungyeon Kim and Aditya Menon and Sanjiv Kumar},
+  year    = {2021},
+  journal = {arXiv preprint arXiv: 2102.03349}
+}
+
+@inproceedings{jiang2022,
+  author    = {Heinrich Jiang and Harikrishna Narasimhan and Dara Bahri and Andrew Cotter and Afshin Rostamizadeh},
+  title     = {Churn Reduction via Distillation},
+  booktitle = {The Tenth International Conference on Learning Representations, {ICLR} 2022, Virtual Event, April 25-29, 2022},
+  publisher = {OpenReview.net},
+  year      = {2022},
+  url       = {https://openreview.net/forum?id=HbtFCX2PLq0},
+  timestamp = {Sat, 20 Aug 2022 01:15:42 +0200},
+  biburl    = {https://dblp.org/rec/conf/iclr/JiangNBCR22.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
+@article{lakshminarayanan2017simple,
+  title   = {Simple and scalable predictive uncertainty estimation using deep ensembles},
+  author  = {Lakshminarayanan, Balaji and Pritzel, Alexander and Blundell, Charles},
+  journal = {Advances in neural information processing systems},
+  volume  = {30},
+  year    = {2017}
+}
+
+@article{gal2015dropout,
+  title     = {Dropout as a Bayesian Approximation: Representing Model Uncertainty in Deep Learning},
+  author    = {Y. Gal and Zoubin Ghahramani},
+  journal   = {International Conference on Machine Learning},
+  year      = {2015},
+  bibSource = {Semantic Scholar https://www.semanticscholar.org/paper/f35de4f9b1a7c4d3fa96a0d2ab1bf8937671f6b6}
+}
+
+@article{Breiman1996,
+  title = {Bagging predictors},
+  volume = {24},
+  ISSN = {1573-0565},
+  url = {http://dx.doi.org/10.1007/BF00058655},
+  DOI = {10.1007/bf00058655},
+  number = {2},
+  journal = {Machine Learning},
+  publisher = {Springer Science and Business Media LLC},
+  author = {Breiman,  Leo},
+  year = {1996},
+  month = Aug,
+  pages = {123–140}
+}
+
+@inproceedings{marx2020,
+  author    = {Charles T. Marx and Fl{\'{a}}vio P. Calmon and Berk Ustun},
+  title     = {Predictive Multiplicity in Classification},
+  booktitle = {Proceedings of the 37th International Conference on Machine Learning, {ICML} 2020, 13-18 July 2020, Virtual Event},
+  series    = {Proceedings of Machine Learning Research},
+  pages     = {6765-6774},
+  publisher = {PMLR},
+  year      = {2020},
+  url       = {http://proceedings.mlr.press/v119/marx20a.html},
+  timestamp = {Tue, 15 Dec 2020 17:40:19 +0100},
+  biburl    = {https://dblp.org/rec/conf/icml/MarxCU20.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
 
 % --- Predictive multiplicity / Rashomon ----------------------------------
+%   TODO_breiman2001               Breiman, "Statistical Modeling: The Two Cultures" (Rashomon effect), Statistical Science 2001
 %   TODO_marx2020                  Marx, Calmon, Ustun, "Predictive Multiplicity in Classification", ICML 2020
 %   TODO_black2022                 Black, Leino, Fredrikson, "Selective Ensembles for Consistent Predictions", ICLR 2022
 %   TODO_damour2022                D'Amour, Heller, Moldovan, et al., "Underspecification Presents Challenges for Credibility in Modern ML", JMLR 2022
 
+@inproceedings{black2022,
+  author    = {Emily Black and Klas Leino and Matt Fredrikson},
+  title     = {Selective Ensembles for Consistent Predictions},
+  booktitle = {The Tenth International Conference on Learning Representations, {ICLR} 2022, Virtual Event, April 25-29, 2022},
+  publisher = {OpenReview.net},
+  year      = {2022},
+  url       = {https://openreview.net/forum?id=HfUyCRBeQc},
+  timestamp = {Sat, 20 Aug 2022 01:15:42 +0200},
+  biburl    = {https://dblp.org/rec/conf/iclr/BlackLF22.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
+@article{damour2022,
+  title   = {Underspecification Presents Challenges for Credibility in Modern Machine Learning},
+  author  = {Alexander D'Amour and Katherine Heller and Dan Moldovan and Ben Adlam and Babak Alipanahi and Alex Beutel and Christina Chen and Jonathan Deaton and Jacob Eisenstein and Matthew D. Hoffman and Farhad Hormozdiari and Neil Houlsby and Shaobo Hou and Ghassen Jerfel and Alan Karthikesalingam and Mario Lucic and Yian Ma and Cory McLean and Diana Mincu and Akinori Mitani and Andrea Montanari and Zachary Nado and Vivek Natarajan and Christopher Nielson and Thomas F. Osborne and Rajiv Raman and Kim Ramasamy and Rory Sayres and Jessica Schrouff and Martin Seneviratne and Shannon Sequeira and Harini Suresh and Victor Veitch and Max Vladymyrov and Xuezhi Wang and Kellie Webster and Steve Yadlowsky and Taedong Yun and Xiaohua Zhai and D. Sculley},
+  year    = {2020},
+  journal = {arXiv preprint arXiv: 2011.03395}
+}
+
+@article{Breiman2001,
+  title = {Statistical Modeling: The Two Cultures (with comments and a rejoinder by the author)},
+  volume = {16},
+  ISSN = {0883-4237},
+  url = {http://dx.doi.org/10.1214/ss/1009213726},
+  DOI = {10.1214/ss/1009213726},
+  number = {3},
+  journal = {Statistical Science},
+  publisher = {Institute of Mathematical Statistics},
+  author = {Breiman,  Leo},
+  year = {2001},
+  month = Aug 
+}
+
 % --- Clinical biostatistics precedent ------------------------------------
 %   TODO_riley2023                 Riley, Pate, Dhiman, Archer, Martin, Collins, "Stability of clinical prediction models developed using ML methods", Biometrical Journal 2023
+
+
+@article{Riley2023,
+  title = {Stability of clinical prediction models developed using statistical or machine learning methods},
+  volume = {65},
+  ISSN = {1521-4036},
+  url = {http://dx.doi.org/10.1002/bimj.202200302},
+  DOI = {10.1002/bimj.202200302},
+  number = {8},
+  journal = {Biometrical Journal},
+  publisher = {Wiley},
+  author = {Riley,  Richard D. and Collins,  Gary S.},
+  year = {2023},
+  month = July 
+}
+
+@article{meinshausen2008stability,
+  title   = {Stability Selection},
+  author  = {Nicolai Meinshausen and Peter Buehlmann},
+  year    = {2008},
+  journal = {arXiv preprint arXiv: 0809.2932}
+}
+
+@article{Wu2018,
+  title = {MoleculeNet: a benchmark for molecular machine learning},
+  volume = {9},
+  ISSN = {2041-6539},
+  url = {http://dx.doi.org/10.1039/C7SC02664A},
+  DOI = {10.1039/c7sc02664a},
+  number = {2},
+  journal = {Chemical Science},
+  publisher = {Royal Society of Chemistry (RSC)},
+  author = {Wu,  Zhenqin and Ramsundar,  Bharath and Feinberg,  Evan N. and Gomes,  Joseph and Geniesse,  Caleb and Pappu,  Aneesh S. and Leswing,  Karl and Pande,  Vijay},
+  year = {2018},
+  pages = {513–530}
+}
+
+@article{jablonka2026clever,
+  title   = {Clever Materials: When Models Identify Good Materials for the Wrong Reasons},
+  author  = {Kevin Maik Jablonka},
+  year    = {2026},
+  journal = {arXiv preprint arXiv: 2602.17730}
+}
+@article{Huang2024,
+  title = {A database of thermally activated delayed fluorescent molecules auto-generated from scientific literature with ChemDataExtractor},
+  volume = {11},
+  ISSN = {2052-4463},
+  url = {http://dx.doi.org/10.1038/s41597-023-02897-3},
+  DOI = {10.1038/s41597-023-02897-3},
+  number = {1},
+  journal = {Scientific Data},
+  publisher = {Springer Science and Business Media LLC},
+  author = {Huang,  Dingyun and Cole,  Jacqueline M.},
+  year = {2024},
+  month = Jan 
+}
+@article{Nandy2022,
+  title = {MOFSimplify,  machine learning models with extracted stability data of three thousand metal–organic frameworks},
+  volume = {9},
+  ISSN = {2052-4463},
+  url = {http://dx.doi.org/10.1038/s41597-022-01181-0},
+  DOI = {10.1038/s41597-022-01181-0},
+  number = {1},
+  journal = {Scientific Data},
+  publisher = {Springer Science and Business Media LLC},
+  author = {Nandy,  Aditya and Terrones,  Gianmarco and Arunachalam,  Naveen and Duan,  Chenru and Kastner,  David W. and Kulik,  Heather J.},
+  year = {2022},
+  month = Mar 
+}
+
+@MISC{rdkit,
+  title = {{RDK}it: Open-source cheminformatics},
+  howpublished = {\url{http://www.rdkit.org}},
+  note = {[Online; accessed 30-April-2026]},
+  key = {RDKit, online}
+}
+
+@article{Moosavi2020,
+  title = {Understanding the diversity of the metal-organic framework ecosystem},
+  volume = {11},
+  ISSN = {2041-1723},
+  url = {http://dx.doi.org/10.1038/s41467-020-17755-8},
+  DOI = {10.1038/s41467-020-17755-8},
+  number = {1},
+  journal = {Nature Communications},
+  publisher = {Springer Science and Business Media LLC},
+  author = {Moosavi,  Seyed Mohamad and Nandy,  Aditya and Jablonka,  Kevin Maik and Ongari,  Daniele and Janet,  Jon Paul and Boyd,  Peter G. and Lee,  Yongjin and Smit,  Berend and Kulik,  Heather J.},
+  year = {2020},
+  month = Aug 
+}
+
+@inproceedings{xu_gin,
+  author    = {Keyulu Xu and Weihua Hu and Jure Leskovec and Stefanie Jegelka},
+  title     = {How Powerful are Graph Neural Networks?},
+  booktitle = {7th International Conference on Learning Representations, {ICLR} 2019, New Orleans, LA, USA, May 6-9, 2019},
+  publisher = {OpenReview.net},
+  year      = {2019},
+  url       = {https://openreview.net/forum?id=ryGs6iA5Km},
+  timestamp = {Thu, 25 Jul 2019 13:03:15 +0200},
+  biburl    = {https://dblp.org/rec/conf/iclr/XuHLJ19.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
+@article{ilyas2022datamodels0,
+  title   = {Datamodels: Predicting Predictions from Training Data},
+  author  = {Andrew Ilyas and Sung Min Park and Logan Engstrom and Guillaume Leclerc and Aleksander Madry},
+  year    = {2022},
+  journal = {arXiv preprint arXiv: 2202.00622}
+}
+
+@article{han2018co0teaching0,
+  title   = {Co-teaching: Robust Training of Deep Neural Networks with Extremely Noisy Labels},
+  author  = {Bo Han and Quanming Yao and Xingrui Yu and Gang Niu and Miao Xu and Weihua Hu and Ivor Tsang and Masashi Sugiyama},
+  year    = {2018},
+  journal = {arXiv preprint arXiv: 1804.06872}
+}
+
+
+@article{tarvainen2017mean,
+  title   = {Mean teachers are better role models: Weight-averaged consistency targets improve semi-supervised deep learning results},
+  author  = {Tarvainen, Antti and Valpola, Harri},
+  journal = {Advances in neural information processing systems},
+  volume  = {30},
+  year    = {2017}
+}
+
+
+@inproceedings{
+nixon2020why,
+title={Why Are Bootstrapped Deep Ensembles Not Better?},
+author={Jeremy Nixon and Balaji Lakshminarayanan and Dustin Tran},
+booktitle={''I Can't Believe It's Not Better!'' NeurIPS 2020 workshop},
+year={2020},
+url={https://openreview.net/forum?id=dTCir0ceyv0}
+}
+
+@InProceedings{pmlr-v139-krueger21a,
+  title = 	 {Out-of-Distribution Generalization via Risk Extrapolation (REx)},
+  author =       {Krueger, David and Caballero, Ethan and Jacobsen, Joern-Henrik and Zhang, Amy and Binas, Jonathan and Zhang, Dinghuai and Priol, Remi Le and Courville, Aaron},
+  booktitle = 	 {Proceedings of the 38th International Conference on Machine Learning},
+  pages = 	 {5815--5826},
+  year = 	 {2021},
+  editor = 	 {Meila, Marina and Zhang, Tong},
+  volume = 	 {139},
+  series = 	 {Proceedings of Machine Learning Research},
+  month = 	 {18--24 Jul},
+  publisher =    {PMLR},
+  pdf = 	 {http://proceedings.mlr.press/v139/krueger21a/krueger21a.pdf},
+  url = 	 {https://proceedings.mlr.press/v139/krueger21a.html},
+  abstract = 	 {Distributional shift is one of the major obstacles when transferring machine learning prediction systems from the lab to the real world. To tackle this problem, we assume that variation across training domains is representative of the variation we might encounter at test time, but also that shifts at test time may be more extreme in magnitude. In particular, we show that reducing differences in risk across training domains can reduce a model’s sensitivity to a wide range of extreme distributional shifts, including the challenging setting where the input contains both causal and anti-causal elements. We motivate this approach, Risk Extrapolation (REx), as a form of robust optimization over a perturbation set of extrapolated domains (MM-REx), and propose a penalty on the variance of training risks (V-REx) as a simpler variant. We prove that variants of REx can recover the causal mechanisms of the targets, while also providing robustness to changes in the input distribution (“covariate shift”). By appropriately trading-off robustness to causally induced distributional shifts and covariate shift, REx is able to outperform alternative methods such as Invariant Risk Minimization in situations where these types of shift co-occur.}
+}
+
+
+@inproceedings{tracin,
+  author    = {Garima Pruthi and Frederick Liu and Satyen Kale and Mukund Sundararajan},
+  editor    = {Hugo Larochelle and Marc'Aurelio Ranzato and Raia Hadsell and Maria{-}Florina Balcan and Hsuan{-}Tien Lin},
+  title     = {Estimating Training Data Influence by Tracing Gradient Descent},
+  booktitle = {Advances in Neural Information Processing Systems 33: Annual Conference on Neural Information Processing Systems 2020, NeurIPS 2020, December 6-12, 2020, virtual},
+  year      = {2020},
+  url       = {https://proceedings.neurips.cc/paper/2020/hash/e6385d39ec9394f2f3a354d9d2b88eec-Abstract.html},
+  timestamp = {Tue, 19 Jan 2021 15:56:59 +0100},
+  biburl    = {https://dblp.org/rec/conf/nips/PruthiLKS20.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
+
+@article{chithrananda2020chemberta0,
+  title   = {ChemBERTa: Large-Scale Self-Supervised Pretraining for Molecular Property Prediction},
+  author  = {Seyone Chithrananda and Gabriel Grand and Bharath Ramsundar},
+  year    = {2020},
+  journal = {arXiv preprint arXiv: 2010.09885}
+}
+
+@article{anil2018large,
+  title     = {Large scale distributed neural network training through online distillation},
+  author    = {Rohan Anil and Gabriel Pereyra and Alexandre Passos and Róbert Ormándi and George E. Dahl and Geoffrey E. Hinton},
+  journal   = {International Conference on Learning Representations},
+  year      = {2018},
+  bibSource = {Semantic Scholar https://www.semanticscholar.org/paper/cc59b4b1eb7d4629f753bc24f029c5cced301381}
+}
+
+@article{sagawa2019distributionally,
+  title   = {Distributionally Robust Neural Networks for Group Shifts: On the Importance of Regularization for Worst-Case Generalization},
+  author  = {Shiori Sagawa and Pang Wei Koh and Tatsunori B. Hashimoto and Percy Liang},
+  year    = {2019},
+  journal = {arXiv preprint arXiv: 1911.08731}
+}
+
+
+@article{arjovsky2019invariant,
+  title   = {Invariant Risk Minimization},
+  author  = {Martin Arjovsky and Léon Bottou and Ishaan Gulrajani and David Lopez-Paz},
+  year    = {2019},
+  journal = {arXiv preprint arXiv: 1907.02893}
+}
+
+@article{huang2021therapeutics,
+  title     = {Therapeutics Data Commons: Machine Learning Datasets and Tasks for Drug Discovery and Development},
+  author    = {Kexin Huang and Tianfan Fu and Wenhao Gao and Yue Zhao and Yusuf H. Roohani and J. Leskovec and Connor W. Coley and Cao Xiao and Jimeng Sun and M. Zitnik},
+  journal   = {NeurIPS Datasets and Benchmarks},
+  year      = {2021},
+  bibSource = {Semantic Scholar https://www.semanticscholar.org/paper/54ca116f1e9a45768a3a2c47a4608ff34adefa0c}
+}
 
 % --- Consistency regularisation / two-network methods -------------------
 %   TODO_tarvainen2017             Tarvainen & Valpola, "Mean teachers…", NeurIPS 2017

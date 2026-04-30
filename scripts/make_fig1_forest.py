@@ -1,10 +1,10 @@
 """Paper Figure 1 (rendered): two-panel forest plot of paired Δ id-churn.
 
 Left panel — Δ id-churn vs ERM, all four methods (Deep Ens K=5,
-Bagging K=2, Bagging K=5, Twin-indep λ=300).  This shows that every
+Bagging K=2, Bagging K=5, Twin-bootstrap λ=300).  This shows that every
 method beats ERM and that ensembles miss the data-resampling axis.
 
-Right panel — Δ id-churn vs Bagging K=2 (matched compute), Twin-indep
+Right panel — Δ id-churn vs Bagging K=2 (matched compute), Twin-bootstrap
 only.  This isolates the ``consistency loss adds reliably to bagging
 at matched compute'' claim: a single forest of red diamonds with
 horizontal whiskers, a vertical reference line at zero (Bagging K=2
@@ -59,17 +59,20 @@ def main() -> None:
     # Left panel: Δ vs ERM, all four methods.
     deltas_vs_erm = {(ds, m): _paired_delta(root, ds, m, GLOBS["erm"], args.metric)
                      for ds in HEADLINE_DATASETS for m in METHOD_ORDER}
-    # Right panel: Δ vs Bagging K=2 (matched compute), Twin-indep only.
-    deltas_vs_bag2 = {ds: _paired_delta(root, ds, "Twin-indep",
+    # Right panel: Δ vs Bagging K=2 (matched compute), Twin-bootstrap only.
+    deltas_vs_bag2 = {ds: _paired_delta(root, ds, "Twin-bootstrap",
                                         GLOBS["bagging_2"], args.metric)
                       for ds in HEADLINE_DATASETS}
 
+    # Single marker shape (circle) across methods; fill state and edge
+    # colour distinguish parameter-side (gray) from data-side
+    # (blue / red), and open vs filled within each group.
     method_styles = {
-        "MC dropout":    dict(marker="^", mfc="white",   mec="0.45", ms=4.5,  zorder=1),
-        "Deep Ens. K=5": dict(marker="o", mfc="white",   mec="0.65", ms=4.0,  zorder=2),
-        "Bagging K=2":   dict(marker="s", mfc="white",   mec="#1f77b4", ms=5.5,  zorder=3),
-        "Bagging K=5":   dict(marker="s", mfc="#1f77b4", mec="#0d3a5c", ms=6.5,  zorder=4),
-        "Twin-indep":    dict(marker="D", mfc="#d62728", mec="#7a1313", ms=8.5,  zorder=5),
+        "MC dropout":    dict(marker="o", mfc="white",   mec="0.45",    ms=5.0, zorder=1),
+        "Deep Ens. K=5": dict(marker="o", mfc="0.65",    mec="0.30",    ms=5.0, zorder=2),
+        "Bagging K=2":   dict(marker="o", mfc="white",   mec="#1f77b4", ms=5.5, zorder=3),
+        "Bagging K=5":   dict(marker="o", mfc="#1f77b4", mec="#0d3a5c", ms=6.0, zorder=4),
+        "Twin-bootstrap":dict(marker="o", mfc="#d62728", mec="#7a1313", ms=7.0, zorder=5),
     }
 
     # Determine sensible x-ranges from the data (CI extents) plus padding.
@@ -116,7 +119,7 @@ def main() -> None:
                 mean * 100, y,
                 xerr=[[(mean - lo) * 100], [(hi - mean) * 100]],
                 fmt="none", capsize=2.0,
-                elinewidth=1.6 if method == "Twin-indep" else 1.0,
+                elinewidth=1.6 if method == "Twin-bootstrap" else 1.0,
                 ecolor=method_styles[method]["mec"],
                 zorder=method_styles[method]["zorder"] - 0.5,
             )
@@ -131,9 +134,9 @@ def main() -> None:
                                  if deltas_vs_erm[(ds, method)] is not None])
         col = method_styles[method]["mec"]
         ax_l.axvline(mean_of_means, color=col,
-                     linewidth=1.2 if method == "Twin-indep" else 0.7,
-                     linestyle="-" if method == "Twin-indep" else "--",
-                     alpha=0.85 if method == "Twin-indep" else 0.5,
+                     linewidth=1.2 if method == "Twin-bootstrap" else 0.7,
+                     linestyle="-" if method == "Twin-bootstrap" else "--",
+                     alpha=0.85 if method == "Twin-bootstrap" else 0.5,
                      zorder=1)
 
     ax_l.axvline(0, color="0.25", linewidth=1.0, zorder=1)
@@ -144,7 +147,7 @@ def main() -> None:
     ax_l.set_ylim(-0.6, len(HEADLINE_DATASETS) - 0.4)
     ax_l.grid(axis="x", linestyle="-", linewidth=0.4, alpha=0.35, zorder=0)
 
-    # ---------- Right: Δ vs Bagging K=2, Twin-indep only ----------
+    # ---------- Right: Δ vs Bagging K=2, Twin-bootstrap only ----------
     twin_means = []
     for i, ds in enumerate(reversed(HEADLINE_DATASETS)):
         y = i * row_spacing
@@ -157,15 +160,15 @@ def main() -> None:
             mean * 100, y,
             xerr=[[(mean - lo) * 100], [(hi - mean) * 100]],
             fmt="none", elinewidth=1.6, capsize=2.0,
-            ecolor=method_styles["Twin-indep"]["mec"],
+            ecolor=method_styles["Twin-bootstrap"]["mec"],
             zorder=4,
         )
         ax_r.plot(mean * 100, y, linestyle="None",
-                  **method_styles["Twin-indep"])
+                  **method_styles["Twin-bootstrap"])
 
     if twin_means:
         ax_r.axvline(np.mean(twin_means),
-                     color=method_styles["Twin-indep"]["mec"],
+                     color=method_styles["Twin-bootstrap"]["mec"],
                      linewidth=1.2, alpha=0.85, zorder=1)
     ax_r.axvline(0, color="0.25", linewidth=1.0, zorder=1)
     ax_r.set_xlim(x_lo_r, x_hi_r)
@@ -174,11 +177,14 @@ def main() -> None:
     ax_r.tick_params(left=False)
 
     # Legend below: list all four methods (left panel) plus a note on right.
+    legend_label = {"Twin-bootstrap": r"Twin-bootstrap $\lambda{=}300$"}
     handles = []
     for method in METHOD_ORDER:
         style = dict(method_styles[method])
         style["linestyle"] = "None"
-        handles.append(plt.Line2D([0], [0], label=method, **style))
+        handles.append(plt.Line2D([0], [0],
+                                   label=legend_label.get(method, method),
+                                   **style))
     fig.legend(handles=handles, loc="upper center",
                bbox_to_anchor=(0.5, -0.005), ncol=len(METHOD_ORDER),
                frameon=False, handletextpad=0.4, columnspacing=1.4,
@@ -201,7 +207,7 @@ def main() -> None:
                 fh.write(f"{ds},{method},ERM,{r[0]:.5f},{r[1]:.5f},{r[2]:.5f}\n")
             r = deltas_vs_bag2.get(ds)
             if r is not None:
-                fh.write(f"{ds},Twin-indep,Bagging K=2,"
+                fh.write(f"{ds},Twin-bootstrap,Bagging K=2,"
                          f"{r[0]:.5f},{r[1]:.5f},{r[2]:.5f}\n")
     print(f"Wrote {csv_path}")
 

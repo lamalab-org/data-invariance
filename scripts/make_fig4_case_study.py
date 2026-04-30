@@ -1,10 +1,10 @@
 """Paper Figure: BACE molecule-level case study.
 
 Picks six BACE id-test molecules where ERM is fragile (high cross-bootstrap
-flip rate) and twin-indep stabilises them (low cross-bootstrap flip rate),
+flip rate) and twin-bootstrap stabilises them (low cross-bootstrap flip rate),
 renders the molecular structure of each via RDKit, and plots a per-molecule
 prediction trace: a row of 20 coloured cells, ten under ERM (left) and ten
-under twin-indep (right), one per retraining.
+under twin-bootstrap (right), one per retraining.
 
 Single claim: stabilisation is per-molecule and visible at the chemistry
 level, not just an aggregate statistic.
@@ -64,7 +64,7 @@ def main() -> None:
         f"id-test mismatch: {len(test_smiles)} smiles vs {erm_preds.shape[1]} predictions"
 
     # Pick examples with high ERM churn and low twin churn.  We sort by
-    # (ERM churn − twin churn), which prefers cases where twin-indep
+    # (ERM churn − twin churn), which prefers cases where twin-bootstrap
     # contributes the most stabilisation; a small tie-breaker on raw ERM
     # churn ensures the top molecules are also genuinely fragile.
     score = (erm_churn - twin_churn) + 0.05 * erm_churn
@@ -160,7 +160,7 @@ def main() -> None:
             ax_struct.imshow(img)
         ax_struct.axis("off")
 
-        # Insert a 2-cell white gap between the ERM and Twin-indep blocks
+        # Insert a 2-cell white gap between the ERM and Twin-bootstrap blocks
         # so the two methods read as separate groups, not a single strip.
         gap = np.full(2, np.nan)
         trace = np.concatenate([
@@ -174,7 +174,7 @@ def main() -> None:
         ax_trace.set_xticks([4.5, 16.5])
         ax_trace.set_xticklabels(
             [f"ERM {erm_churn[idx]*100:.0f}%",
-             f"Twin-indep {twin_churn[idx]*100:.0f}%"],
+             f"Twin-bootstrap {twin_churn[idx]*100:.0f}%"],
             fontsize=7.5,
         )
         ax_trace.set_yticks([])

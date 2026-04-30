@@ -28,7 +28,7 @@ from paper_constants import DEV_DATASET, FROZEN_LAM, HEADLINE_DATASETS, display
 OVERLAP_POINTS = [
     (0,  "Codistillation",
      "codistillation_train*_lam{lam}.npz"),
-    (40, "Twin-indep",
+    (40, "Twin-bootstrap",
      "twin_indep_train*_lam{lam}.npz"),
     (100, "Twin shared boot",
      "twin_indep_shared_train*_lam{lam}.npz"),
@@ -125,7 +125,7 @@ def main() -> None:
     }
     overlap_labels = {
         0:   "codistillation (0% overlap)",
-        40:  "twin-indep (~40%)",
+        40:  "twin-bootstrap (~40%)",
         100: "shared boot (100%)",
     }
 
@@ -181,26 +181,23 @@ def main() -> None:
     lines = [
         r"\begin{table}[h]",
         r"  \centering",
-        r"  \caption{Bootstrap-overlap spectrum: paired $\Delta$ id-churn"
-        r" vs.\ ERM at three operating points (codistillation $0\%$,"
-        r" twin-indep ${\sim}40\%$, twin-shared $100\%$ overlap),"
-        r" percentage points (negative is better). Daggers ($^\dagger$)"
-        r" mark cells where the method drops id-accuracy by more than"
-        r" $5$pp from ERM (the corresponding churn reduction is then"
-        r" largely majority-class prediction). Twin-indep at"
-        r" ${\sim}40\%$ overlap is the only column with no positive"
-        r" entries (always reduces churn) and the fewest accuracy"
-        r" daggers.}",
+        r"  \caption{\textbf{Twin-bootstrap ($\sim$40\% overlap)"
+        r" reduces churn on every dataset; codistillation (0\%) trips"
+        r" two accuracy daggers, twin-shared (100\%) makes DILI"
+        r" worse.}  Cells: paired $\Delta$ id-churn vs.\ ERM in"
+        r" percentage points, $[\,95\%\ \text{CI}\,]$, $\dagger$"
+        r" marks id-accuracy drop $>5$\,pp.}",
         r"  \label{tab:overlap_spectrum}",
         r"  \small",
         r"  \begin{tabular}{lrlll}",
         r"    \toprule",
         r"    Dataset & $N$ & Codistillation $0\%$"
-        r" & Twin-indep ${\sim}40\%$ & Twin-shared $100\%$ \\",
+        r" & Twin-bootstrap ${\sim}40\%$ & Twin-shared $100\%$ \\",
         r"    \midrule",
     ]
     from paper_constants import N_TRAIN
-    for ds in sorted(keep, key=lambda d: N_TRAIN.get(d, 10**9)):
+    sorted_keep = sorted(keep, key=lambda d: N_TRAIN.get(d, 10**9))
+    for ds in sorted_keep:
         cells = []
         for j, (ov, _, (m, lo, hi)) in enumerate(points[ds]):
             txt = f"{m*100:+.1f} [{lo*100:+.1f}, {hi*100:+.1f}]"
@@ -211,6 +208,34 @@ def main() -> None:
             f"    {display(ds)} & {N_TRAIN.get(ds, '---')} & "
             + " & ".join(cells) + r" \\"
         )
+
+    # Summary row: mean Δ id-churn (pp) and accuracy-dagger count
+    # across datasets, per column.
+    n_ds = len(sorted_keep)
+    n_cols = len(OVERLAP_POINTS)
+    means_pp = [np.mean([points[ds][j][2][0] for ds in sorted_keep]) * 100
+                for j in range(n_cols)]
+    n_daggers = [sum(accuracy_collapse[ds][j] for ds in sorted_keep)
+                 for j in range(n_cols)]
+    n_positive = [sum(points[ds][j][2][0] > 0 for ds in sorted_keep)
+                  for j in range(n_cols)]
+    lines.append(r"    \midrule")
+    summary_cells = [f"{m:+.1f}" for m in means_pp]
+    lines.append(
+        r"    \emph{Mean across " + f"{n_ds}" + r" datasets} & --- & "
+        + " & ".join(summary_cells) + r" \\"
+    )
+    dagger_cells = [f"{nd}/{n_ds}" for nd in n_daggers]
+    lines.append(
+        r"    \emph{Acc-dagger count} & --- & "
+        + " & ".join(dagger_cells) + r" \\"
+    )
+    pos_cells = [f"{np_}/{n_ds}" for np_ in n_positive]
+    lines.append(
+        r"    \emph{Churn-positive count} & --- & "
+        + " & ".join(pos_cells) + r" \\"
+    )
+
     lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
     Path(args.latex).parent.mkdir(parents=True, exist_ok=True)
     Path(args.latex).write_text("\n".join(lines))

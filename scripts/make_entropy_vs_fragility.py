@@ -28,7 +28,7 @@ from pathlib import Path
 import numpy as np
 
 from _analysis_lib import load_runs
-from paper_constants import DEV_DATASET, HEADLINE_DATASETS, display
+from paper_constants import DEV_DATASET, HEADLINE_DATASETS, N_TRAIN, display
 
 
 def _per_example_signals(ds_dir: Path):
@@ -101,6 +101,9 @@ def main() -> None:
             "ent_aupc":           _avg_precision_vs_coverage(ent, flip),
         })
 
+    # Sort by training-set size to match the other paper tables.
+    rows.sort(key=lambda r: N_TRAIN.get(r["dataset"], 10**9))
+
     print()
     print(f"{'dataset':16s}  {'frag top-10% recall':>22s}  {'entropy top-10% recall':>22s}  "
           f"{'frag AuPC':>12s}  {'ent AuPC':>12s}")
@@ -120,10 +123,12 @@ def main() -> None:
     lines = [
         r"\begin{table}[h]",
         r"  \centering",
-        r"  \caption{Cross-sample fragility (from one extra bootstrap) vs.\ "
-        r"single-model predictive entropy as a flip predictor.  ``Top-10\%\ "
-        r"recall'' is the fraction of all retraining-induced flips captured "
-        r"by the top decile of the score; ``AuPC'' is the area under the "
+        r"  \caption{\textbf{Per-example fragility beats single-model "
+        r"predictive entropy as a retraining-flip predictor on every "
+        r"chemistry dataset.}  Fragility is computed from one extra "
+        r"bootstrap pair on the canonical id-test.  ``Top-10\%\ recall'' "
+        r"is the fraction of all retraining-induced flips captured by "
+        r"the top decile of the score; ``AuPC'' is the area under the "
         r"precision-vs-coverage curve.  Higher is better for both columns.}",
         r"  \label{tab:entropy_vs_fragility}",
         r"  \small",

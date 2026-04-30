@@ -1,8 +1,8 @@
-"""Paper Figure 0: cross-sample fragility, before and after twin-indep.
+"""Paper Figure 0: cross-sample fragility, before and after twin-bootstrap.
 
 The single most important figure in the paper.  Visualises the phenomenon
 (per-example argmax flips across retrainings on independent bootstraps)
-and the intervention (twin-indep removes most of the flips), in one image.
+and the intervention (twin-bootstrap removes most of the flips), in one image.
 
 Layout
 ------
@@ -15,13 +15,13 @@ also has the largest fragility magnitude):
   cells   = predicted class (binary), coloured
 
 The ERM panel shows visible vertical stripes wherever the class flips
-across retrainings.  The twin-indep panel shows almost-uniform rows --
+across retrainings.  The twin-bootstrap panel shows almost-uniform rows --
 predictions are stable across the same 10 retrainings.
 
 Caption first sentence (the conclusion):
   Cross-sample prediction fragility on BACE: the ERM model flips the
   class assigned to a substantial fraction of test molecules across
-  independent retrainings (left); twin-indep with bootstrap consistency
+  independent retrainings (left); twin-bootstrap with bootstrap consistency
   removes most of these flips at matched compute (right).
 """
 from __future__ import annotations
@@ -82,7 +82,7 @@ def main() -> None:
     # Sort molecules by the contrast (ERM churn - twin churn): largest
     # stabilisation at the top.  This makes the visual gap between the
     # left and right panels maximal — the rows at the top are flippy
-    # under ERM and uniform under twin-indep, which is the message.
+    # under ERM and uniform under twin-bootstrap, which is the message.
     contrast = erm_churn - twin_churn
     order = np.argsort(-contrast)
     keep = order[:args.n_examples]
@@ -109,7 +109,7 @@ def main() -> None:
 
     panels = [
         (ax_l, erm_panel, "ERM"),
-        (ax_r, twin_panel, f"Twin-indep ($\\lambda={int(FROZEN_LAM)}$)"),
+        (ax_r, twin_panel, f"Twin-bootstrap ($\\lambda={int(FROZEN_LAM)}$)"),
     ]
     for ax, panel, title in panels:
         ax.imshow(panel, aspect="auto", cmap=cmap, interpolation="nearest",
