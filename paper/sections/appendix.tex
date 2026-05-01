@@ -87,12 +87,13 @@ available.
 \section{Aggregate-metric drift under precision, recall, $F_1$, AP}
 \label{app:additional_metrics}
 
-The headline magnitudes table (Table~\ref{tab:fragility-magnitudes})
-reports $|\Delta\text{accuracy}|$ between two retrainings.
-Accuracy on imbalanced binary tasks can mask class-specific
-drift, so we additionally compute paired $|\Delta|$ for precision,
-recall, $F_1$, and average precision (AP) on every headline dataset,
-using the same $\binom{10}{2}=45$ seed pairs of ERM bootstraps.
+Table~\ref{tab:fragility-magnitudes} reports
+$|\Delta\text{accuracy}|$ between two retrainings.  Accuracy on
+imbalanced binary tasks can mask class-specific drift, so we
+additionally compute paired $|\Delta|$ for precision, recall, $F_1$,
+and average precision (AP) on each of the \nDatasetsHeadline{} chemistry
+datasets, using the same $\binom{10}{2}=45$ seed pairs of ERM
+bootstraps.
 Table~\ref{tab:additional-metrics} reports the result.  On the
 imbalanced ADME datasets (cyp2d6\_substrate, DILI), recall and
 precision drifts are $2\text{--}3\times$ accuracy drift, but the
@@ -109,7 +110,7 @@ These three datasets pass the ERM-versus-majority filter only
 marginally ($+3$ to $+4$pp on test sets of $57$--$104$ examples).
 Their cross-sample magnitudes appear in the bottom group of
 Table~\ref{tab:fragility-magnitudes} (separated by a midrule from
-the nine headline datasets).  We do not run the headline method
+the nine main-comparison datasets).  We do not run the method
 comparison on them because the small test sets do not give enough
 statistical power.
 
@@ -203,9 +204,8 @@ consistency loss.
 
 Table~\ref{tab:distributional} reports paired $\Delta$ sym-KL vs.\
 ERM per dataset and per method, in the same format as the
-argmax-churn headline (Table~\ref{tab:main}).  The headline summary
-is in \S\ref{sec:experiments}; this appendix gives the per-dataset
-CIs.
+argmax-churn main result (Table~\ref{tab:main}).  The summary is in
+\S\ref{sec:experiments}; this appendix gives the per-dataset CIs.
 
 \input{sections/tables/distributional.tex}
 
@@ -267,7 +267,7 @@ fragility does.
 
 \input{sections/tables/entropy_vs_fragility.tex}
 
-Across the eight headline datasets, fragility captures more of the
+Across the eight held-out datasets, fragility captures more of the
 total flip-mass in its top decile and has a larger area under the
 precision-vs-coverage curve than predictive entropy.  The gap is
 consistent and ranges from $\entropyGapMin$pp to $\entropyGapMax$pp on top-decile recall.  The
@@ -279,7 +279,7 @@ deployment time but is a meaningfully weaker signal.
 \section{GIN: bagging transfers; rule selects $\lambda{=}10$}
 \label{app:gin}
 
-The headline experiments use a $256$-unit MLP on Morgan fingerprints
+The main comparison uses a $256$-unit MLP on Morgan fingerprints
 ($2048$ bits, radius $2$).  As a non-fingerprint architecture
 cross-check, we train a graph isomorphism network
 (GIN,~\citealp{xu_gin}) on RDKit-derived atom-and-bond
@@ -355,7 +355,7 @@ dataset before transferring to held-out data.
 
 We fine-tuned
 ChemBERTa-77M-MTR~\citep{chithrananda2020chemberta0} on six
-headline datasets (BACE, BBBP, Pgp, BBB-Martins, AMES, DILI), running
+main-comparison datasets (BACE, BBBP, Pgp, BBB-Martins, AMES, DILI), running
 ERM and a $\lambda$ sweep for twin-bootstrap on BACE-ChemBERTa, then
 twin-bootstrap at the rule-selected $\lambda$ on the five held-out
 datasets.  All runs use five train-seeds, giving
@@ -409,7 +409,7 @@ from-scratch fingerprint-MLP picks $\lambda{=}300$.
 \section{Regression: methods rank the same way as on classification}
 \label{app:regression}
 
-The headline experiments are binary classification.  To test whether
+The main experiments are binary classification.  To test whether
 the methods extend to continuous targets we run the same protocol on
 three small-$N$ MoleculeNet regression benchmarks: ESOL ($N{=}1128$,
 $\log$ aqueous solubility), FreeSolv ($N{=}642$, hydration free
@@ -432,7 +432,7 @@ At matched compute, twin-bootstrap cuts regression fragility by
 $\regTwinLow\text{--}\regTwinHigh\%$ while bagging-$K{=}2$ cuts
 $\regBagTwoLow\text{--}\regBagTwoHigh\%$; twin-bootstrap wins on every
 dataset by ${\sim}10$pp of relative reduction.  This mirrors the
-classification headline (Section~\ref{sec:experiments}).
+classification main result (Section~\ref{sec:experiments}).
 Bagging-$K{=}5$ at $5\times$ ERM compute is still strongest at
 $\regBagFiveLow\text{--}\regBagFiveHigh\%$, consistent with the classification pattern, where
 $5\times$-compute bagging beats $2\times$-compute twin-bootstrap on
@@ -505,7 +505,7 @@ completed run is appended to a top-level \texttt{RUN\_LEDGER.jsonl}.
 Table~\ref{tab:filter-outcomes} reports the per-dataset ERM id-acc and
 the canonical majority-class baseline on the five chemistry datasets
 that fail the +$5$pp filter and are therefore excluded from the
-headline analysis.
+main analysis.
 
 \input{sections/tables/filter_outcomes.tex}
 %

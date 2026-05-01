@@ -46,12 +46,12 @@ to which aggregate score one chooses, because it counts disagreements
 at the example level before any averaging.
 Appendix~\ref{app:additional_metrics} reports paired
 $|\Delta\text{precision}|$, $|\Delta\text{recall}|$, $|\Delta F_1|$,
-and $|\Delta\text{AP}|$ between two retrainings on each headline
+and $|\Delta\text{AP}|$ between two retrainings on each chemistry
 dataset alongside $|\Delta\text{acc}|$.  Accuracy does undersell on
 the most imbalanced datasets (e.g.\ cyp2d6\_substrate:
 $|\Delta\text{recall}|=10.5$\,pp vs.\ $|\Delta\text{acc}|=4.2$\,pp);
 recall and precision drifts can be $2\text{--}3\times$
-$|\Delta\text{acc}|$.  But on every headline dataset, per-example
+$|\Delta\text{acc}|$.  But on every dataset, per-example
 argmax-churn still exceeds the largest aggregate-metric drift ---
 typically by $2\text{--}10\times$ --- and even on cyp2d6\_substrate
 the argmax-churn rate ($13.3\%$) is larger than every
@@ -100,9 +100,9 @@ canonical id-test set has at least $60$ examples
 (Table~\ref{tab:fragility-magnitudes}, top group).  Three datasets
 on which ERM exceeds majority by only $3$--$4$pp on a $57$--$104$-example
 test set (Skin\_Reaction, hERG, HIA\_Hou) are reported in the same
-table under a separate group; we do not run the headline method
-comparison on them because the small test sets do not give enough
-statistical power.  Five datasets are excluded because ERM does not
+table under a separate group; we do not run the method comparison
+on them because the small test sets do not give enough statistical
+power.  Five datasets are excluded because ERM does not
 exceed majority at the $5$pp threshold (Bioavailability\_Ma, MOF\_solvent,
 CYP2C9-Sub, CYP3A4-Sub, ClinTox); their per-dataset filter outcomes
 are tabulated in Appendix~\ref{app:repro} (Table~\ref{tab:filter-outcomes}).
@@ -119,8 +119,8 @@ descriptors over metal-centre, linker, functional-group, and
 ligand-chemistry atoms at depths $0$--$3$, plus geometric surface
 area (GSA), the standard featurisation for MOF property
 prediction~\citep{Moosavi2020}.  All inputs are
-column-standardised before training.  The headline architecture is
-a $256$-unit MLP trained from scratch on these features.
-Appendices~\ref{app:gin} and~\ref{app:chemberta_scope} report
-cross-checks on a graph network and on ChemBERTa-77M-MTR.
+column-standardised before training.  The default architecture used
+throughout the main comparison is a $256$-unit MLP trained from
+scratch on these features.  Appendices~\ref{app:gin} and~\ref{app:chemberta_scope}
+report cross-checks on a graph network and on ChemBERTa-77M-MTR.
 

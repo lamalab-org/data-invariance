@@ -98,7 +98,7 @@ in Appendix~\ref{app:case_study} (Figure~\ref{fig:case_study}).
 \subsection{The recipe generalises across architectures and tasks}
 \label{sec:generalisation}
 
-The headline result on small-$N$ from-scratch MLPs holds across three
+The main result on small-$N$ from-scratch MLPs holds across three
 other architectures and on regression. The numerical value of
 $\lambda$ is architecture-specific; the rule that selects it is not.
 
@@ -109,7 +109,7 @@ $\lambda{=}300$ (the BACE-MLP-frozen value), twin-bootstrap collapses
 accuracy by $\waterbirdsAccCollapse$pp on Waterbirds
 (ImageNet-pretrained ResNet-50) and by
 $\chembertaAccDropLow\text{--}\chembertaAccDropHigh$pp on
-ChemBERTa-77M-MTR fine-tuned on six headline datasets, increasing
+ChemBERTa-77M-MTR fine-tuned on six chemistry datasets, increasing
 argmax churn on five of six ChemBERTa datasets.  Re-applying the
 same $0.02$-tolerance selection rule on each backbone's development
 set picks $\lambda{=}10$: on BACE-ChemBERTa this preserves accuracy
