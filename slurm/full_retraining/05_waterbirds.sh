@@ -6,7 +6,7 @@
 #SBATCH --gres=gpu:a100:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=40G
-#SBATCH --time=10:00:00
+#SBATCH --time=03:00:00
 #SBATCH --array=0-2
 
 # Waterbirds (ImageNet-pretrained ResNet-50): 3 methods × 10 seeds.

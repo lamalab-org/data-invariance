@@ -6,7 +6,7 @@
 #SBATCH --gres=gpu:a100:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=40G
-#SBATCH --time=08:00:00
+#SBATCH --time=03:00:00
 #SBATCH --array=0-17
 
 # ChemBERTa scope: 6 datasets × 3 methods (ERM, twin lam=300, twin lam=10).
