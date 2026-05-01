@@ -84,6 +84,23 @@ available.
 
 \input{sections/tables/nscaling_bace.tex}
 
+\section{Aggregate-metric drift under precision, recall, $F_1$, AP}
+\label{app:additional_metrics}
+
+The headline magnitudes table (Table~\ref{tab:fragility-magnitudes})
+reports $|\Delta\text{accuracy}|$ between two retrainings.
+Accuracy on imbalanced binary tasks can mask class-specific
+drift, so we additionally compute paired $|\Delta|$ for precision,
+recall, $F_1$, and average precision (AP) on every headline dataset,
+using the same $\binom{10}{2}=45$ seed pairs of ERM bootstraps.
+Table~\ref{tab:additional-metrics} reports the result.  On the
+imbalanced ADME datasets (cyp2d6\_substrate, DILI), recall and
+precision drifts are $2\text{--}3\times$ accuracy drift, but the
+per-example argmax-churn rate ($13.3\%$ on cyp2d6, $16.8\%$ on DILI)
+still exceeds every aggregate-metric drift on every dataset.
+
+\input{sections/tables/additional_metrics.tex}
+
 \section{Borderline datasets}
 \label{app:borderline}
 

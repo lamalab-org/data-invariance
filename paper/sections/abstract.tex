@@ -4,25 +4,16 @@ chemistry training set assign different classes to
 $\churnMin\text{--}\churnMax\%$ of test molecules, while their
 aggregate accuracy differs by only $\accDiffMin\text{--}\accDiffMax$
 percentage points.  We call this \emph{cross-sample prediction
-fragility}.  Parameter-side methods --- deep ensembles, Monte Carlo
-dropout --- move the class-flip rate by $\paramSideLow\%$ to
-$\paramSideHigh\%$ relative to empirical risk minimisation (ERM)
-across \nDatasetsHeadline{} chemistry benchmarks, with no consistent
-direction.  Methods that vary the data work: bagging cuts the rate
-$\bagFiveLow\text{--}\bagFiveHigh\%$ on every dataset with no
-accuracy regression.  \emph{Twin-bootstrap} --- two networks trained
-on independent bootstraps with a soft consistency loss --- cuts a
-further median $\twinMedianReduction\%$ at $2\times$-ERM compute and
-reduces softmax-distribution disagreement by
-$\sim\symKLTwinAdditionalFoldMedian\times$.  Among three operating
-points on the codistillation family ($\overlapPctLo\%$,
-$\sim\overlapPctMid\%$, $\overlapPctHi\%$ inter-network bootstrap
-overlap), only $\sim\overlapPctMid\%$ reduces churn on every dataset;
-the consistency-weight selection rule transfers unchanged across
-MLP, GIN, ChemBERTa, and ImageNet-pretrained ResNet-50.  For triage,
-a single extra retraining ranks predictions: reviewing the top
-$30\%$ catches $\triageKtwoLow\text{--}\triageKtwoHigh\%$ of all
-retraining-induced flips.  In small-$N$ from-scratch scientific ML,
-the gap to parameter-side methods is large enough to demand a
-fragility column in the benchmark report.
+fragility}.  The standard parameter-side uncertainty methods ---
+deep ensembles and Monte Carlo dropout --- fail to reduce it: across
+\nDatasetsHeadline{} chemistry benchmarks they move the class-flip
+rate by $\paramSideLow\%$ to $\paramSideHigh\%$ relative to ERM,
+with no consistent direction.  Methods that vary the training-data
+sample work.  Bagging cuts the rate
+$\bagFiveLow\text{--}\bagFiveHigh\%$ on every dataset at no accuracy
+cost; \emph{twin-bootstrap} --- two networks trained on independent
+bootstraps with a soft consistency loss --- cuts a further median
+$\twinMedianReduction\%$ at matched $2\times$-ERM compute.  The gap
+is large enough that cross-sample fragility belongs alongside
+accuracy in small-$N$ scientific-ML benchmark reports.
 \end{abstract}
