@@ -48,16 +48,17 @@ Reference & What varies between two runs & Mechanism \\
 
 \paragraph{What we add.}
 (i)~\textbf{Reduction methods.}  Bagging-$K{=}5$ cuts churn
-$40$--$54\%$ on every chemistry dataset; twin-bootstrap cuts a
-further median $60\%$ at $2\times$-ERM compute
-(Table~\ref{tab:main}).
+$\bagFiveLow\text{--}\bagFiveHigh\%$ on every chemistry dataset;
+twin-bootstrap cuts a further median $\twinMedianReduction\%$ at
+$2\times$-ERM compute (Table~\ref{tab:main}).
 (ii)~\textbf{Operating-point analysis} on the inter-network
-data-overlap axis ($0\%$, $\sim$$40\%$, $100\%$;
-Appendix~\ref{app:overlap_spectrum}); $\sim$$40\%$ is the only
-point that reduces churn on every dataset.
+data-overlap axis ($\overlapPctLo\%$, $\sim\overlapPctMid\%$,
+$\overlapPctHi\%$; Appendix~\ref{app:overlap_spectrum});
+$\sim\overlapPctMid\%$ is the only point that reduces churn on
+every dataset.
 (iii)~\textbf{One-bootstrap triage}: a single extra retraining
-captures $58$--$100\%$ of the flips at top-$30\%$ review fraction
-(Figure~\ref{fig:decile}).
+captures $\triageKtenLow\text{--}\triageKtenHigh\%$ of the flips at
+top-$30\%$ review fraction (Figure~\ref{fig:decile}).
 (iv)~\textbf{Architecture transfer}: the consistency-weight
 selection rule transfers unchanged across MLP, GIN, ChemBERTa, and
 ImageNet-pretrained ResNet-50.
@@ -114,9 +115,10 @@ statistical power.
 \end{figure}
 
 A plateau of configurations $\lambda \in \{1, 3, 10, 30\}$ all preserve
-accuracy and reduce churn from ERM's $16\%$ to ${\sim}10\%$; a knee at
-$\lambda \approx 100$ drops churn to ${\sim}7.6\%$; $\lambda{=}300$
-extends along the same axis to $6.4\%$ at a $1$pp accuracy cost.  The selected $\lambda$ sits at the extreme
+accuracy and reduce churn from ERM's $\baceErmChurn\%$ to a low-single-digit
+range; the curve drops further at higher $\lambda$ until
+$\lambda{=}300$ at $\baceTwinChurn\%$ within the $0.02$ accuracy
+tolerance (Figure~\ref{fig:pareto}).  The selected $\lambda$ sits at the extreme
 of the feasible interval that satisfies the $0.02$ accuracy tolerance,
 which suggests the rule is not knife-edge: relaxing the tolerance to
 $0.01$ would still pick the same $\lambda$, while tightening to
@@ -225,13 +227,14 @@ from $K \in \{2, 3, 5, 10\}$ ERM bootstraps.
   \centering
   \includegraphics[width=0.75\linewidth]{figures/fig_convergence.pdf}
   \caption{\textbf{One extra bootstrap is enough: the top-$30\%$
-    recall at $K{=}2$ is within $5$--$15$\,pp of the $K{=}10$ gold
+    recall at $K{=}2$ is within $\triageKtwoToKtenGapLow$--$\triageKtwoToKtenGapHigh$\,pp of the $K{=}10$ gold
     standard on every dataset.}  Mean recall across $30$ random
     $K$-subsets per $K{<}10$.  Per-dataset at $K{=}2$:
-    $48$--$84\%$.  At $K{=}10$ (using all ten bootstraps to score
-    fragility): $58$--$100\%$.  MOF-thermal is the floor on every
-    $K$ ($48$--$58\%$); BBBP and BBB-Martins reach $100\%$ recall
-    by $K{=}5$.}
+    $\triageKtwoLow$--$\triageKtwoHigh\%$.  At $K{=}10$ (using all
+    ten bootstraps to score fragility):
+    $\triageKtenLow$--$\triageKtenHigh\%$.  MOF-thermal is the floor
+    on every $K$ ($48$--$58\%$); BBBP and BBB-Martins reach
+    $\overlapPctHi\%$ recall by $K{=}5$.}
   \label{fig:convergence}
 \end{figure}
 
@@ -250,7 +253,7 @@ fragility does.
 Across the eight headline datasets, fragility captures more of the
 total flip-mass in its top decile and has a larger area under the
 precision-vs-coverage curve than predictive entropy.  The gap is
-consistent and ranges from $1$pp to $13$pp on top-decile recall.  The
+consistent and ranges from $\entropyGapMin$pp to $\entropyGapMax$pp on top-decile recall.  The
 practitioner cost of computing fragility is one additional ERM
 training run, which the speedup over training a full
 $K$-bootstrap-bagging ensemble may amortise; entropy is free at

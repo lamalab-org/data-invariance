@@ -147,7 +147,11 @@ def emit_main_table() -> None:
     if not rows:
         for k in ["bagFiveLow", "bagFiveHigh", "twinMedianReduction",
                   "twinLow", "twinHigh", "mcdLow", "mcdHigh",
-                  "paramSideLow", "paramSideHigh"]:
+                  "paramSideLow", "paramSideHigh",
+                  "baceErmChurn", "baceTwinChurn",
+                  "paramSideAbsLow", "paramSideAbsHigh",
+                  "bagFiveFinalLow", "bagFiveFinalHigh",
+                  "twinFinalLow", "twinFinalHigh"]:
             add(k, "??")
         return
 
@@ -192,6 +196,53 @@ def emit_main_table() -> None:
     if param_side:
         add("paramSideLow", min(param_side), "pp1")
         add("paramSideHigh", max(param_side), "pp1")
+
+    # Absolute pp deltas (not relative %) for the discussion section
+    # claim "$-4.6$ to $+1.8$\,pp across the nine datasets".
+    def _abs_pp(rs: list[dict[str, Any]]) -> list[float]:
+        out = []
+        for r in rs:
+            d = _f(r.get("delta_id_churn_mean"))
+            if d is not None:
+                out.append(d * 100)
+        return out
+
+    param_pp = _abs_pp(_by_method("MC dropout")) + _abs_pp(_by_method("Deep Ensemble K=5"))
+    if param_pp:
+        add("paramSideAbsLow", min(param_pp), "pp1")
+        add("paramSideAbsHigh", max(param_pp), "pp1")
+
+    # Final-churn ranges (not deltas): used in the "discussion" workflow
+    # paragraph.  Bagging-K=5 cuts ERM 16-22% to FinalLow-FinalHigh%, etc.
+    def _final(rs: list[dict[str, Any]]) -> list[float]:
+        return [_f(r.get("id_churn_mean")) * 100 for r in rs
+                if _f(r.get("id_churn_mean")) is not None]
+
+    bag5_final = _final(_by_method("Bagging K=5"))
+    twin_final = _final(_by_method_substr("Twin"))
+    if bag5_final:
+        add("bagFiveFinalLow", min(bag5_final), "pct1")
+        add("bagFiveFinalHigh", max(bag5_final), "pct1")
+    if twin_final:
+        add("twinFinalLow", min(twin_final), "pct1")
+        add("twinFinalHigh", max(twin_final), "pct1")
+
+    # Per-figure-0 BACE numbers (ERM, twin) so the fig0 caption can
+    # \input from the macros file instead of carrying literals.
+    def _bace_churn(method_substr: str) -> float | None:
+        for r in rows:
+            if r.get("dataset") == "bace" and method_substr in r.get("method", ""):
+                v = _f(r.get("id_churn_mean"))
+                if v is not None:
+                    return v * 100
+        return None
+
+    bace_erm = _bace_churn("ERM")
+    bace_twin = _bace_churn("Twin")
+    if bace_erm is not None:
+        add("baceErmChurn", bace_erm, "pct1")
+    if bace_twin is not None:
+        add("baceTwinChurn", bace_twin, "pct1")
 
 
 def emit_distributional() -> None:
@@ -240,22 +291,31 @@ def emit_triage() -> None:
     rows = _read_csv(OUTPUTS / "convergence_recall.csv")
     if not rows:
         for k in ["triageKtenLow", "triageKtenHigh",
-                  "triageKtwoLow", "triageKtwoHigh"]:
+                  "triageKtwoLow", "triageKtwoHigh",
+                  "triageKtwoToKtenGapLow", "triageKtwoToKtenGapHigh"]:
             add(k, "??")
         return
 
-    def _by_K(K: int) -> list[float]:
-        return [_f(r["mean_recall"]) for r in rows
+    def _by_K(K: int) -> list[tuple[str, float]]:
+        return [(r["dataset"], _f(r["mean_recall"])) for r in rows
                 if int(r["K"]) == K and _f(r["mean_recall"]) is not None]
 
     k10 = _by_K(10)
     k2 = _by_K(2)
     if k10:
-        add("triageKtenLow", min(k10) * 100, "pct0")
-        add("triageKtenHigh", max(k10) * 100, "pct0")
+        add("triageKtenLow", min(v for _, v in k10) * 100, "pct0")
+        add("triageKtenHigh", max(v for _, v in k10) * 100, "pct0")
     if k2:
-        add("triageKtwoLow", min(k2) * 100, "pct0")
-        add("triageKtwoHigh", max(k2) * 100, "pct0")
+        add("triageKtwoLow", min(v for _, v in k2) * 100, "pct0")
+        add("triageKtwoHigh", max(v for _, v in k2) * 100, "pct0")
+    # Per-dataset gap K=10 - K=2 (in pp); the prose claim "within X-Y pp
+    # of the K=10 gold standard on every dataset".
+    if k10 and k2:
+        k10_by = dict(k10)
+        gaps = [(k10_by[d] - v) * 100 for d, v in k2 if d in k10_by]
+        if gaps:
+            add("triageKtwoToKtenGapLow", round(min(gaps)), "pct0")
+            add("triageKtwoToKtenGapHigh", round(max(gaps)), "pct0")
 
 
 def emit_entropy() -> None:

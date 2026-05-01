@@ -5,9 +5,11 @@
 The intro's toxicity classifier loses class on
 $\churnMin\text{--}\churnMax\%$ of test molecules between retrainings
 on independent bootstraps of the same training population.
-Bagging-$K{=}5$ cuts that to $4\text{--}11\%$ at no accuracy cost
+Bagging-$K{=}5$ cuts that to
+$\bagFiveFinalLow\text{--}\bagFiveFinalHigh\%$ at no accuracy cost
 ($5\times$-ERM compute, Table~\ref{tab:main}).  Twin-bootstrap at
-$\lambda{=}300$ ($2\times$-ERM compute) cuts it to $1\text{--}14\%$,
+$\lambda{=}300$ ($2\times$-ERM compute) cuts it to
+$\twinFinalLow\text{--}\twinFinalHigh\%$,
 beating matched-compute bagging-$K{=}2$ on $8/9$ datasets and
 matching the $K{=}5$ result in mean rank
 (Appendix~\ref{app:friedman}).
@@ -56,8 +58,9 @@ accuracy (within $\sim$$2$\,pp) --- the BACE case
 (Figure~\ref{fig:overview}) --- are indistinguishable in the report
 column even though the practitioner sees the difference at the next
 retraining.  Deep ensembles and MC dropout, the standard
-parameter-side uncertainty methods, move argmax churn by $-4.6$ to
-$+1.8$\,pp across the \nDatasetsHeadline{} datasets (Table~\ref{tab:main}); they
+parameter-side uncertainty methods, move argmax churn by
+$\paramSideAbsLow$ to $\paramSideAbsHigh$\,pp across the
+\nDatasetsHeadline{} datasets (Table~\ref{tab:main}); they
 do not substitute for measurement of sensitivity to the training
 sample.  Clinical biostatistics already reports per-individual
 stability intervals~\citep{Riley2023}; the case for the same
