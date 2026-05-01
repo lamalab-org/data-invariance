@@ -33,8 +33,8 @@ bbbp,MC dropout,ERM,0.00607,0.00300,0.00920
 bbbp,Deep Ens. K=5,ERM,-0.00648,-0.00900,-0.00402
 bbbp,Bagging K=2,ERM,-0.01977,-0.02543,-0.01425
 bbbp,Bagging K=5,ERM,-0.04035,-0.04519,-0.03586
-bbbp,Twin-bootstrap,ERM,-0.06980,-0.07389,-0.06592
-bbbp,Twin-bootstrap,Bagging K=2,-0.05003,-0.05310,-0.04690
+bbbp,Twin-bootstrap,ERM,-0.07021,-0.07471,-0.06585
+bbbp,Twin-bootstrap,Bagging K=2,-0.05044,-0.05365,-0.04717
 tadf,MC dropout,ERM,-0.00483,-0.00846,-0.00114
 tadf,Deep Ens. K=5,ERM,-0.00472,-0.00961,0.00031
 tadf,Bagging K=2,ERM,-0.03027,-0.03515,-0.02544
