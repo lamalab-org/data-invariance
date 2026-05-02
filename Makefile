@@ -120,6 +120,12 @@ paper/sections/macros.tex: outputs/main_table.csv outputs/convergence_recall.csv
                           outputs/gin_lambda.csv outputs/filter_outcomes.csv
 	uv run python scripts/make_paper_macros.py
 
+# Plain-text and LaTeX-with-numbers renders of the abstract for
+# pasting into submission forms that don't accept \input{macros}.
+.PHONY: abstract
+abstract:
+	uv run python scripts/render_abstract.py
+
 # Analysis-only target: regenerate every CSV (and table-fragment)
 # from saved NPZs.  Cheap (no retraining).  Use after a sweep finishes.
 analysis:

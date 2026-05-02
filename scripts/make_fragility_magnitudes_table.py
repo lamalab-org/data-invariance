@@ -136,8 +136,9 @@ def main() -> None:
         r"corresponding distributional gap.  All paired columns report "
         r"mean with $95\%$ paired-bootstrap CIs ($10{,}000$ resamples).}",
         r"  \label{tab:fragility-magnitudes}",
-        r"  \small",
-        r"  \begin{tabular}{lrrrl@{\hspace{1.2em}}ll}",
+        r"  \scriptsize",
+        r"  \resizebox{\linewidth}{!}{%",
+        r"  \begin{tabular}{lrrrl@{\hspace{1em}}ll}",
         r"    \toprule",
         r"    & & & \multicolumn{2}{c}{Aggregate accuracy}"
         r" & \multicolumn{2}{c}{Per-prediction disagreement} \\",
@@ -176,6 +177,7 @@ def main() -> None:
     lines += [
         r"    \bottomrule",
         r"  \end{tabular}",
+        r"  }",
         r"\end{table}",
         "",
     ]
