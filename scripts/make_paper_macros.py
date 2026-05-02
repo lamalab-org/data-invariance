@@ -123,12 +123,14 @@ def emit_magnitudes() -> None:
     if not rows:
         for k in ["churnMin", "churnMax", "accDiffMin", "accDiffMax",
                   "churnAccRatioMin", "churnAccRatioMax",
-                  "symKLMin", "symKLMax", "symKLDatasetSpread"]:
+                  "symKLMin", "symKLMax", "symKLDatasetSpread",
+                  "churnAccCorrPearson", "churnAccCorrSpearman"]:
             add(k, "??")
         return
     churns = [_f(r["churn_mean"]) * 100 for r in rows]
     acc_diffs = [_f(r["acc_diff_pp_mean"]) for r in rows]
     sym_kls = [_f(r["sym_kl_mean"]) for r in rows]
+    erm_accs = [_f(r["erm_id_acc_mean"]) for r in rows]
     add("churnMin", min(churns), "pct1")
     add("churnMax", max(churns), "pct1")
     add("accDiffMin", min(acc_diffs), "pct1")
@@ -140,6 +142,21 @@ def emit_magnitudes() -> None:
     add("symKLMin", min(sym_kls), "ratio")
     add("symKLMax", max(sym_kls), "ratio")
     add("symKLDatasetSpread", round(max(sym_kls) / min(sym_kls)), "pct0")
+    # Dataset-level correlation between churn and ERM accuracy
+    # (Pearson, Spearman).  Reviewer-asked diagnostic: does churn
+    # just track task difficulty?  Yes at the dataset level (the
+    # correlation is strong) but the methods reduce churn on every
+    # dataset regardless, and per-example churn carries information
+    # beyond predictive entropy (app:entropy).
+    try:
+        from scipy.stats import pearsonr, spearmanr
+        pe = pearsonr(churns, erm_accs)[0]
+        sp = spearmanr(churns, erm_accs)[0]
+        add("churnAccCorrPearson", f"{pe:+.2f}")
+        add("churnAccCorrSpearman", f"{sp:+.2f}")
+    except Exception:
+        add("churnAccCorrPearson", "??")
+        add("churnAccCorrSpearman", "??")
 
 
 def emit_main_table() -> None:

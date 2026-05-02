@@ -41,24 +41,38 @@ per-example complement, counting disagreements before any averaging.
 
 We pre-screen every dataset to ERM accuracy $\geq$ majority-class
 baseline $+5$pp (\S\ref{sec:datasets}), so the gap we measure is
-genuine learned-decision performance rather than majority-class
+learned-decision performance rather than majority-class
 shuffling.  Appendix~\ref{app:additional_metrics} reports paired
 $|\Delta\text{precision}|$, $|\Delta\text{recall}|$, $|\Delta F_1|$,
 and $|\Delta\text{AP}|$ between two retrainings alongside
-$|\Delta\text{acc}|$.  Accuracy does undersell on the most imbalanced
-datasets: on cyp2d6\_substrate $|\Delta\text{recall}|=10.5$\,pp
-versus $|\Delta\text{acc}|=4.2$\,pp, and recall and precision drifts
-reach $2\text{--}3\times$ $|\Delta\text{acc}|$ on the imbalanced
-ADME tasks.  But the per-example argmax-churn rate exceeds every
-aggregate-metric drift on every dataset, typically by
-$2\text{--}10\times$.  Per-example disagreement is the quantity that
-drives next-step decisions in scientific ML; aggregate-metric drift
-is the quantity it dominates.  And the disagreement concentrates on
-the class practitioners care about: on the most imbalanced datasets
-(BBB-Martins, BBBP, CYP2D6-Sub), minority-class predictions are
+$|\Delta\text{acc}|$.  On the imbalanced ADME tasks, recall and
+precision drifts reach $2\text{--}3\times$ $|\Delta\text{acc}|$
+(cyp2d6\_substrate: $|\Delta\text{recall}|=10.5$\,pp vs.\
+$|\Delta\text{acc}|=4.2$\,pp), so accuracy alone does undersell the
+inter-retraining variation.  Even so, the per-example argmax-churn
+rate exceeds every aggregate-metric drift on every dataset,
+typically by $2\text{--}10\times$.  Per-example disagreement is the
+quantity that drives next-step decisions in scientific ML, and it
+dominates aggregate-metric drift under any of these summary
+statistics.  Minority-class predictions are
 $2\text{--}4\times$ more unstable across retrainings than
-majority-class predictions
-(Appendix~\ref{app:per_class_churn}).
+majority-class predictions on the most imbalanced datasets
+(BBB-Martins, BBBP, CYP2D6-Sub; Appendix~\ref{app:per_class_churn}):
+the disagreement concentrates on the class practitioners care about.
+
+\paragraph{Churn correlates with task difficulty, but is not
+explained by it.}
+At the dataset level, mean argmax churn correlates with mean ERM
+accuracy at Pearson $\churnAccCorrPearson$ (Spearman
+$\churnAccCorrSpearman$) across the \nDatasetsHeadline{} chemistry
+benchmarks: harder datasets show more churn.  This is expected --- a
+less-certain decision boundary is crossed in different places by two
+retrainings.  It is not a confound.  The data-side methods we
+evaluate reduce churn on every dataset regardless of difficulty
+(Figure~\ref{fig:main}), and at the \emph{per-example} level
+fragility captures retraining-flip risk better than predictive
+entropy (Appendix~\ref{app:entropy}).  Churn is not a recoding of
+accuracy.
 
 \paragraph{Bootstrap estimator.}
 A practitioner has one observed training set $S$, not a population
