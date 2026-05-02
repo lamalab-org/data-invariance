@@ -261,6 +261,30 @@ def emit_main_table() -> None:
     if bace_twin is not None:
         add("baceTwinChurn", bace_twin, "pct1")
 
+    # Mean Δaccuracy across the 9 datasets, per method.  Surfaces the
+    # decoupling argument: deep ensembles raise mean accuracy without
+    # reducing churn; twin-bootstrap reduces churn without raising
+    # accuracy; "churn is just accuracy" is therefore false at the
+    # method level.
+    erm_rows = _by_method("ERM")
+    erm_acc = {r["dataset"]: _f(r.get("id_acc_mean")) for r in erm_rows}
+
+    def _mean_dacc_pp(rs: list[dict[str, Any]]) -> float | None:
+        accs = []
+        for r in rs:
+            ds = r.get("dataset")
+            cur = _f(r.get("id_acc_mean"))
+            if ds in erm_acc and erm_acc[ds] is not None and cur is not None:
+                accs.append((cur - erm_acc[ds]) * 100)
+        return sum(accs) / len(accs) if accs else None
+
+    de_dacc = _mean_dacc_pp(_by_method("Deep Ensemble K=5"))
+    twin_dacc = _mean_dacc_pp(_by_method_substr("Twin"))
+    if de_dacc is not None:
+        add("deepEnsAccDelta", de_dacc, "pp1")
+    if twin_dacc is not None:
+        add("twinAccDelta", twin_dacc, "pp1")
+
 
 def emit_distributional() -> None:
     rows = _read_csv(OUTPUTS / "distributional.csv")

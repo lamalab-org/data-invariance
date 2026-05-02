@@ -69,10 +69,17 @@ benchmarks: harder datasets show more churn.  This is expected --- a
 less-certain decision boundary is crossed in different places by two
 retrainings.  It is not a confound.  The data-side methods we
 evaluate reduce churn on every dataset regardless of difficulty
-(Figure~\ref{fig:main}), and at the \emph{per-example} level
-fragility captures retraining-flip risk better than predictive
-entropy (Appendix~\ref{app:entropy}).  Churn is not a recoding of
-accuracy.
+(Figure~\ref{fig:main}).  The pattern is not a side effect of
+accuracy improvement: deep ensembles raise mean accuracy by
+$\deepEnsAccDelta$\,pp without reducing churn (Table~\ref{tab:main}),
+while twin-bootstrap cuts churn by a median
+$\twinMedianReduction\%$ at a slight accuracy degradation
+($\twinAccDelta$\,pp on average) --- the strongest churn reducer is
+also among the weaker accuracy improvers, and the strongest
+accuracy improvers do not consistently reduce churn.  At the
+per-example level, fragility captures retraining-flip risk better
+than predictive entropy (Appendix~\ref{app:entropy}).  Churn is not
+a recoding of accuracy.
 
 \paragraph{Bootstrap estimator.}
 A practitioner has one observed training set $S$, not a population
