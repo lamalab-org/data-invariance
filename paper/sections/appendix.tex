@@ -527,73 +527,10 @@ that fail the +$5$pp filter and are therefore excluded from the
 main analysis.
 
 \input{sections/tables/filter_outcomes.tex}
-%
-%% REVIEW-ONLY: numerical-provenance table.  Remove for camera-ready.
-%\paragraph{Numerical provenance.}
-%Every numerical claim in the body and appendix is derived from one
-%of the artifacts listed in Table~\ref{tab:provenance}; the body
-%text quotes ranges and summary statistics from these artifacts and
-%does not introduce numbers that do not appear there.
-%
-%\begin{table}[h]
-%\centering
-%\caption{\textbf{Every numerical claim in the paper traces to one
-%  of the artifacts below.}  Each row maps a paper element to the
-%  script that regenerates it from saved NPZ predictions.}
-%\label{tab:provenance}
-%\small
-%\begin{tabular}{lll}
-%\toprule
-%Paper element & Script & Source artifact \\
-%\midrule
-%Table~\ref{tab:fragility-magnitudes} (magnitudes)
-%  & \texttt{make\_fragility\_magnitudes\_table.py}
-%  & \texttt{tables/fragility\_magnitudes.tex} \\
-%Table~\ref{tab:main} (headline $\Delta$ churn)
-%  & \texttt{make\_main\_table.py}
-%  & \texttt{tables/main.tex}, \texttt{outputs/main\_table.csv} \\
-%Table~\ref{tab:nscaling} ($N$-scaling)
-%  & \texttt{make\_nscaling\_bace.py}
-%  & \texttt{tables/nscaling\_bace.tex} \\
-%Table~\ref{tab:overlap_spectrum} (overlap spectrum)
-%  & \texttt{make\_fig5\_overlap.py}
-%  & \texttt{tables/overlap\_spectrum.tex} \\
-%Table~\ref{tab:distributional} (sym-KL)
-%  & \texttt{make\_distributional\_table.py}
-%  & \texttt{tables/distributional.tex} \\
-%Table~\ref{tab:entropy_vs_fragility} (entropy)
-%  & \texttt{make\_entropy\_vs\_fragility.py}
-%  & \texttt{tables/entropy\_vs\_fragility.tex} \\
-%Table~\ref{tab:gin} (GIN)
-%  & \texttt{analyze\_bace\_gin.py}, \texttt{analyze\_gin\_lambda.py}
-%  & in-paper, NPZ in \texttt{outputs/cross\_sample/bace\_gin/} \\
-%Table~\ref{tab:chemberta} (ChemBERTa)
-%  & \texttt{analyze\_chemberta\_heldout.py}
-%  & \texttt{tables/chemberta.tex} \\
-%Table~\ref{tab:waterbirds_lambda} (Waterbirds)
-%  & \texttt{analyze\_waterbirds\_lambda.py}
-%  & \texttt{tables/waterbirds\_lambda.tex} \\
-%Table~\ref{tab:regression} (regression)
-%  & \texttt{make\_regression\_table.py}
-%  & \texttt{tables/regression.tex} \\
-%Friedman test ($\chi^2{=}38.4$, mean ranks)
-%  & \texttt{make\_friedman\_test.py}
-%  & stdout; reported inline in App.~\ref{app:friedman} \\
-%Figure~\ref{fig:overview} (intro stripes)
-%  & \texttt{make\_fig0\_overview.py}
-%  & \texttt{figures/fig0\_overview.pdf} \\
-%Figure~\ref{fig:main} (forest plot)
-%  & \texttt{make\_fig1\_forest.py}
-%  & \texttt{figures/fig1\_forest.pdf}, \texttt{figures/fig1\_forest.csv} \\
-%Figure~\ref{fig:pareto} (Pareto curve)
-%  & \texttt{make\_fig2\_pareto.py}
-%  & \texttt{figures/fig2\_pareto.pdf} \\
-%Figure~\ref{fig:decile} (decile recall)
-%  & \texttt{make\_fig3\_decile.py}
-%  & \texttt{figures/fig3\_decile.pdf} \\
-%Figure~\ref{fig:case_study} (per-molecule)
-%  & \texttt{make\_fig4\_case\_study.py}
-%  & \texttt{figures/fig4\_case\_study.pdf} \\
-%\bottomrule
-%\end{tabular}
-%\end{table}
+
+% (Numerical provenance is now machine-checked: every quoted number in
+% the prose imports from paper/sections/macros.tex via \input, and the
+% scripts that produce each table / figure are documented in
+% scripts/README.md.  Each NPZ also has a sidecar manifest.json with the
+% git commit, command, env, and data hashes; one row per saved NPZ in
+% outputs/cross_sample/RUN_LEDGER.jsonl.)
