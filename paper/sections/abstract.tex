@@ -4,16 +4,16 @@ chemistry training set assign different classes to
 $\churnMin\text{--}\churnMax\%$ of test molecules, while their
 aggregate accuracy differs by only $\accDiffMin\text{--}\accDiffMax$
 percentage points.  We call this \emph{cross-sample prediction
-fragility}.  The standard parameter-side uncertainty methods ---
-deep ensembles and Monte Carlo dropout --- fail to reduce it: across
-\nDatasetsHeadline{} chemistry benchmarks they move the class-flip
-rate by $\paramSideLow\%$ to $\paramSideHigh\%$ relative to ERM,
-with no consistent direction.  Methods that vary the training-data
-sample work.  Bagging cuts the rate
-$\bagFiveLow\text{--}\bagFiveHigh\%$ on every dataset at no accuracy
-cost; \emph{twin-bootstrap} --- two networks trained on independent
-bootstraps with a soft consistency loss --- cuts a further median
-$\twinMedianReduction\%$ at matched $2\times$-ERM compute.  The gap
-is large enough that cross-sample fragility belongs alongside
-accuracy in small-$N$ scientific-ML benchmark reports.
+fragility}.  Across \nDatasetsHeadline{} chemistry benchmarks the
+standard parameter-side uncertainty methods --- deep ensembles and
+Monte Carlo dropout --- shift the class-flip rate by
+$\paramSideLow\%$ to $\paramSideHigh\%$ relative to ERM, with no
+consistent sign.  Methods that vary the training-data sample do
+better.  Bagging cuts the rate
+$\bagFiveLow\text{--}\bagFiveHigh\%$ on every dataset at no
+accuracy cost.  \emph{Twin-bootstrap} --- two networks trained on
+independent bootstraps with a soft consistency loss --- cuts a
+further median $\twinMedianReduction\%$ at matched $2\times$-ERM
+compute.  Cross-sample fragility belongs alongside accuracy in
+small-$N$ scientific-ML benchmark reports.
 \end{abstract}

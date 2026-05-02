@@ -31,7 +31,7 @@ from sklearn.metrics import (
     recall_score,
 )
 
-from _analysis_lib import bootstrap_ci, load_runs
+from _analysis_lib import bootstrap_ci, load_runs, pairwise_metrics
 from paper_constants import DEV_DATASET, HEADLINE_DATASETS, N_TRAIN, display
 
 
@@ -76,6 +76,12 @@ def _row(dataset: str, root: Path) -> dict | None:
     for key in ("acc", "precision", "recall", "f1", "ap"):
         deltas_pp = [d * 100 for d in _paired_abs_deltas([m[key] for m in metrics])]
         out[f"d_{key}_pp_ci"] = bootstrap_ci(deltas_pp)
+    # Per-example argmax-disagreement rate (the per-prediction quantity
+    # the aggregate-metric drifts above are dominated by).  Same 45 seed
+    # pairs as the aggregate-metric deltas, in percentage points.
+    pm, _ = pairwise_metrics(runs)
+    churns_pct = [m["id_churn"] * 100 for m in pm.values()]
+    out["churn_pct_ci"] = bootstrap_ci(churns_pct)
     return out
 
 
@@ -96,24 +102,27 @@ def main() -> None:
     lines = [
         r"\begin{table}[h]",
         r"  \centering",
-        r"  \caption{\textbf{Aggregate-metric drift between two retrainings "
-        r"is small under every standard summary statistic --- not just "
-        r"accuracy --- and an order of magnitude smaller than the "
-        r"per-example argmax-disagreement rate.}  Paired $|\Delta|$ of "
-        r"five aggregate metrics on the canonical id-test of each "
-        r"headline dataset, computed across the $\binom{10}{2}=45$ "
-        r"seed pairs of ERM bootstraps; mean $[\,95\%\ \text{CI}\,]$ "
-        r"over $10{,}000$ resamples, in percentage points.  All five "
-        r"metric columns sit in the $1\text{--}5$\,pp range that "
-        r"$|\Delta\text{acc}|$ already reports, while the per-example "
-        r"argmax-churn rate (\S\ref{sec:fragility-magnitudes}) is "
-        r"$8\text{--}22\%$.}",
+        r"  \caption{\textbf{Per-example argmax-disagreement (right column) "
+        r"dominates aggregate-metric drift on every dataset, regardless of "
+        r"which summary statistic the aggregate-metric column uses.}  "
+        r"Paired $|\Delta|$ of five aggregate metrics and the per-example "
+        r"argmax-churn rate, computed across the $\binom{10}{2}=45$ seed "
+        r"pairs of ERM bootstraps; mean $[\,95\%\ \text{CI}\,]$ over "
+        r"$10{,}000$ resamples, in percentage points.  Per-example "
+        r"argmax-churn ranges $\churnMin\text{--}\churnMax\%$; the "
+        r"strongest aggregate-metric drift on any cell is "
+        r"$|\Delta\text{recall}|=10.5$\,pp on the imbalanced "
+        r"cyp2d6\_substrate dataset.}",
         r"  \label{tab:additional-metrics}",
         r"  \small",
-        r"  \begin{tabular}{lrlllll}",
+        r"  \begin{tabular}{lr@{\hspace{1em}}lllll@{\hspace{1.5em}}l}",
         r"    \toprule",
+        r"    & & \multicolumn{5}{c}{Aggregate-metric drift (pp)}"
+        r" & Per-example \\",
+        r"    \cmidrule(lr){3-7}",
         r"    Dataset & $N$ & $|\Delta\text{acc}|$ & $|\Delta\text{prec}|$"
-        r" & $|\Delta\text{rec}|$ & $|\Delta F_1|$ & $|\Delta\text{AP}|$ \\",
+        r" & $|\Delta\text{rec}|$ & $|\Delta F_1|$ & $|\Delta\text{AP}|$"
+        r" & argmax churn (\%) \\",
         r"    \midrule",
     ]
     for r in rows:
@@ -122,7 +131,8 @@ def main() -> None:
             f"    {ds} & {r['n_train']} & "
             f"{_fmt(r['d_acc_pp_ci'])} & {_fmt(r['d_precision_pp_ci'])} & "
             f"{_fmt(r['d_recall_pp_ci'])} & {_fmt(r['d_f1_pp_ci'])} & "
-            f"{_fmt(r['d_ap_pp_ci'])} \\\\"
+            f"{_fmt(r['d_ap_pp_ci'])} & "
+            f"{_fmt(r['churn_pct_ci'])} \\\\"
         )
     lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
 
@@ -139,11 +149,13 @@ def main() -> None:
                     "d_precision_pp_mean", "d_precision_pp_lo", "d_precision_pp_hi",
                     "d_recall_pp_mean", "d_recall_pp_lo", "d_recall_pp_hi",
                     "d_f1_pp_mean", "d_f1_pp_lo", "d_f1_pp_hi",
-                    "d_ap_pp_mean", "d_ap_pp_lo", "d_ap_pp_hi"])
+                    "d_ap_pp_mean", "d_ap_pp_lo", "d_ap_pp_hi",
+                    "churn_pct_mean", "churn_pct_lo", "churn_pct_hi"])
         for r in rows:
             row_out = [r["dataset"], r["n_train"]]
             for k in ("acc", "precision", "recall", "f1", "ap"):
                 row_out.extend(r[f"d_{k}_pp_ci"])
+            row_out.extend(r["churn_pct_ci"])
             w.writerow(row_out)
     print(f"Wrote {csv_path}")
     for r in rows:

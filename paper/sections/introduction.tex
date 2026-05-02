@@ -28,31 +28,31 @@ class between two models trained on independent samples of the same
 training population.
 
 Chemistry models are designed to be invariant to atomic permutation,
-rotation, and translation by construction --- $E(3)$-equivariant
-message passing, permutation-equivariant aggregators, and explicit
-symmetry baking are standard.  \emph{Sample invariance} ---
-invariance to which independent draw of the training population the
-model was fit on --- is the analogue on the data axis, and it is
-the invariance scientific ML has not been measuring.  A practitioner
-who refreshes a screening set, retrains, and reroutes synthesis based
-on the new top predictions confronts the violation of this invariance
-on every dataset update; cross-sample fragility quantifies it.
+rotation, and translation; $E(3)$-equivariant message passing and
+permutation-equivariant aggregators are standard.  \emph{Sample invariance} --- invariance to which independent
+draw of the training population the model was fit on --- is the
+analogue on the data axis, but is not routinely measured in scientific
+ML.  A practitioner who refreshes a screening set, retrains, and
+reroutes synthesis based on the new top predictions confronts the
+violation on every dataset update; cross-sample fragility quantifies
+it.
 
 Cross-sample fragility is the population-level analogue of
 \emph{prediction churn}~\citep{launch_and_iterate, bhojanapalli2021reproducibility,
-jiang2022}: prior work measures churn between a new model and a
+jiang2022}.  Prior work measures churn between a new model and a
 deployed incumbent at web scale, where the incumbent is fixed.
 Scientific machine learning often retrains from scratch on a few
 hundred to a few thousand examples and has no incumbent; what varies
 between retrainings is the sample drawn from the training population.
-The quantity is the data-sampling slice of epistemic uncertainty,
-complementary to the parameter-sampling deep
+
+This is the data-sampling slice of epistemic uncertainty,
+complementary to the parameter-sampling that deep
 ensembles~\citep{lakshminarayanan2017simple} and Monte Carlo (MC)
-dropout~\citep{gal2015dropout} capture.  Across our \nDatasetsHeadline{}
-chemistry benchmarks the parameter-side methods move the class-flip rate
-by $\paramSideLow\%$ to $\paramSideHigh\%$ relative to empirical risk
-minimisation (ERM), with no consistent direction; methods that vary
-the data work.
+dropout~\citep{gal2015dropout} capture.  Across our
+\nDatasetsHeadline{} chemistry benchmarks, deep ensembles and MC
+dropout shift the class-flip rate by $\paramSideLow\%$ to
+$\paramSideHigh\%$ relative to empirical risk minimisation (ERM),
+with no consistent sign.  Methods that vary the data do better.
 
 \paragraph{Contributions.}
 \begin{itemize}\itemsep0pt
@@ -75,19 +75,18 @@ the data work.
         held-out dataset, paired bootstrap CI excluding zero, with no
         accuracy regression.
   \item \textbf{Twin-bootstrap.}  Two networks trained on independent
-        bootstraps with a soft sym-KL consistency loss between their
-        predictions --- the codistillation
-        family~\citep{anil2018large} at $\sim\overlapPctMid\%$
-        inter-network bootstrap overlap.  It cuts the class-flip rate
-        by a further median $\twinMedianReduction\%$ (range
-        $\twinLow\text{--}\twinHigh\%$) at matched $2\times$-ERM
-        compute against bagging-$K{=}2$, and reduces distributional
-        disagreement by another factor of
+        bootstraps with a sym-KL consistency loss between their
+        predictions: the codistillation family~\citep{anil2018large}
+        at $\sim\overlapPctMid\%$ inter-network bootstrap overlap.  At
+        matched $2\times$-ERM compute against bagging-$K{=}2$ it cuts
+        the class-flip rate by a further median
+        $\twinMedianReduction\%$ (range
+        $\twinLow\text{--}\twinHigh\%$) and reduces distributional
+        disagreement by a further factor of
         ${\sim}\symKLTwinAdditionalFoldMedian$.  Among three overlap
         points ($\overlapPctLo\%$, $\sim\overlapPctMid\%$,
-        $\overlapPctHi\%$), $\sim\overlapPctMid\%$ is the only one
-        that reduces churn on every dataset with accuracy collapse on
-        at most one shared difficult dataset
+        $\overlapPctHi\%$), only $\sim\overlapPctMid\%$ reduces churn
+        on every dataset
         (Appendix~\ref{app:overlap_spectrum}).
   \item \textbf{One-bootstrap triage.}  Sorting test predictions by
         per-example fragility from a single additional retraining and

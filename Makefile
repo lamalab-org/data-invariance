@@ -50,6 +50,7 @@ tables: paper/sections/tables/main.tex paper/sections/tables/fragility_magnitude
         paper/sections/tables/chemberta.tex \
         paper/sections/tables/waterbirds_lambda.tex \
         paper/sections/tables/filter_outcomes.tex \
+        paper/sections/tables/additional_metrics.tex \
         paper/sections/tables/entropy_vs_fragility.tex \
         paper/sections/tables/overlap_spectrum.tex \
         paper/sections/tables/nscaling_bace.tex \
@@ -75,6 +76,9 @@ paper/sections/tables/waterbirds_lambda.tex:
 
 paper/sections/tables/filter_outcomes.tex:
 	uv run python scripts/make_filter_outcomes_table.py
+
+paper/sections/tables/additional_metrics.tex:
+	uv run python scripts/make_additional_metrics_table.py
 
 paper/sections/tables/entropy_vs_fragility.tex:
 	uv run python scripts/make_entropy_vs_fragility.py
@@ -105,6 +109,7 @@ analysis:
 	uv run python scripts/make_distributional_table.py
 	uv run python scripts/make_regression_table.py
 	uv run python scripts/make_filter_outcomes_table.py
+	uv run python scripts/make_additional_metrics_table.py
 	uv run python scripts/make_friedman_test.py
 	uv run python scripts/analyze_chemberta_heldout.py
 	uv run python scripts/analyze_waterbirds_lambda.py

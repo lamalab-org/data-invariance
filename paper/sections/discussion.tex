@@ -15,7 +15,7 @@ matching the $K{=}5$ result in mean rank
 (Appendix~\ref{app:friedman}).
 
 \paragraph{A recommended workflow.}
-The methods admit a tiered recipe that practitioners can adopt
+The methods support a tiered recipe that practitioners can adopt
 incrementally on top of an existing pipeline.  (i)~For the deployed
 predictor, train $K{=}5$ bagged models on independent bootstraps;
 this cuts the class-flip rate
@@ -40,37 +40,30 @@ the optimiser, the schedule, the data-resampling protocol.  In the
 codistillation-vs.\ twin-bootstrap comparison
 (Appendix~\ref{app:overlap_spectrum}), a single hyperparameter on
 the procedure --- the fraction of data the two networks share ---
-separates a column that goes positive on DILI ($\overlapPctHi\%$ overlap) from
-one that never does ($\sim\overlapPctMid\%$).  The same lever, the consistency
+separates a setting where churn increases on DILI ($\overlapPctHi\%$
+overlap) from one where churn never increases on any dataset
+($\sim\overlapPctMid\%$).  The same lever, the consistency
 weight $\lambda$, takes a different value on a different architecture
 but the rule that selects it is unchanged
 (Section~\ref{sec:generalisation}).
 
 \paragraph{Cross-sample fragility belongs in the benchmark report.}
 AI-for-science benchmarks (MoleculeNet, TDC ADME/Tox,
-materials-science suites) report columns for accuracy, area under
-the receiver operating characteristic (AUROC), calibration, and
-(sometimes) worst-group accuracy.  None of these varies the training
-dataset; cross-sample fragility does.  Two models trained on
-independent samples of the same population that disagree on $16\%$
-of test predictions while reporting near-identical aggregate
-accuracy (within $\sim$$2$\,pp) --- the BACE case
-(Figure~\ref{fig:overview}) --- are indistinguishable in the report
-column even though the practitioner sees the difference at the next
-retraining.  Deep ensembles and MC dropout, the standard
-parameter-side uncertainty methods, move argmax churn by
+materials-science suites) report columns for accuracy, AUROC,
+calibration, and sometimes worst-group accuracy.  None of these
+varies the training dataset; cross-sample fragility does.  On BACE,
+two models that disagree on $\baceErmChurn\%$ of test predictions
+report aggregate accuracies within $\sim$$2$\,pp of one another
+(Figure~\ref{fig:overview}): the practitioner sees the difference at
+the next retraining, but the benchmark report column does not.
+Deep ensembles and MC dropout move argmax churn by
 $\paramSideAbsLow$ to $\paramSideAbsHigh$\,pp across the
-\nDatasetsHeadline{} datasets (Table~\ref{tab:main}); they
-do not substitute for measurement of sensitivity to the training
-sample.  Clinical biostatistics already reports per-individual
-stability intervals~\citep{Riley2023}; the case for the same
-in scientific ML rests on the magnitudes we measure
-(Section~\ref{sec:fragility-magnitudes}).  Aggregate accuracy on a
-fixed test set characterises the deployed model; cross-sample
-fragility characterises the procedure that will produce the next
-one.  A practitioner who refreshes a dataset and retrains sees this
-$\churnMin\text{--}\churnMax\%$ flip rate on the molecules that drive next steps:
-synthesis queues, lead candidates, virtual-screening hits.  The
+\nDatasetsHeadline{} datasets (Table~\ref{tab:main}); they do not
+substitute for measuring sensitivity to the training sample.
+Clinical biostatistics already reports per-individual stability
+intervals~\citep{Riley2023}; the case for doing the same in
+scientific ML rests on the magnitudes we measure
+(Section~\ref{sec:fragility-magnitudes}).  The
 measurement protocol surfaces the rate, bagging and twin-bootstrap
 reduce it, and a one-bootstrap triage identifies which predictions
 will flip first.

@@ -26,45 +26,41 @@ $\bar\rho_{\mathrm{KL}}(\mathcal{A})
 = \mathbb{E}_x \big[\tfrac{1}{2}(\mathrm{KL}(f_{S_A}(x) \| f_{S_B}(x))
                                 + \mathrm{KL}(f_{S_B}(x) \| f_{S_A}(x)))\big]$.
 Throughout the paper, ``fragility'' refers to $\bar\rho$ unless
-otherwise stated; ``class-flip rate'' and ``argmax churn'' both name
-the same quantity reported as a percentage, and figures use
-``id-churn'' on axes when the canonical id-test set is the
-population the expectation is taken over.
+otherwise stated.  ``Class-flip rate'' and ``argmax churn'' name the
+same quantity reported as a percentage.  Figures use ``id-churn'' on
+axes when the expectation is taken over the canonical id-test set.
 
 \paragraph{Imbalance, accuracy, and other aggregate metrics.}
 Accuracy on imbalanced data can mask class-specific drift: two
 models that swap predictions on the minority class while agreeing on
 the majority can post near-identical accuracy and very different
-precision or recall.  We pre-screen every dataset to ERM accuracy
-$\geq$ majority-class baseline $+5$pp (\S\ref{sec:datasets}), so the
-ERM-vs-majority gap we report is genuine learned-decision performance
-rather than majority-class shuffling.  Beyond accuracy, every
-aggregate metric --- AUROC, precision, recall, AP, F1 --- is a
-population average that summarises out per-example variation.
-Cross-sample fragility is the per-example complement: it is invariant
-to which aggregate score one chooses, because it counts disagreements
-at the example level before any averaging.
-Appendix~\ref{app:additional_metrics} reports paired
+precision or recall.  Every aggregate metric (accuracy, AUROC,
+precision, recall, $F_1$, AP) is a population average that
+summarises out per-example variation; cross-sample fragility is the
+per-example complement, counting disagreements before any averaging.
+
+We pre-screen every dataset to ERM accuracy $\geq$ majority-class
+baseline $+5$pp (\S\ref{sec:datasets}), so the gap we measure is
+genuine learned-decision performance rather than majority-class
+shuffling.  Appendix~\ref{app:additional_metrics} reports paired
 $|\Delta\text{precision}|$, $|\Delta\text{recall}|$, $|\Delta F_1|$,
-and $|\Delta\text{AP}|$ between two retrainings on each chemistry
-dataset alongside $|\Delta\text{acc}|$.  Accuracy does undersell on
-the most imbalanced datasets (e.g.\ cyp2d6\_substrate:
-$|\Delta\text{recall}|=10.5$\,pp vs.\ $|\Delta\text{acc}|=4.2$\,pp);
-recall and precision drifts can be $2\text{--}3\times$
-$|\Delta\text{acc}|$.  But on every dataset, per-example
-argmax-churn still exceeds the largest aggregate-metric drift ---
-typically by $2\text{--}10\times$ --- and even on cyp2d6\_substrate
-the argmax-churn rate ($13.3\%$) is larger than every
-aggregate-metric drift we measured.  Per-example disagreement is
-the variable that drives next-step decisions in scientific ML; the
-aggregate-metric drift is the quantity it dominates.
+and $|\Delta\text{AP}|$ between two retrainings alongside
+$|\Delta\text{acc}|$.  Accuracy does undersell on the most imbalanced
+datasets: on cyp2d6\_substrate $|\Delta\text{recall}|=10.5$\,pp
+versus $|\Delta\text{acc}|=4.2$\,pp, and recall and precision drifts
+reach $2\text{--}3\times$ $|\Delta\text{acc}|$ on the imbalanced
+ADME tasks.  But the per-example argmax-churn rate exceeds every
+aggregate-metric drift on every dataset, typically by
+$2\text{--}10\times$.  Per-example disagreement is the quantity that
+drives next-step decisions in scientific ML; aggregate-metric drift
+is the quantity it dominates.
 
 \paragraph{Bootstrap estimator.}
 A practitioner has one observed training set $S$, not a population
 $\mathcal{D}$.  We estimate $\rho$ by drawing two independent
 bootstraps from $S$ (size $N$, with replacement); each bootstrap is
-a draw from the empirical distribution
-$\hat{\mathcal{D}}_S \to \mathcal{D}$ as $N \to \infty$.  All
+a draw from the empirical distribution $\hat{\mathcal{D}}_S$, which
+converges to $\mathcal{D}$ as $N \to \infty$.  All
 numerical magnitudes we report are with respect to this bootstrap
 proxy --- the quantity computable from a single observed training
 set.

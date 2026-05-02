@@ -13,10 +13,10 @@ $T{=}20$ stochastic forward passes does not address the
 data-resampling axis that bagging and twin-bootstrap operate on.  At
 matched compute against bagging-$K{=}2$, twin-bootstrap wins on $8/9$
 datasets (CI excludes zero; the difference is not significant on
-DILI, where ERM accuracy is $0.72$ on a $76$-example test set);
-against the $5\times$-compute bagging-$K{=}5$, twin-bootstrap wins on
-$5/8$ held-out datasets and trails on three (DILI, Pgp, TADF).  The
-aggregate Friedman test rejects equal-ranks at
+DILI, where ERM accuracy is $0.72$ on a $76$-example test set).
+Against the $5\times$-compute bagging-$K{=}5$, twin-bootstrap wins on
+$5/8$ held-out datasets and trails on three (DILI, Pgp, TADF).
+The aggregate Friedman test rejects equal-ranks at
 $\chi^2 = \friedmanChi$, $p = \friedmanP$; twin-bootstrap ranks
 first, indistinguishable from bagging-$K{=}5$ at less than half the
 compute (Appendix~\ref{app:friedman}).
@@ -51,7 +51,7 @@ Table~\ref{tab:distributional}, Appendix~\ref{app:distributional}).  Pipelines t
 softmax (uncertainty-weighted ranking, candidate scoring) see a
 larger gap between the two than the argmax-churn column reflects.
 
-\paragraph{Fragility-ranked triage captures most flips at low review cost.}
+\paragraph{Fragility-ranked triage.}
 \label{sec:churn-decile}
 Per-example fragility, computed across pairs of ERM bootstraps, ranks
 test examples by how likely they are to flip class on retraining.
@@ -103,8 +103,9 @@ other architectures and on regression. The numerical value of
 $\lambda$ is architecture-specific; the rule that selects it is not.
 
 \paragraph{Pretrained backbones.}
-A pretrained backbone is an implicit data prior; the from-scratch
-$\lambda$ is too strong for what the backbone already encodes.  At
+A pretrained backbone has already absorbed regularisation from its
+pretraining corpus, so the from-scratch $\lambda$ over-constrains
+it.  At
 $\lambda{=}300$ (the BACE-MLP-frozen value), twin-bootstrap collapses
 accuracy by $\waterbirdsAccCollapse$pp on Waterbirds
 (ImageNet-pretrained ResNet-50) and by
