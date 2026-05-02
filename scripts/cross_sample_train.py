@@ -179,7 +179,7 @@ def _make_loader(base_dataset, indices, cfg, canonical_loaders, pool_idx=None):
 # ---------------------------------------------------------------------------
 
 def _train_one_model(cfg, train_loader, canonical_loaders, device,
-                     model_seed, epochs):
+                     model_seed, epochs, swa: bool = False):
     """Train a single model on ``train_loader`` and return it.
 
     The loss is dispatched on the dataset's task type:
@@ -191,6 +191,14 @@ def _train_one_model(cfg, train_loader, canonical_loaders, device,
     yields ``float64``.  ``set_seed`` controls the model's random
     initialisation (separate from the bootstrap seed used in
     ``_make_loader``).
+
+    If ``swa=True`` we apply Stochastic Weight Averaging
+    \\citep{izmailov2018averaging}: we snapshot the model parameters at
+    the end of every epoch in the second half of training and average
+    them at the end.  The averaged model replaces the final-epoch model
+    at deployment.  No batch-norm-stat update is needed because the
+    chemistry-MLP / regression backbones we use do not contain batch
+    normalisation.
     """
     set_seed(model_seed)
     model = _build_model(cfg, canonical_loaders, device)
@@ -198,7 +206,9 @@ def _train_one_model(cfg, train_loader, canonical_loaders, device,
                             lr=cfg.training.lr,
                             weight_decay=cfg.training.weight_decay)
     regression = _is_regression(cfg)
-    for _ in range(epochs):
+    swa_state, swa_count = None, 0
+    swa_start = epochs // 2
+    for ep in range(epochs):
         model.train()
         for batch in train_loader:
             x = _move_x(batch["image"], device)
@@ -215,6 +225,20 @@ def _train_one_model(cfg, train_loader, canonical_loaders, device,
                 F.cross_entropy(model(x), y).backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()
+        if swa and ep >= swa_start:
+            swa_count += 1
+            cur = {k: v.detach().clone() for k, v in model.state_dict().items()}
+            if swa_state is None:
+                swa_state = cur
+            else:
+                for k in swa_state:
+                    if swa_state[k].is_floating_point():
+                        # Running average: avg = avg + (cur - avg) / n
+                        swa_state[k].add_((cur[k] - swa_state[k]) / swa_count)
+                    else:
+                        swa_state[k] = cur[k]
+    if swa and swa_state is not None:
+        model.load_state_dict(swa_state)
     return model
 
 
@@ -691,34 +715,36 @@ def run(args):
         print(f"\n=== {args.dataset}  canonical={args.canonical_data_seed}  "
               f"train_seed={train_seed}  mode={args.mode} ===")
 
-        if args.mode == "erm":
+        if args.mode in ("erm", "swa"):
             boot_loader = _make_loader(
                 canonical_loaders["train"].dataset,
                 _bootstrap_indices(n_train, train_seed),
                 cfg, canonical_loaders, pool_idx=pool_idx)
             model = _train_one_model(cfg, boot_loader, canonical_loaders,
-                                     device, train_seed, epochs)
+                                     device, train_seed, epochs,
+                                     swa=(args.mode == "swa"))
+            file_prefix = args.mode  # "erm" or "swa"
             if _is_regression(cfg):
                 id_p, id_y, id_i = _predict_reg(model, canonical_loaders["id_test"], device)
                 ood_p, ood_y, ood_i = _predict_reg(model, canonical_loaders["ood_test"], device)
                 print(f"  id_mae={np.abs(id_p-id_y).mean():.4f}  "
                       f"ood_mae={np.abs(ood_p-ood_y).mean():.4f}")
-                _save(f"erm_train{train_seed}",
+                _save(f"{file_prefix}_train{train_seed}",
                       dict(id_preds=id_p, id_labels=id_y, id_indices=id_i,
                            ood_preds=ood_p, ood_labels=ood_y, ood_indices=ood_i,
                            canonical_data_seed=args.canonical_data_seed,
-                           train_seed=train_seed, mode="erm", task="regression"),
+                           train_seed=train_seed, mode=args.mode, task="regression"),
                       train_seed=train_seed, task="regression")
             else:
                 id_p, id_y, id_i = _predict(model, canonical_loaders["id_test"], device)
                 ood_p, ood_y, ood_i = _predict(model, canonical_loaders["ood_test"], device)
                 print(f"  id_acc={(id_p.argmax(1)==id_y).mean():.4f}  "
                       f"ood_acc={(ood_p.argmax(1)==ood_y).mean():.4f}")
-                _save(f"erm_train{train_seed}",
+                _save(f"{file_prefix}_train{train_seed}",
                       dict(id_probs=id_p, id_labels=id_y, id_indices=id_i,
                            ood_probs=ood_p, ood_labels=ood_y, ood_indices=ood_i,
                            canonical_data_seed=args.canonical_data_seed,
-                           train_seed=train_seed, mode="erm"),
+                           train_seed=train_seed, mode=args.mode),
                       train_seed=train_seed)
 
         elif args.mode == "mc_dropout":
@@ -905,9 +931,10 @@ if __name__ == "__main__":
     ap.add_argument("--train_seeds", default="1,2,3,4,5",
                     help="Comma-separated list of train_seeds (one bootstrap per seed).")
     ap.add_argument("--mode", required=True,
-                    choices=["erm", "mc_dropout", "deep_ensemble", "bagging",
-                             "twin_indep", "twin_gradnorm", "codistillation",
-                             "distillation_anchor", "twin_indep_shared"])
+                    choices=["erm", "swa", "mc_dropout", "deep_ensemble",
+                             "bagging", "twin_indep", "twin_gradnorm",
+                             "codistillation", "distillation_anchor",
+                             "twin_indep_shared"])
     ap.add_argument("--K", type=int, default=5,
                     help="Ensemble size (deep_ensemble/bagging only).")
     ap.add_argument("--lam", type=float, default=0.0,

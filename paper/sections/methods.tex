@@ -13,6 +13,15 @@ $1.0$), learning rate $10^{-3}$, batch size $64$, and $30$ epochs.
 A single model trained with AdamW on one bootstrap of the canonical
 training set.
 
+\paragraph{Stochastic Weight Averaging (SWA)~\citep{izmailov2018averaging}.}
+Trained as ERM, but at the end of every epoch in the second half of
+training we snapshot model weights and accumulate a running average.
+The averaged weights replace the final-epoch weights at deployment.
+SWA is a parameter-side smoother: it modifies the weight trajectory
+without varying the data sample.  Cross-sample fragility is then
+measured between $T$-averaged predictions of two SWA models trained
+on independent bootstraps.
+
 \paragraph{MC dropout.}
 A single model with dropout layers ($p=0.2$) inserted after each
 hidden ReLU, trained by SGD on one bootstrap.  At deployment, $T=20$

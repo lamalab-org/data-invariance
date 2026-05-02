@@ -5,10 +5,10 @@ $\churnMin\text{--}\churnMax\%$ of test molecules, while their
 aggregate accuracy differs by only $\accDiffMin\text{--}\accDiffMax$
 percentage points.  We call this \emph{cross-sample prediction
 fragility}.  Across \nDatasetsHeadline{} chemistry benchmarks the
-standard parameter-side uncertainty methods --- deep ensembles and
-Monte Carlo dropout --- shift the class-flip rate by
-$\paramSideLow\%$ to $\paramSideHigh\%$ relative to ERM, with no
-consistent sign.  Methods that vary the training-data sample do
+standard parameter-side techniques --- deep ensembles, Monte Carlo
+dropout, and stochastic weight averaging (SWA) --- shift the
+class-flip rate by $\paramSideLow\%$ to $\paramSideHigh\%$ relative
+to ERM, with no consistent sign.  Methods that vary the training-data sample do
 better.  Bagging cuts the rate
 $\bagFiveLow\text{--}\bagFiveHigh\%$ on every dataset at no
 accuracy cost.  \emph{Twin-bootstrap} --- two networks trained on

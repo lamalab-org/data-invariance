@@ -94,6 +94,7 @@ ALL_CHEMISTRY = (
 # Glob pattern templates for `_analysis_lib.load_runs`.
 METHOD_GLOBS = {
     "ERM":            "erm_train*.npz",
+    "SWA":             "swa_train*.npz",
     "MC dropout":      "mc_dropout_train*_T20.npz",
     "Deep Ens. K=5":   "deep_ensemble_train*_K5.npz",
     "Bagging K=2":     "bagging_train*_K2.npz",
@@ -105,6 +106,7 @@ METHOD_GLOBS = {
 # at top, strongest contribution at bottom (where the eye lands last).
 METHOD_ORDER = [
     "MC dropout",
+    "SWA",
     "Deep Ens. K=5",
     "Bagging K=2",
     "Bagging K=5",

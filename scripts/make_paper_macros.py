@@ -197,6 +197,12 @@ def emit_main_table() -> None:
     twin = _rel_pct(_by_method_substr("Twin"))
     mcd = _rel_pct(_by_method("MC dropout"))
     de5 = _rel_pct(_by_method("Deep Ensemble K=5"))
+    swa = _rel_pct(_by_method("SWA"))
+    if swa:
+        # Use signed bounds (negative = reduction).  Pattern matches MC
+        # dropout / paramSide so the prose can read them directly.
+        add("swaLow", min(swa), "pp1")
+        add("swaHigh", max(swa), "pp1")
 
     if bag5:
         add("bagFiveLow", -max(bag5), "pct0")    # most-negative = strongest cut
@@ -208,8 +214,9 @@ def emit_main_table() -> None:
     if mcd:
         add("mcdLow", min(mcd), "pp1")
         add("mcdHigh", max(mcd), "pp1")
-    # Combined param-side: MC dropout + DE-K=5
-    param_side = mcd + de5
+    # Combined param-side: MC dropout + DE-K=5 + SWA (all weight-side
+    # techniques that do not vary the training-data sample).
+    param_side = mcd + de5 + swa
     if param_side:
         add("paramSideLow", min(param_side), "pp1")
         add("paramSideHigh", max(param_side), "pp1")

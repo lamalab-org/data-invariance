@@ -5,12 +5,16 @@
 Across the \nDatasetsHeadline{} chemistry benchmarks (BACE plus
 \nDatasetsHeldout{} held-out), bagging-$K{=}5$ and twin-bootstrap both
 beat ERM on cross-sample id-churn with $95\%$ paired-bootstrap CIs
-that exclude zero (Table~\ref{tab:main}, Figure~\ref{fig:main}).  MC
-dropout, in contrast, fails to reduce argmax churn: $\Delta$ ranges
-$\mcdLow\%$ to $\mcdHigh\%$ relative to ERM, with no consistent
-direction.  Training a single model with dropout and averaging
-$T{=}20$ stochastic forward passes does not address the
-data-resampling axis that bagging and twin-bootstrap operate on.  At
+that exclude zero (Table~\ref{tab:main}, Figure~\ref{fig:main}).  The
+three parameter-side techniques --- MC dropout, deep ensembles, and
+stochastic weight averaging (SWA) --- do not reduce churn
+consistently.  Their $\Delta$ id-churn ranges $\paramSideLow\%$ to
+$\paramSideHigh\%$ relative to ERM, with no consistent direction
+across datasets.  Averaging $T{=}20$ stochastic forward passes
+(MC dropout), averaging $K{=}5$ networks at fixed data
+(deep ensembles), or averaging weight snapshots from a single
+training trajectory (SWA) all keep the data-resampling axis
+constant; bagging and twin-bootstrap operate on that axis directly.  At
 matched compute against bagging-$K{=}2$, twin-bootstrap wins on $8/9$
 datasets (CI excludes zero; the difference is not significant on
 DILI, where ERM accuracy is $0.72$ on a $76$-example test set).
@@ -25,7 +29,7 @@ compute (Appendix~\ref{app:friedman}).
   \centering
   \includegraphics[width=\linewidth]{figures/fig1_forest.pdf}
   \caption{\textbf{Bagging and twin-bootstrap beat ERM on every chemistry
-    benchmark; MC dropout and deep ensembles do not.}  Left: paired
+    benchmark; MC dropout, deep ensembles, and SWA do not.}  Left: paired
     $\Delta$ id-churn vs.\ ERM for five methods, one row per dataset
     (smallest $N$ at top), $95\%$ paired-bootstrap CIs across
     $\binom{10}{2}=45$ seed pairs.  Vertical reference lines mark

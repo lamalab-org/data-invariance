@@ -105,6 +105,7 @@ def paired_delta_vs(reference_glob: str, method_glob: str,
 
 METHODS = [
     ("ERM",              GLOBS["erm"]),
+    ("SWA",              "swa_train*.npz"),
     ("MC dropout",        "mc_dropout_train*_T20.npz"),
     ("Deep Ensemble K=5", GLOBS["deep_ensemble_5"]),
     ("Bagging K=2",       GLOBS["bagging_2"]),
