@@ -114,8 +114,9 @@ def main() -> None:
         r"$|\Delta\text{recall}|=10.5$\,pp on the imbalanced "
         r"cyp2d6\_substrate dataset.}",
         r"  \label{tab:additional-metrics}",
-        r"  \small",
-        r"  \begin{tabular}{lr@{\hspace{1em}}lllll@{\hspace{1.5em}}l}",
+        r"  \scriptsize",
+        r"  \resizebox{\linewidth}{!}{%",
+        r"  \begin{tabular}{lr@{\hspace{0.6em}}lllll@{\hspace{1em}}l}",
         r"    \toprule",
         r"    & & \multicolumn{5}{c}{Aggregate-metric drift (pp)}"
         r" & Per-example \\",
@@ -134,7 +135,8 @@ def main() -> None:
             f"{_fmt(r['d_ap_pp_ci'])} & "
             f"{_fmt(r['churn_pct_ci'])} \\\\"
         )
-    lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
+    lines += [r"    \bottomrule", r"  \end{tabular}", r"  }",
+              r"\end{table}", ""]
 
     out_path = Path("paper/sections/tables/additional_metrics.tex")
     out_path.parent.mkdir(parents=True, exist_ok=True)
