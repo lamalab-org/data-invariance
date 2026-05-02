@@ -320,7 +320,8 @@ CIs, plus paired $\Delta$ vs.\ ERM on the same $45$ seed-pairs.
   selection-rule tolerance ERM-GIN id-acc would impose.  Bold cells
   mark the best mean per column among the three methods.}
 \label{tab:gin}
-\small
+\scriptsize
+\resizebox{\linewidth}{!}{%
 \begin{tabular}{lccc}
 \toprule
 Method & id-acc & id-churn (\%) & sym-KL \\
@@ -334,6 +335,7 @@ Bagging-$K{=}5$           & \multicolumn{1}{c}{$+0.035$ pp} & $-11.7$ [$-12.7$, 
 Twin-bootstrap $\lambda{=}300$ & \multicolumn{1}{c}{$-0.149$ pp} & $-5.9$ [$-8.9$, $-2.8$] ($-26\%$) & $-0.41$ [$-0.44$, $-0.38$] ($-99\%$) \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
 
 The consistency loss is real and effective at suppressing
