@@ -16,9 +16,13 @@
 #   3: Twin-bootstrap lam=10 (rule-selected on GIN)
 
 set -e
-source $HOME/miniconda3/etc/profile.d/conda.sh
-conda activate invariance
 cd /vast/lo45pic/data-invariance
+
+# Use uv-managed venv (on /vast, reliably visible to compute nodes) instead
+# of conda activate (lives in $HOME/miniconda3/, NFS attr-cache delays
+# can hide newly-installed packages on compute nodes -- bit us on the
+# torch_geometric install in the previous resubmit).
+PY="$HOME/.local/bin/uv run --no-sync python"
 
 METHODS=("erm|0|0" "bagging|5|0" "twin_indep|0|300.0" "twin_indep|0|10.0")
 SEEDS="1,2,3,4,5,6,7,8,9,10"
@@ -34,15 +38,15 @@ LOG="logs/gin/bace_gin_${MODE}_K${K}_lam${LAM}.log"
 
 echo "=== bace_gin  $MODE  K=$K  lam=$LAM  $(hostname)  $(date) ===" > "$LOG"
 if [ "$MODE" = "twin_indep" ]; then
-  python scripts/cross_sample_train.py \
+  $PY scripts/cross_sample_train.py \
     --dataset bace_gin --canonical_data_seed 99 --train_seeds "$SEEDS" \
     --mode "$MODE" --lam "$LAM" >> "$LOG" 2>&1
 elif [ "$MODE" = "bagging" ]; then
-  python scripts/cross_sample_train.py \
+  $PY scripts/cross_sample_train.py \
     --dataset bace_gin --canonical_data_seed 99 --train_seeds "$SEEDS" \
     --mode "$MODE" --K "$K" >> "$LOG" 2>&1
 else
-  python scripts/cross_sample_train.py \
+  $PY scripts/cross_sample_train.py \
     --dataset bace_gin --canonical_data_seed 99 --train_seeds "$SEEDS" \
     --mode "$MODE" >> "$LOG" 2>&1
 fi
