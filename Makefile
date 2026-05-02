@@ -33,16 +33,31 @@ FROZEN_LAM       := 300.0
 PARETO_LAMS      := 1.0 3.0 10.0 30.0 100.0 300.0
 CANON_DATA_SEED  := 99
 
-figures: figures/fig1_forest.pdf figures/fig2_pareto.pdf figures/fig3_decile.pdf
+figures: paper/figures/fig0_overview.pdf paper/figures/fig1_forest.pdf \
+         paper/figures/fig2_pareto.pdf paper/figures/fig3_decile.pdf \
+         paper/figures/fig4_case_study.pdf paper/figures/fig5_overlap.pdf \
+         paper/figures/fig_convergence.pdf
 
-figures/fig1_forest.pdf:
+paper/figures/fig0_overview.pdf:
+	uv run python scripts/make_fig0_overview.py
+
+paper/figures/fig1_forest.pdf:
 	uv run python scripts/make_fig1_forest.py
 
-figures/fig2_pareto.pdf:
+paper/figures/fig2_pareto.pdf:
 	uv run python scripts/make_fig2_pareto.py
 
-figures/fig3_decile.pdf:
+paper/figures/fig3_decile.pdf:
 	uv run python scripts/make_fig3_decile.py
+
+paper/figures/fig4_case_study.pdf:
+	uv run python scripts/make_fig4_case_study.py
+
+paper/figures/fig5_overlap.pdf:
+	uv run python scripts/make_fig5_overlap.py
+
+paper/figures/fig_convergence.pdf:
+	uv run python scripts/make_fig_convergence.py
 
 tables: paper/sections/tables/main.tex paper/sections/tables/fragility_magnitudes.tex \
         paper/sections/tables/distributional.tex \
