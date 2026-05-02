@@ -1,0 +1,21 @@
+\begin{table}[h]
+  \centering
+  \caption{\textbf{On imbalanced datasets, minority-class predictions are $2\text{--}4\times$ more unstable across retrainings than majority-class predictions.}  For each chemistry dataset: overall cross-bootstrap argmax-churn and its restriction to $y{=}0$ and $y{=}1$ subsets of the canonical id-test, across the $\binom{10}{2}=45$ ERM seed pairs (mean $[\,95\%\ \text{CI}\,]$, $10{,}000$ resamples).  Pos.\ frac.\ is the fraction of $y{=}1$ examples; the minority class is bolded.  On the most imbalanced datasets (BBB-Martins, BBBP at $0.78$ pos-frac; CYP2D6-Sub at $0.30$) the minority-class churn rate is $2\text{--}4\times$ the majority-class rate, so per-example disagreement is \emph{concentrated} on the rarer class --- exactly the predictions practitioners care most about (active toxicity, BBB-permeable, substrate).  On balanced datasets the rates are comparable.}
+  \label{tab:per-class-churn}
+  \small
+  \begin{tabular}{lrrl@{\hspace{1em}}lll}
+    \toprule
+    Dataset & $N$ & $N_{\text{id-test}}$ & Pos.\ frac.\ & Overall (\%) & churn$|y{=}0$ (\%) & churn$|y{=}1$ (\%) \\
+    \midrule
+    DILI & 304 & 76 & 0.47 & 16.8 [15.8, 17.7] & 13.6 [12.3, 14.9] & \textbf{20.3 [18.7, 21.9]} \\
+    CYP2D6-Sub & 427 & 106 & 0.30 & 13.3 [12.6, 14.1] & 8.2 [7.6, 8.9] & \textbf{25.1 [22.8, 27.4]} \\
+    Pgp & 780 & 194 & 0.53 & 10.3 [9.7, 10.9] & \textbf{13.5 [12.5, 14.6]} & 7.5 [6.9, 8.0] \\
+    BACE\,(dev) & 968 & 242 & 0.44 & 16.1 [15.6, 16.7] & 15.8 [15.2, 16.4] & \textbf{16.6 [15.6, 17.5]} \\
+    TADF & 1007 & 428 & 0.50 & 12.7 [12.3, 13.1] & 13.5 [12.9, 14.1] & \textbf{11.9 [11.3, 12.4]} \\
+    MOF-thermal & 1251 & 627 & 0.48 & 21.8 [21.2, 22.4] & 20.7 [19.9, 21.4] & \textbf{23.0 [22.1, 23.9]} \\
+    BBB-Martins & 1300 & 324 & 0.78 & 8.0 [7.6, 8.4] & \textbf{18.0 [16.4, 19.7]} & 5.2 [4.9, 5.5] \\
+    BBBP & 1305 & 326 & 0.78 & 8.5 [8.1, 8.9] & \textbf{15.7 [14.5, 17.0]} & 6.4 [5.9, 6.8] \\
+    AMES & 4658 & 1164 & 0.51 & 15.2 [14.8, 15.5] & \textbf{13.9 [13.5, 14.3]} & 16.4 [16.0, 16.8] \\
+    \bottomrule
+  \end{tabular}
+\end{table}

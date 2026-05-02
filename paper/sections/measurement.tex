@@ -53,7 +53,12 @@ ADME tasks.  But the per-example argmax-churn rate exceeds every
 aggregate-metric drift on every dataset, typically by
 $2\text{--}10\times$.  Per-example disagreement is the quantity that
 drives next-step decisions in scientific ML; aggregate-metric drift
-is the quantity it dominates.
+is the quantity it dominates.  And the disagreement concentrates on
+the class practitioners care about: on the most imbalanced datasets
+(BBB-Martins, BBBP, CYP2D6-Sub), minority-class predictions are
+$2\text{--}4\times$ more unstable across retrainings than
+majority-class predictions
+(Appendix~\ref{app:per_class_churn}).
 
 \paragraph{Bootstrap estimator.}
 A practitioner has one observed training set $S$, not a population

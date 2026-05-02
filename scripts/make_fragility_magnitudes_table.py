@@ -76,6 +76,8 @@ def _row(dataset: str, root: Path) -> dict | None:
         "n_train": N_TRAIN.get(dataset, len(runs[0][1]["id_indices"])),
         "n_id_test": n_id_test,
         "id_acc_mean": float(np.mean(id_accs)),
+        "id_acc_min": float(np.min(id_accs)),
+        "id_acc_max": float(np.max(id_accs)),
         "acc_diff_pp_ci": bootstrap_ci(acc_diffs_pp),
         "churn": bootstrap_ci(churns),
         "sym_kl": bootstrap_ci(sym_kls),
@@ -147,13 +149,16 @@ def main() -> None:
     ]
     for r in headline_rows:
         ds_label = display(r['dataset']) + (r"\,(dev)" if r['dataset'] == DEV_DATASET else "")
+        # ERM id-acc shown as mean [min, max] across the 10 retrainings
+        # so the reader sees where the model is sitting (e.g.\ 0.78
+        # [0.77, 0.79]) and can put |dAcc| in context.
+        acc_str = f"{r['id_acc_mean']:.3f} [{r['id_acc_min']:.3f}, {r['id_acc_max']:.3f}]"
         # Bold the per-prediction disagreement cells: the central
         # observation is that argmax churn (and its sym-KL companion)
-        # are the per-example complement to |Δacc|.  The row-level
-        # contrast |Δacc| vs argmax-churn is the headline finding.
+        # are the per-example complement to |dAcc|.
         lines.append(
             f"    {ds_label} & {r['n_train']} & {r['n_id_test']} & "
-            f"{r['id_acc_mean']:.3f} & {_fmt_pp_ci(r['acc_diff_pp_ci'])} & "
+            f"{acc_str} & {_fmt_pp_ci(r['acc_diff_pp_ci'])} & "
             f"\\textbf{{{_fmt_pct_ci(r['churn'])}}} & "
             f"\\textbf{{{_fmt_ci(r['sym_kl'])}}} \\\\"
         )
@@ -161,9 +166,10 @@ def main() -> None:
         lines.append(r"    \midrule")
         lines.append(r"    \multicolumn{7}{l}{\emph{Borderline (passes filter only marginally; not used in headline comparison):}} \\")
         for r in borderline_rows:
+            acc_str = f"{r['id_acc_mean']:.3f} [{r['id_acc_min']:.3f}, {r['id_acc_max']:.3f}]"
             lines.append(
                 f"    {display(r['dataset'])} & {r['n_train']} & {r['n_id_test']} & "
-                f"{r['id_acc_mean']:.3f} & {_fmt_pp_ci(r['acc_diff_pp_ci'])} & "
+                f"{acc_str} & {_fmt_pp_ci(r['acc_diff_pp_ci'])} & "
                 f"\\textbf{{{_fmt_pct_ci(r['churn'])}}} & "
                 f"\\textbf{{{_fmt_ci(r['sym_kl'])}}} \\\\"
             )

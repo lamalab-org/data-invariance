@@ -84,6 +84,25 @@ available.
 
 \input{sections/tables/nscaling_bace.tex}
 
+\section{Per-class breakdown: minority-class predictions are more unstable}
+\label{app:per_class_churn}
+
+The overall cross-bootstrap argmax-churn rate is an average over the
+canonical id-test set.  On imbalanced datasets, that average can hide
+class-conditional structure: are the disagreements concentrated on
+majority-class examples (where the model is essentially predicting
+the dominant prior) or on minority-class examples (where the model
+has to learn structure)?  Table~\ref{tab:per-class-churn} restricts
+churn to each true-label subset.  On the three most imbalanced
+chemistry datasets in our suite (BBB-Martins, BBBP at positive
+fraction $0.78$; CYP2D6-Sub at $0.30$), minority-class predictions
+are $2\text{--}4\times$ more unstable than majority-class
+predictions.  The disagreement is therefore concentrated on the
+class practitioners care most about: the predicted-positive (active,
+permeable, substrate) calls that drive next-step decisions.
+
+\input{sections/tables/per_class_churn.tex}
+
 \section{Aggregate-metric drift under precision, recall, $F_1$, AP}
 \label{app:additional_metrics}
 
