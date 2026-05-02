@@ -147,11 +147,15 @@ def main() -> None:
     ]
     for r in headline_rows:
         ds_label = display(r['dataset']) + (r"\,(dev)" if r['dataset'] == DEV_DATASET else "")
+        # Bold the per-prediction disagreement cells: the central
+        # observation is that argmax churn (and its sym-KL companion)
+        # are the per-example complement to |Δacc|.  The row-level
+        # contrast |Δacc| vs argmax-churn is the headline finding.
         lines.append(
             f"    {ds_label} & {r['n_train']} & {r['n_id_test']} & "
             f"{r['id_acc_mean']:.3f} & {_fmt_pp_ci(r['acc_diff_pp_ci'])} & "
-            f"{_fmt_pct_ci(r['churn'])} & "
-            f"{_fmt_ci(r['sym_kl'])} \\\\"
+            f"\\textbf{{{_fmt_pct_ci(r['churn'])}}} & "
+            f"\\textbf{{{_fmt_ci(r['sym_kl'])}}} \\\\"
         )
     if borderline_rows:
         lines.append(r"    \midrule")
@@ -160,8 +164,8 @@ def main() -> None:
             lines.append(
                 f"    {display(r['dataset'])} & {r['n_train']} & {r['n_id_test']} & "
                 f"{r['id_acc_mean']:.3f} & {_fmt_pp_ci(r['acc_diff_pp_ci'])} & "
-                f"{_fmt_pct_ci(r['churn'])} & "
-                f"{_fmt_ci(r['sym_kl'])} \\\\"
+                f"\\textbf{{{_fmt_pct_ci(r['churn'])}}} & "
+                f"\\textbf{{{_fmt_ci(r['sym_kl'])}}} \\\\"
             )
     lines += [
         r"    \bottomrule",

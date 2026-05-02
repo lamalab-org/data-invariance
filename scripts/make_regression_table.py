@@ -144,6 +144,19 @@ def main():
         r"\multicolumn{7}{l}{\emph{Paired $\Delta$ fragility vs.\ ERM "
         r"(45 seed-pairs, mean $[\,95\%\ \text{CI}\,]$):}} \\",
     ]
+    # Identify the best matched-compute method per dataset: between
+    # bagging-K=2 and twin-bootstrap (both are 2x-ERM compute).
+    matched_compute = {"Bagging-$K{=}2$", "Twin-bootstrap $\\lambda{=}3$"}
+    best_per_ds = {}
+    for short, _, _ in DATASETS:
+        scores = []
+        for name in matched_compute:
+            d = data.get(short, {}).get(name)
+            if d and "d_frag_ci" in d:
+                scores.append((d["d_frag_ci"][0], name))
+        if scores:
+            best_per_ds[short] = min(scores)[1]
+
     for name, _ in METHODS:
         if name == "ERM":
             continue
@@ -154,6 +167,8 @@ def main():
                 cols.append(r"\multicolumn{2}{c}{---}")
                 continue
             cell = _fmt_d_ci(d["d_frag_ci"]) + f" ({d['rel_pct']:+.0f}\\%)"
+            if best_per_ds.get(short) == name:
+                cell = r"\textbf{" + cell + "}"
             cols.append(r"\multicolumn{2}{c}{" + cell + r"}")
         lines.append(f"{name} & " + " & ".join(cols) + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}", r"\end{table}", ""]

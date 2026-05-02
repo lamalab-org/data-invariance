@@ -128,12 +128,15 @@ def main() -> None:
     ]
     for r in rows:
         ds = display(r["dataset"]) + (r"\,(dev)" if r["dataset"] == DEV_DATASET else "")
+        # Bold the per-example argmax-churn cell on every row so the
+        # column visually anchors the argument.
+        churn_cell = r"\textbf{" + _fmt(r['churn_pct_ci']) + "}"
         lines.append(
             f"    {ds} & {r['n_train']} & "
             f"{_fmt(r['d_acc_pp_ci'])} & {_fmt(r['d_precision_pp_ci'])} & "
             f"{_fmt(r['d_recall_pp_ci'])} & {_fmt(r['d_f1_pp_ci'])} & "
             f"{_fmt(r['d_ap_pp_ci'])} & "
-            f"{_fmt(r['churn_pct_ci'])} \\\\"
+            f"{churn_cell} \\\\"
         )
     lines += [r"    \bottomrule", r"  \end{tabular}", r"  }",
               r"\end{table}", ""]
