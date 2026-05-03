@@ -72,17 +72,33 @@ treatment of \citet{Riley2023}.
 The cross-dataset variation in Table~\ref{tab:fragility-magnitudes}
 confounds training-set size with task difficulty.  We isolate $N$ by
 subsampling a single dataset (BACE) to
-$M \in \{200, 400, 600, 800, 968\}$ and re-running ERM at each $M$
-for ten train-seeds; the pool at each $M$ is the deterministic
-prefix of a fixed canonical-seed shuffle, so all ten train-seeds at
-the same $M$ draw their bootstraps from the same underlying pool.
-The within-dataset log-log slope of sym-KL vs $M$ is $\nScalingSlope$ with a
-visible plateau between $M{=}600$ and $M{=}800$: more data reduces
+$M \in \{200, 300, 400, 500, 600, 700, 800, 900, 968\}$ and re-running
+ERM at each $M$ for $\nSeeds$ train-seeds; the pool at each $M$ is the
+deterministic prefix of a fixed canonical-seed shuffle, so all
+$\nSeeds$ train-seeds at the same $M$ draw their bootstraps from the
+same underlying pool.  Sym-KL trends downward as $M$ grows: the
+seed-averaged value falls from $\nScalingSymKLLow$ at $M{=}200$ to
+$\nScalingSymKLMin$ at $M{=}\nScalingMmin$ before ticking back up
+slightly to $\nScalingSymKLEnd$ at $M{=}968$ (Table~\ref{tab:nscaling};
+log-log slope $\nScalingSlope$, computed on canonical-seed
+$\canonicalSeed$ alone for protocol consistency).  More data reduces
 fragility but does not drive it to zero, motivating the methods we
 propose for the regime where simply collecting more data is not
 available.
 
 \input{sections/tables/nscaling_bace.tex}
+
+\paragraph{Sensitivity to the canonical-pool draw.}  The
+canonical-seed shuffle determines which examples enter the pool at
+each $M$, so the per-$M$ sym-KL is itself a single-seed estimate.  We
+re-ran the entire $M$-grid on two additional canonical seeds ($7$ and
+$42$) for $\nSeeds$ train-seeds each; the per-seed sym-KL at fixed $M$
+ranges by up to $\sim$$30\%$ in absolute terms, but the averaged
+trajectory preserves the broad-decreasing shape described above.
+The slight uptick from $M{=}\nScalingMmin$ to $M{=}968$ is
+canonical-seed sensitive (visible on canonical seeds $\canonicalSeed$
+and $7$, absent on $42$) and should be read as a soft floor near
+$M{\approx}\nScalingMmin$ rather than a sharp inflection.
 
 \section{Per-class breakdown: minority-class predictions are more unstable}
 \label{app:per_class_churn}

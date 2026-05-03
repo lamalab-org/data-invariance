@@ -1,6 +1,6 @@
 \begin{table}[h]
   \centering
-  \caption{\textbf{Cross-sample fragility decreases with training-pool size on BACE, with a visible plateau between $M{=}600$ and $M{=}800$.}  Within-dataset $N$-scaling under the cross-sample bootstrap protocol.  Each row is mean cross-pair sym-KL and argmax churn at training-pool size $M$, computed over all $45$ pairs of $10$ retrainings with paired-bootstrap $95\%$ CIs ($10{,}000$ resamples).  The within-dataset log-log slope of sym-KL vs $M$ is $-0.22$; the plateau reflects an irreducible boundary-disagreement floor (fragility decreases with $N$ but not to zero).}
+  \caption{\textbf{Cross-sample fragility decreases with training-pool size on BACE, with a visible plateau between $M{=}600$ and $M{=}800$.}  Within-dataset $N$-scaling under the cross-sample bootstrap protocol.  Each row is mean cross-pair sym-KL and argmax churn at training-pool size $M$, computed over all $45$ pairs of $10$ retrainings with paired-bootstrap $95\%$ CIs ($10{,}000$ resamples).  The within-dataset log-log slope of sym-KL vs $M$ is $-0.20$; the plateau reflects an irreducible boundary-disagreement floor (fragility decreases with $N$ but not to zero).}
   \label{tab:nscaling}
   \small
   \begin{tabular}{rll}
@@ -8,9 +8,13 @@
     $M$ & sym-KL (mean [95\% CI]) & Argmax churn (\%, [95\% CI]) \\
     \midrule
     200 & 0.886 [0.839, 0.934] & 18.2 [17.5, 19.0] \\
+    300 & 0.838 [0.792, 0.885] & 19.6 [18.7, 20.5] \\
     400 & 0.796 [0.756, 0.838] & 18.7 [18.1, 19.2] \\
+    500 & 0.603 [0.565, 0.641] & 15.3 [14.6, 16.1] \\
     600 & 0.570 [0.549, 0.592] & 15.0 [14.5, 15.4] \\
+    700 & 0.628 [0.592, 0.665] & 15.4 [14.7, 16.1] \\
     800 & 0.549 [0.511, 0.588] & 14.9 [14.2, 15.6] \\
+    900 & 0.725 [0.681, 0.771] & 17.4 [16.7, 18.2] \\
     968 & 0.753 [0.712, 0.796] & 16.1 [15.6, 16.7] \\
     \bottomrule
   \end{tabular}

@@ -54,11 +54,8 @@ defined in `macros.tex` — no literal numbers.  After any retraining,
 | `analyze_dataset.py`                  | per-dataset NPZs (CLI flag)              | stdout (per-dataset diagnostics, classification)        |
 | `analyze_dataset_reg.py`              | per-dataset regression NPZs              | stdout (per-dataset diagnostics, regression)            |
 | `check_dataset_health.py`             | every NPZ directory                      | stdout (sanity check before tables)                     |
-| `run_experiment.py`                   | hydra config                             | (entrypoint to single training run; legacy ERM-only flow) |
+| `run_experiment.py`                   | hydra config                             | (entrypoint to single training run; sourced for `HPARAMS`, `_build_model`, `build_cfg` by `cross_sample_train.py`) |
 | `run_cpu_blocks_local.sh`             | —                                        | runs every CPU block of `slurm/full_retraining/` inline  |
-| `run_cross_sample_sweep.sh`           | —                                        | shell-loop dispatcher (legacy; use slurm in production) |
-| `run_ensemble_baselines.sh`           | —                                        | shell-loop dispatcher (legacy)                          |
-| `run_tdc_sweep.sh`                    | —                                        | shell-loop dispatcher (legacy; subset of headline)      |
 
 ## Private (shared) modules
 

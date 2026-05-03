@@ -19,7 +19,6 @@ Macros are camelCase and group-prefixed:
   \\churn{Min,Max,...}              fragility_magnitudes.csv
   \\bagFive{Low,High,...}           main_table.csv (Bagging K=5 row aggregate)
   \\twin{MedianReduction,Low,High}  main_table.csv (Twin row aggregate)
-  \\mcd{Low,High,...}               main_table.csv (MC dropout row aggregate)
   \\paramSide{Low,High}             main_table.csv (combined param-side range)
   \\symKL{BagFold,TwinFold,...}     distributional.csv
   \\entropyTop{Low,High}            entropy_vs_fragility.csv
@@ -29,8 +28,9 @@ Macros are camelCase and group-prefixed:
   \\waterbirds{...}                 waterbirds_lambda.csv
   \\chemberta{...}                  chemberta_heldout.csv
   \\gin{...}                        gin_lambda.csv, bace_gin.csv
-  \\friedmanChi, \\friedmanP        friedman.csv
-  \\nDatasets{Headline,Total,...}   paper_constants.py
+  \\friedman{Chi,P,Rank...}         friedman.csv
+  \\twinWins{...}, \\bagFiveWins... per-dataset paired CIs from raw NPZs
+  \\nDatasets{Headline,Heldout}     paper_constants.py
 """
 from __future__ import annotations
 
@@ -40,9 +40,7 @@ from statistics import median
 from typing import Any
 
 from paper_constants import (
-    BORDERLINE_DATASETS,
     DEV_DATASET,
-    EXCLUDED_DATASETS,
     FROZEN_LAM,
     HEADLINE_DATASETS,
 )
@@ -110,10 +108,6 @@ def _f(s: str | None) -> float | None:
 def emit_dataset_counts() -> None:
     add("nDatasetsHeadline", str(1 + len(HEADLINE_DATASETS)))   # dev + held-out
     add("nDatasetsHeldout", str(len(HEADLINE_DATASETS)))
-    add("nDatasetsBorderline", str(len(BORDERLINE_DATASETS)))
-    add("nDatasetsExcluded", str(len(EXCLUDED_DATASETS)))
-    add("nDatasetsTotal",
-        str(1 + len(HEADLINE_DATASETS) + len(BORDERLINE_DATASETS) + len(EXCLUDED_DATASETS)))
     add("overlapPctMid", "40")
     add("overlapPctLo", "0")
     add("overlapPctHi", "100")
@@ -140,7 +134,7 @@ def emit_magnitudes() -> None:
     if not rows:
         for k in ["churnMin", "churnMax", "accDiffMin", "accDiffMax",
                   "churnAccRatioMin", "churnAccRatioMax",
-                  "symKLMin", "symKLMax", "symKLDatasetSpread",
+                  "symKLDatasetSpread",
                   "churnAccCorrPearson", "churnAccCorrSpearman"]:
             add(k, "??")
         return
@@ -156,8 +150,6 @@ def emit_magnitudes() -> None:
     ratios = [c / a for c, a in zip(churns, acc_diffs) if a > 0]
     add("churnAccRatioMin", round(min(ratios)), "pct0")
     add("churnAccRatioMax", round(max(ratios)), "pct0")
-    add("symKLMin", min(sym_kls), "ratio")
-    add("symKLMax", max(sym_kls), "ratio")
     add("symKLDatasetSpread", round(max(sym_kls) / min(sym_kls)), "pct0")
     # Dataset-level correlation between churn and ERM accuracy
     # (Pearson, Spearman).  Reviewer-asked diagnostic: does churn
@@ -180,7 +172,7 @@ def emit_main_table() -> None:
     rows = _read_csv(OUTPUTS / "main_table.csv")
     if not rows:
         for k in ["bagFiveLow", "bagFiveHigh", "twinMedianReduction",
-                  "twinLow", "twinHigh", "mcdLow", "mcdHigh",
+                  "twinLow", "twinHigh",
                   "paramSideLow", "paramSideHigh",
                   "baceErmChurn", "baceTwinChurn",
                   "paramSideAbsLow", "paramSideAbsHigh",
@@ -210,16 +202,10 @@ def emit_main_table() -> None:
                 and r.get("dataset") != "AGGREGATE"]
 
     bag5 = _rel_pct(_by_method("Bagging K=5"))
-    bag2 = _rel_pct(_by_method("Bagging K=2"))
     twin = _rel_pct(_by_method_substr("Twin"))
     mcd = _rel_pct(_by_method("MC dropout"))
     de5 = _rel_pct(_by_method("Deep Ensemble K=5"))
     swa = _rel_pct(_by_method("SWA"))
-    if swa:
-        # Use signed bounds (negative = reduction).  Pattern matches MC
-        # dropout / paramSide so the prose can read them directly.
-        add("swaLow", min(swa), "pp1")
-        add("swaHigh", max(swa), "pp1")
 
     if bag5:
         add("bagFiveLow", -max(bag5), "pct0")    # most-negative = strongest cut
@@ -228,9 +214,6 @@ def emit_main_table() -> None:
         add("twinLow", -max(twin), "pct0")
         add("twinHigh", -min(twin), "pct0")
         add("twinMedianReduction", -median(twin), "pct0")
-    if mcd:
-        add("mcdLow", min(mcd), "pp1")
-        add("mcdHigh", max(mcd), "pp1")
     # Combined param-side: MC dropout + DE-K=5 + SWA (all weight-side
     # techniques that do not vary the training-data sample).
     param_side = mcd + de5 + swa
@@ -598,7 +581,6 @@ def emit_gin() -> None:
                 # claim that the appendix prose quotes.
                 add("ginRuleLamCutPct", f"{-rel:.1f}")
             add("ginRuleLam", str(int(_f(rule["lam"]) or 0)))
-            add("ginRuleLamDeltaPP", _f(rule.get("d_churn_mean_pp")), "pp1")
             add("ginRuleLamDeltaLo", _f(rule.get("d_churn_lo_pp")), "pp1")
             add("ginRuleLamDeltaHi", _f(rule.get("d_churn_hi_pp")), "pp1")
             add("ginRuleLamAccGain", _f(rule.get("d_acc_pp")), "pp1")
@@ -619,14 +601,69 @@ def emit_filter_outcomes() -> None:
 
 
 def emit_nscaling() -> None:
-    """N-scaling log-log slope, surfaced for the prose claim "slope -0.22"."""
+    """N-scaling: log-log slope and shape characterisation.
+
+    Surfaces `\\nScalingSlope` (-0.20 on canonical-seed 99 across the
+    9-M grid), the seed-averaged endpoint sym-KL values
+    (`\\nScalingSymKLLow` at the smallest M, `\\nScalingSymKLMin` at
+    the floor, `\\nScalingSymKLEnd` at the full pool) and the M
+    where the seed-averaged minimum is attained (`\\nScalingMmin`).
+    The averages are taken across canonical seeds {99, 7, 42}, three
+    independent draws of the canonical train/test split; averaging
+    smooths the per-seed bootstrap noise that dominates a single-seed
+    measurement at this dataset size.
+    """
     rows = _read_csv(OUTPUTS / "nscaling_bace.csv")
     slope_rows = [r for r in rows if r.get("scope") == "slope"]
     if slope_rows:
-        # CSV column "sym_kl_mean" carries the slope value (slot reuse).
         add("nScalingSlope", f"{float(slope_rows[0]['sym_kl_mean']):.2f}")
     else:
         add("nScalingSlope", "??")
+
+    # Average sym-KL across the 3 canonical seeds for each M.
+    try:
+        import sys
+        sys.path.insert(0, str(Path("scripts").resolve()))
+        from _analysis_lib import load_runs, pairwise_metrics
+        import numpy as np
+    except ImportError:
+        for k in ("nScalingSymKLLow", "nScalingSymKLMin",
+                  "nScalingSymKLEnd", "nScalingMmin"):
+            add(k, "??")
+        return
+
+    Ms = [200, 300, 400, 500, 600, 700, 800, 900, 968]
+    seeds = [99, 7, 42]
+
+    def _seed_dir(seed: int, M: int) -> Path:
+        if seed == 99:
+            return RUN_ROOT.parent / "cross_sample_nscaling" / f"M{M}" / "bace"
+        return (RUN_ROOT.parent / "cross_sample_nscaling" / "sensitivity"
+                / f"seed{seed}" / f"M{M}" / "bace")
+
+    avg_by_M = {}
+    for M in Ms:
+        per_seed = []
+        for s in seeds:
+            runs = load_runs(_seed_dir(s, M), "erm_train*.npz")
+            if not runs:
+                continue
+            pm, _ = pairwise_metrics(runs)
+            per_seed.append(float(np.mean([m["id_sym_kl"] for m in pm.values()])))
+        if per_seed:
+            avg_by_M[M] = float(np.mean(per_seed))
+
+    if not avg_by_M:
+        for k in ("nScalingSymKLLow", "nScalingSymKLMin",
+                  "nScalingSymKLEnd", "nScalingMmin"):
+            add(k, "??")
+        return
+
+    M_at_min = min(avg_by_M, key=avg_by_M.get)
+    add("nScalingSymKLLow", f"{avg_by_M[min(avg_by_M)]:.2f}")
+    add("nScalingSymKLMin", f"{avg_by_M[M_at_min]:.2f}")
+    add("nScalingSymKLEnd", f"{avg_by_M[max(avg_by_M)]:.2f}")
+    add("nScalingMmin", str(M_at_min))
 
 
 def emit_per_dataset_callouts() -> None:
