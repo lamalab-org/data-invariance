@@ -461,25 +461,35 @@ def emit_chemberta() -> None:
     rows = _read_csv(OUTPUTS / "chemberta_heldout.csv")
     if not rows:
         for k in ["chembertaAccDropLow", "chembertaAccDropHigh",
-                  "chembertaCutLow", "chembertaCutHigh"]:
+                  "chembertaCutLow", "chembertaCutHigh",
+                  "chembertaLamTenAccBoundPP"]:
             add(k, "??")
         return
     drops_pp = []
     cuts_pct = []
+    lam_ten_abs_acc_pp = []
     for r in rows:
         erm_acc = _f(r.get("erm_acc"))
         t300 = _f(r.get("t300_acc"))
+        t10 = _f(r.get("t10_acc"))
         if erm_acc and t300:
             drops_pp.append((erm_acc - t300) * 100)
         rel10 = _f(r.get("t10_rel"))
         if rel10:
             cuts_pct.append(-rel10)  # negate so positive = cut
+        if erm_acc and t10:
+            lam_ten_abs_acc_pp.append(abs(erm_acc - t10) * 100)
     if drops_pp:
         add("chembertaAccDropLow", round(min(drops_pp)), "pct0")
         add("chembertaAccDropHigh", round(max(drops_pp)), "pct0")
     if cuts_pct:
         add("chembertaCutLow", round(min(cuts_pct)), "pct0")
         add("chembertaCutHigh", round(max(cuts_pct)), "pct0")
+    if lam_ten_abs_acc_pp:
+        # Round up to whole pp -- the prose says "within Xpp".
+        import math
+        add("chembertaLamTenAccBoundPP",
+            str(math.ceil(max(lam_ten_abs_acc_pp))))
 
 
 def emit_waterbirds() -> None:
@@ -507,6 +517,12 @@ def emit_waterbirds() -> None:
             add("waterbirdsLamTenDeltaPP", d_mean, "pp1")
             add("waterbirdsLamTenDeltaLo", d_lo, "pp1")
             add("waterbirdsLamTenDeltaHi", d_hi, "pp1")
+        # |dAcc| bound at lambda=10, rounded up to whole pp for the
+        # "within Xpp of ERM" prose claim.
+        if erm_acc:
+            import math
+            add("waterbirdsLamTenAccBoundPP",
+                str(math.ceil(abs(erm_acc - _f(t10["id_acc_mean"])) * 100)))
 
 
 def emit_gin() -> None:

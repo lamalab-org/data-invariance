@@ -118,11 +118,11 @@ ChemBERTa-77M-MTR fine-tuned on six chemistry datasets, increasing
 argmax churn on five of six ChemBERTa datasets.  Re-applying the
 same $\preregTolerance$-tolerance selection rule on each backbone's
 development set picks $\lambda{=}10$: on BACE-ChemBERTa this preserves
-accuracy (within $2$pp of ERM) and cuts churn
+accuracy (within $\chembertaLamTenAccBoundPP$pp of ERM) and cuts churn
 $\chembertaCutLow\text{--}\chembertaCutHigh\%$ on every ChemBERTa
 dataset (Appendix~\ref{app:chemberta_scope}); on Waterbirds it
-preserves accuracy (within $1$pp of ERM) and cuts churn
-$\waterbirdsLamTenCut\%$
+preserves accuracy (within $\waterbirdsLamTenAccBoundPP$pp of ERM)
+and cuts churn $\waterbirdsLamTenCut\%$
 ($\waterbirdsLamTenDeltaPP$pp [$\waterbirdsLamTenDeltaLo$,
 $\waterbirdsLamTenDeltaHi$], Appendix~\ref{app:waterbirds_lambda}).
 Bagging is independent of $\lambda$ and works on every backbone we
