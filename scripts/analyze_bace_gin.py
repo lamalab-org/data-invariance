@@ -115,6 +115,76 @@ def main() -> None:
         w.writeheader(); w.writerows(csv_rows)
     print(f"Wrote {csv_path}")
 
+    # Emit the GIN appendix table directly (was hand-typed before;
+    # regenerable now so a future retraining auto-updates).
+    def _f3(t): return f"{t[0]:.3f} [{t[1]:.3f}, {t[2]:.3f}]"
+    def _fpct(t): return f"{t[0]*100:.1f} [{t[1]*100:.1f}, {t[2]*100:.1f}]"
+    def _fpp(ci): return f"{ci[0]*100:+.1f} [{ci[1]*100:+.1f}, {ci[2]*100:+.1f}]"
+    erm_d = summary["ERM"]
+    bag_d = summary["Bagging-K=5"]
+    twin_d = summary["Twin-indep λ=300"]
+    # paired Δ vs ERM, same as printed above
+    bag_pm, _ = pairwise_metrics(runs["Bagging-K=5"])
+    twin_pm, _ = pairwise_metrics(runs["Twin-indep λ=300"])
+    bag_dchurn = bootstrap_paired(np.array([bag_pm[p]["id_churn"] for p in erm_pairs]) - erm_churn)
+    bag_dkl = bootstrap_paired(np.array([bag_pm[p]["id_sym_kl"] for p in erm_pairs]) - erm_symkl)
+    twin_dchurn = bootstrap_paired(np.array([twin_pm[p]["id_churn"] for p in erm_pairs]) - erm_churn)
+    twin_dkl = bootstrap_paired(np.array([twin_pm[p]["id_sym_kl"] for p in erm_pairs]) - erm_symkl)
+    bag_acc_pp = (bag_d["id_acc"][0] - erm_d["id_acc"][0]) * 100
+    twin_acc_pp = (twin_d["id_acc"][0] - erm_d["id_acc"][0]) * 100
+    bag_rel = 100 * bag_dchurn[0] / erm_d["id_churn"][0]
+    twin_rel = 100 * twin_dchurn[0] / erm_d["id_churn"][0]
+    bag_kl_rel = 100 * bag_dkl[0] / erm_d["id_sym_kl"][0]
+    twin_kl_rel = 100 * twin_dkl[0] / erm_d["id_sym_kl"][0]
+
+    tex_lines = [
+        r"\begin{table}[h]",
+        r"\centering",
+        r"\caption{\textbf{GIN on BACE: bagging transfers cleanly; "
+        r"twin-bootstrap $\lambda$ does not.}  ERM-GIN is more fragile "
+        f"than ERM-MLP ({erm_d['id_churn'][0]*100:.1f}\\% "
+        r"vs.\ \baceErmChurn\% argmax churn), making the methods more "
+        r"rather than less relevant on this backbone.  "
+        f"Bagging-$K{{=}}5$ cuts churn $\\ginBagCutLamThreeHundred\\%$ and "
+        f"improves id-accuracy by $\\ginBagAccGain$pp.  "
+        r"Twin-bootstrap at the BACE-MLP-frozen $\lambda{=}300$ reduces "
+        f"sym-KL by ${twin_kl_rel:+.0f}\\%$ but drops id-accuracy by "
+        r"$\ginAccDropLamThreeHundred$pp --- well outside the $0.02$ "
+        r"selection-rule tolerance ERM-GIN id-acc would impose.  Bold "
+        r"cells mark the best mean per column among the three methods.}",
+        r"\label{tab:gin}",
+        r"\scriptsize",
+        r"\resizebox{\linewidth}{!}{%",
+        r"\begin{tabular}{lccc}",
+        r"\toprule",
+        r"Method & id-acc & id-churn (\%) & sym-KL \\",
+        r"\midrule",
+        f"ERM                       & {_f3(erm_d['id_acc'])} & "
+        f"{_fpct(erm_d['id_churn'])} & {_f3(erm_d['id_sym_kl'])} \\\\",
+        f"Bagging-$K{{=}}5$           & \\textbf{{{_f3(bag_d['id_acc'])}}} & "
+        f"\\textbf{{{_fpct(bag_d['id_churn'])}}} & {_f3(bag_d['id_sym_kl'])} \\\\",
+        f"Twin-bootstrap $\\lambda{{=}}300$ & {_f3(twin_d['id_acc'])} & "
+        f"{_fpct(twin_d['id_churn'])} & "
+        f"\\textbf{{{_f3(twin_d['id_sym_kl'])}}} \\\\",
+        r"\midrule",
+        r"\multicolumn{4}{l}{\emph{Paired $\Delta$ vs.\ ERM (same $45$ seed-pairs)}} \\",
+        f"Bagging-$K{{=}}5$           & \\multicolumn{{1}}{{c}}{{${bag_acc_pp:+.2f}$ pp}} & "
+        f"{_fpp(bag_dchurn)} (${bag_rel:+.0f}$\\%) & "
+        f"{_f3(bag_dkl)} (${bag_kl_rel:+.0f}$\\%) \\\\",
+        f"Twin-bootstrap $\\lambda{{=}}300$ & \\multicolumn{{1}}{{c}}{{${twin_acc_pp:+.2f}$ pp}} & "
+        f"{_fpp(twin_dchurn)} (${twin_rel:+.0f}$\\%) & "
+        f"{_f3(twin_dkl)} (${twin_kl_rel:+.0f}$\\%) \\\\",
+        r"\bottomrule",
+        r"\end{tabular}",
+        r"}",
+        r"\end{table}",
+        "",
+    ]
+    tex_path = Path("paper/sections/tables/gin.tex")
+    tex_path.parent.mkdir(parents=True, exist_ok=True)
+    tex_path.write_text("\n".join(tex_lines))
+    print(f"Wrote {tex_path}")
+
 
 if __name__ == "__main__":
     main()

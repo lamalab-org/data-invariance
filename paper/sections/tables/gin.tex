@@ -1,0 +1,21 @@
+\begin{table}[h]
+\centering
+\caption{\textbf{GIN on BACE: bagging transfers cleanly; twin-bootstrap $\lambda$ does not.}  ERM-GIN is more fragile than ERM-MLP (23.0\% vs.\ \baceErmChurn\% argmax churn), making the methods more rather than less relevant on this backbone.  Bagging-$K{=}5$ cuts churn $\ginBagCutLamThreeHundred\%$ and improves id-accuracy by $\ginBagAccGain$pp.  Twin-bootstrap at the BACE-MLP-frozen $\lambda{=}300$ reduces sym-KL by $-99\%$ but drops id-accuracy by $\ginAccDropLamThreeHundred$pp --- well outside the $0.02$ selection-rule tolerance ERM-GIN id-acc would impose.  Bold cells mark the best mean per column among the three methods.}
+\label{tab:gin}
+\scriptsize
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lccc}
+\toprule
+Method & id-acc & id-churn (\%) & sym-KL \\
+\midrule
+ERM                       & 0.742 [0.725, 0.757] & 23.0 [21.9, 24.2] & 0.486 [0.451, 0.524] \\
+Bagging-$K{=}5$           & \textbf{0.786 [0.778, 0.794]} & \textbf{10.6 [10.2, 11.0]} & 0.068 [0.065, 0.070] \\
+Twin-bootstrap $\lambda{=}300$ & 0.582 [0.568, 0.599] & 7.1 [5.1, 9.1] & \textbf{0.004 [0.003, 0.005]} \\
+\midrule
+\multicolumn{4}{l}{\emph{Paired $\Delta$ vs.\ ERM (same $45$ seed-pairs)}} \\
+Bagging-$K{=}5$           & \multicolumn{1}{c}{$+4.46$ pp} & -12.4 [-13.6, -11.2] ($-54$\%) & -0.418 [-0.456, -0.383] ($-86$\%) \\
+Twin-bootstrap $\lambda{=}300$ & \multicolumn{1}{c}{$-15.95$ pp} & -16.0 [-17.9, -14.0] ($-69$\%) & -0.482 [-0.519, -0.447] ($-99$\%) \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
