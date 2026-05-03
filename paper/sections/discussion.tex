@@ -10,7 +10,8 @@ $\bagFiveFinalLow\text{--}\bagFiveFinalHigh\%$ at no accuracy cost
 ($5\times$-ERM compute, Table~\ref{tab:main}).  Twin-bootstrap at
 $\lambda{=}300$ ($2\times$-ERM compute) cuts it to
 $\twinFinalLow\text{--}\twinFinalHigh\%$,
-beating matched-compute bagging-$K{=}2$ on $8/9$ datasets and
+beating matched-compute bagging-$K{=}2$ on
+$\twinWinsBagTwoMain/\twinWinsBagTwoMainDenom$ datasets and
 matching the $K{=}5$ result in mean rank
 (Appendix~\ref{app:friedman}).
 
@@ -24,7 +25,7 @@ parallelises across $K$ devices for the same wall-clock as empirical
 risk minimisation (ERM).  (ii)~If $5\times$ compute is
 prohibitive, run a one-time $\lambda$-sweep on a development dataset
 and switch to twin-bootstrap at the rule-selected $\lambda$ (the
-$0.02$-tolerance rule selects $\lambda{=}300$ on from-scratch
+$\preregTolerance$-tolerance rule selects $\lambda{=}300$ on from-scratch
 fingerprint multilayer perceptrons (MLPs), $\lambda{=}10$ on
 pretrained backbones); twin-bootstrap recovers most of the
 $K{=}5$ benefit at $2{\times}$-ERM compute.  (iii)~For
@@ -53,7 +54,7 @@ materials-science suites) report columns for accuracy, AUROC,
 calibration, and sometimes worst-group accuracy.  None of these
 varies the training dataset; cross-sample fragility does.  On BACE,
 two models that disagree on $\baceErmChurn\%$ of test predictions
-report aggregate accuracies within $\sim$$2$\,pp of one another
+report aggregate accuracies within $\sim$$\baceAccGapPP$\,pp of one another
 (Figure~\ref{fig:overview}): the practitioner sees the difference at
 the next retraining, but the benchmark report column does not.
 Deep ensembles and MC dropout move argmax churn by

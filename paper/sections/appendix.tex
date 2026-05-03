@@ -31,12 +31,12 @@ Reference & What varies between two runs & Mechanism \\
 \midrule
 \multicolumn{3}{l}{\emph{Population-level retraining --- same axis}} \\
 \citet{Riley2023} & $1000$ bootstraps of development data & Measurement only: instability plots, MAPE \\
-\textbf{This paper} & \textbf{Independent bootstraps of the training population} & \textbf{Sym-KL codistillation, $\sim$$40\%$ data overlap (twin-bootstrap)} + measurement protocol + one-bootstrap triage \\
+\textbf{This paper} & \textbf{Independent bootstraps of the training population} & \textbf{Sym-KL codistillation, $\sim$$\overlapPctMid\%$ data overlap (twin-bootstrap)} + measurement protocol + one-bootstrap triage \\
 \midrule
 \multicolumn{3}{l}{\emph{Codistillation operating points --- same loss form, different overlap}} \\
-\citet{anil2018large} & Init.\ + disjoint data shards & KL codistillation, $0\%$ data overlap (throughput goal) \\
-\citet{bhojanapalli2021reproducibility} & Init., batch order, hardware (data fixed) & Sym-KL codistillation, $100\%$ data overlap (training-instability churn) \\
-\textbf{This paper} & \textbf{Independent bootstraps of the training population} & \textbf{Sym-KL codistillation, $\sim$$40\%$ data overlap (twin-bootstrap)} \\
+\citet{anil2018large} & Init.\ + disjoint data shards & KL codistillation, $\overlapPctLo\%$ data overlap (throughput goal) \\
+\citet{bhojanapalli2021reproducibility} & Init., batch order, hardware (data fixed) & Sym-KL codistillation, $\overlapPctHi\%$ data overlap (training-instability churn) \\
+\textbf{This paper} & \textbf{Independent bootstraps of the training population} & \textbf{Sym-KL codistillation, $\sim$$\overlapPctMid\%$ data overlap (twin-bootstrap)} \\
 \midrule
 \multicolumn{3}{l}{\emph{Different axis}} \\
 \citet{launch_and_iterate}; \citet{jiang2022} & Candidate trained from scratch; incumbent fixed & MCMC stabiliser / distillation from base (deployment loop) \\
@@ -76,7 +76,7 @@ $M \in \{200, 400, 600, 800, 968\}$ and re-running ERM at each $M$
 for ten train-seeds; the pool at each $M$ is the deterministic
 prefix of a fixed canonical-seed shuffle, so all ten train-seeds at
 the same $M$ draw their bootstraps from the same underlying pool.
-The within-dataset log-log slope of sym-KL vs $M$ is $-0.22$ with a
+The within-dataset log-log slope of sym-KL vs $M$ is $\nScalingSlope$ with a
 visible plateau between $M{=}600$ and $M{=}800$: more data reduces
 fragility but does not drive it to zero, motivating the methods we
 propose for the regime where simply collecting more data is not
@@ -95,7 +95,7 @@ the dominant prior) or on minority-class examples (where the model
 has to learn structure)?  Table~\ref{tab:per-class-churn} restricts
 churn to each true-label subset.  On the three most imbalanced
 chemistry datasets in our suite (BBB-Martins, BBBP at positive
-fraction $0.78$; CYP2D6-Sub at $0.30$), minority-class predictions
+fraction $\imbalPosFracHigh$; CYP2D6-Sub at $\cypTwoPosFrac$), minority-class predictions
 are $2\text{--}4\times$ more unstable than majority-class
 predictions.  The disagreement is therefore concentrated on the
 class practitioners care most about: the predicted-positive (active,
@@ -116,7 +116,7 @@ bootstraps.
 Table~\ref{tab:additional-metrics} reports the result.  On the
 imbalanced ADME datasets (cyp2d6\_substrate, DILI), recall and
 precision drifts are $2\text{--}3\times$ accuracy drift, but the
-per-example argmax-churn rate ($13.3\%$ on cyp2d6, $16.8\%$ on DILI)
+per-example argmax-churn rate ($\cypTwoOverallChurn\%$ on cyp2d6, $\diliOverallChurn\%$ on DILI)
 still exceeds every aggregate-metric drift on every dataset.
 
 \input{sections/tables/additional_metrics.tex}
@@ -126,7 +126,8 @@ still exceeds every aggregate-metric drift on every dataset.
 
 \paragraph{hERG, HIA\_Hou, Skin\_Reaction.}
 These three datasets pass the ERM-versus-majority filter only
-marginally ($+3$ to $+4$pp on test sets of $57$--$104$ examples).
+marginally ($+\borderlineGapMin$ to $+\borderlineGapMax$pp on test
+sets of $\borderlineNTestMin$--$\borderlineNTestMax$ examples).
 Their cross-sample magnitudes appear in the bottom group of
 Table~\ref{tab:fragility-magnitudes} (separated by a midrule from
 the nine main-comparison datasets).  We do not run the method
@@ -143,7 +144,7 @@ statistical power.
     accuracy-preserving end of the BACE Pareto frontier.}  Twin-bootstrap
     at $\lambda \in \{1, 3, 10, 30, 100, 300\}$ traces an
     accuracy-vs.-churn trajectory; the pre-registered selection rule
-    (largest $\lambda$ with id-acc $\ge$ ERM-id-acc $-0.02$) picks
+    (largest $\lambda$ with id-acc $\ge$ ERM-id-acc $-\preregTolerance$) picks
     $\lambda{=}300$ (filled red).  Bagging-$K{=}5$ (blue circle)
     achieves a similar accuracy at higher churn; ERM (open square,
     upper-right) at the highest churn.  Error bars are bootstrap
@@ -154,21 +155,22 @@ statistical power.
 A plateau of configurations $\lambda \in \{1, 3, 10, 30\}$ all preserve
 accuracy and reduce churn from ERM's $\baceErmChurn\%$ to a low-single-digit
 range; the curve drops further at higher $\lambda$ until
-$\lambda{=}300$ at $\baceTwinChurn\%$ within the $0.02$ accuracy
+$\lambda{=}300$ at $\baceTwinChurn\%$ within the $\preregTolerance$ accuracy
 tolerance (Figure~\ref{fig:pareto}).  The selected $\lambda$ sits at the extreme
-of the feasible interval that satisfies the $0.02$ accuracy tolerance,
+of the feasible interval that satisfies the $\preregTolerance$ accuracy tolerance,
 which suggests the rule is not knife-edge: relaxing the tolerance to
 $0.01$ would still pick the same $\lambda$, while tightening to
 $0.005$ would pick $\lambda{=}100$ (still on the knee).
 
-\section{Overlap spectrum: $\sim$40\% balances churn reduction and accuracy preservation}
+\section{Overlap spectrum: $\sim$\overlapPctMid\% balances churn reduction and accuracy preservation}
 \label{app:overlap_spectrum}
 
 The codistillation~\citep{anil2018large},
 twin-bootstrap, and twin-shared variants share the same two-network
 sym-KL consistency objective and differ only in the inter-network
-bootstrap-overlap: $0\%$ (disjoint shards), ${\sim}40\%$ (independent
-bootstraps with replacement), and $100\%$ (the same bootstrap to
+bootstrap-overlap: $\overlapPctLo\%$ (disjoint shards),
+${\sim}\overlapPctMid\%$ (independent bootstraps with replacement),
+and $\overlapPctHi\%$ (the same bootstrap to
 both networks).  Table~\ref{tab:overlap_spectrum} reports paired
 $\Delta$ id-churn vs.\ ERM at each operating point on every dataset
 where all three methods completed.
@@ -176,14 +178,15 @@ where all three methods completed.
 \input{sections/tables/overlap_spectrum.tex}
 
 Codistillation has the largest mean churn reduction on most datasets
-but trips the $5$\,pp accuracy-degradation flag on Pgp and
+but trips the $\accDegradeFlagPP$\,pp accuracy-degradation flag on Pgp and
 MOF-thermal (two daggers); twin-shared trips the flag on MOF-thermal
 and increases churn on DILI; twin-bootstrap at ${\sim}40\%$ matches
 codistillation on never increasing churn while tripping the accuracy
 flag on a single dataset (MOF-thermal, where all three operating
-points collapse).  Among the three points, only twin-bootstrap
-satisfies both criteria simultaneously, which is what motivates its
-use as the default operating point.
+points collapse).  Among the three points, only twin-bootstrap at
+${\sim}\overlapPctMid\%$ overlap satisfies both criteria
+simultaneously, which is what motivates its use as the default
+operating point.
 
 \section{Weight-decay ablation}
 \label{app:ablations}
@@ -248,7 +251,7 @@ $\textit{CD}{=}\friedmanCD$; rank gaps exceeding $\textit{CD}$
 identify pairs that differ significantly.  Twin-bootstrap is
 significantly better in rank than ERM, MC dropout, SWA, and deep
 ensemble; it is \emph{not} significantly different from bagging
-$K{=}5$ (rank gap $0.22$).  Twin-bootstrap therefore matches bagging
+$K{=}5$ (rank gap $\friedmanRankGapBagFiveTwin$).  Twin-bootstrap therefore matches bagging
 $K{=}5$ in mean-rank at roughly $2{\times}$ ERM compute
 (Appendix~\ref{app:compute}) versus the $5{\times}$ that bagging
 $K{=}5$ requires.
@@ -272,8 +275,8 @@ from $K \in \{2, 3, 5, 10\}$ ERM bootstraps.
     $\triageKtwoLow$--$\triageKtwoHigh\%$.  At $K{=}10$ (using all
     ten bootstraps to score fragility):
     $\triageKtenLow$--$\triageKtenHigh\%$.  MOF-thermal is the floor
-    on every $K$ ($48$--$58\%$); BBBP and BBB-Martins reach
-    $\overlapPctHi\%$ recall by $K{=}5$.}
+    on every $K$ ($\mofThermalConvLow$--$\mofThermalConvHigh\%$);
+    BBBP and BBB-Martins reach $\overlapPctHi\%$ recall by $K{=}5$.}
   \label{fig:convergence}
 \end{figure}
 
@@ -309,20 +312,20 @@ graphs of BACE: $3$ GINConv layers, hidden dimension $128$, mean-pool
 readout, $50$ epochs.  All ten train-seeds and the canonical-data-seed
 protocol are unchanged.  Table~\ref{tab:gin} reports per-method
 id-accuracy, argmax churn, and sym-KL with $95\%$ paired-bootstrap
-CIs, plus paired $\Delta$ vs.\ ERM on the same $45$ seed-pairs.
+CIs, plus paired $\Delta$ vs.\ ERM on the same $\nSeedPairs$ seed-pairs.
 
 \input{sections/tables/gin.tex}
 
 The consistency loss is real and effective at suppressing
-inter-network disagreement on GIN ($99\%$ sym-KL reduction), but
+inter-network disagreement on GIN ($\ginSymKLReductionPct\%$ sym-KL reduction), but
 the fixed $\lambda$ from the MLP development run is too strong for
 GIN.  We re-applied the same selection rule on
 BACE-GIN, sweeping $\lambda \in \{1, 3, 10, 30, 100, 300\}$:
 
 \input{sections/tables/gin_lambda.tex}
 
-ERM-GIN id-acc is $0.742$, so the $0.02$-tolerance rule admits any
-$\lambda$ keeping id-acc $\geq 0.722$.  The largest $\lambda$
+ERM-GIN id-acc is $\ginErmAcc$, so the $\preregTolerance$-tolerance
+rule admits any $\lambda$ keeping id-acc $\geq \ginErmAccTolerance$.  The largest $\lambda$
 satisfying this is $\lambda{=}\ginRuleLam$ (bold).  At
 $\lambda{=}\ginRuleLam$ twin-bootstrap cuts argmax churn
 $-\ginRuleLamCutPct\%$ vs.\ ERM-GIN (paired CI
@@ -347,16 +350,22 @@ $\binom{5}{2}=10$ seed-pairs per dataset.
 
 \paragraph{The BACE-MLP-frozen $\lambda$ does not transfer.}  At
 $\lambda{=}300$ (the value selected on BACE-MLP) twin-bootstrap drops
-ChemBERTa accuracy by $\chembertaAccDropLow\text{--}\chembertaAccDropHigh$pp on every dataset and
-\emph{increases} argmax churn on $5/6$ datasets.  On BBBP it collapses
-the model to the majority-class predictor.  Same diagnosis as the
+ChemBERTa accuracy by
+$\chembertaAccDropLow\text{--}\chembertaAccDropHigh$pp on every
+dataset and fails to reduce argmax churn on
+$\chembertaLamThreeHundredFailCount/\chembertaLamThreeHundredDenom$
+datasets: the paired CI of $\Delta$ id-churn vs.\ ERM either
+excludes zero on the high side (BACE, Pgp, AMES, DILI: strict
+increase) or straddles zero (BBB-Martins).  The one apparent
+decrease (BBBP) is a model collapse to the majority-class predictor,
+not a real cut.  Same diagnosis as the
 GIN architecture cross-check (Appendix~\ref{app:gin}): the $\lambda$
 tuned on a from-scratch MLP is too strong for pretrained
 representations.
 
 \paragraph{Rule-selected $\lambda$ on BACE-ChemBERTa is $\lambda{=}10$.}
 Sweeping $\lambda \in \{1, 3, 10, 30, 100, 300\}$ on BACE-ChemBERTa
-and applying the same $0.02$ id-acc tolerance rule used on BACE-MLP:
+and applying the same $\preregTolerance$ id-acc tolerance rule used on BACE-MLP:
 $\lambda \in \{1, 3, 10\}$ stay within tolerance, $\lambda{=}30$ and
 above fall below.  The rule picks $\lambda{=}10$.
 
@@ -380,7 +389,7 @@ The same protocol is applied to Waterbirds (ImageNet-pretrained
 ResNet-50, $N{=}4795$, single-task binary classification) with five
 train-seeds.  We sweep
 $\lambda \in \{1, 3, 10, 30, 60, 100, 300\}$ and apply the same
-$0.02$-tolerance selection rule.
+$\preregTolerance$-tolerance selection rule.
 
 \input{sections/tables/waterbirds_lambda.tex}
 
@@ -407,8 +416,9 @@ predictions (instead of sym-KL on softmax outputs); the rule-selected
 $\lambda$ is the largest value in $\{1, 3\}$ keeping id-MAE within
 $0.05$ of ERM id-MAE, which is $\lambda{=}3$ on all three datasets
 (both candidates \emph{improve} id-MAE, so the tolerance constraint
-is not active).  All other protocol choices (canonical-seed $99$, ten
-train-seeds, paired-bootstrap CIs over $45$ seed-pairs) are unchanged.
+is not active).  All other protocol choices (canonical-data seed
+$\canonicalSeed$, $\nSeeds$ train-seeds, paired-bootstrap CIs over
+$\nSeedPairs$ seed-pairs) are unchanged.
 
 \input{sections/tables/regression.tex}
 
@@ -420,8 +430,10 @@ classification main result (Section~\ref{sec:experiments}).
 Bagging-$K{=}5$ at $5\times$ ERM compute is still strongest at
 $\regBagFiveLow\text{--}\regBagFiveHigh\%$, consistent with the classification pattern, where
 $5\times$-compute bagging beats $2\times$-compute twin-bootstrap on
-$3/8$ held-out datasets (DILI, Pgp, TADF).  All four methods improve id-MAE by
-$3\text{--}9\%$ over ERM; no accuracy regression on this task.
+$\bagFiveWinsTwinHeldout/\twinWinsBagFiveHeldoutDenom$ held-out
+datasets (DILI, Pgp, TADF).  All four methods improve
+id-MAE by $\regIdMaeImproveLow\text{--}\regIdMaeImproveHigh\%$ over ERM;
+no accuracy regression on this task.
 
 \section{Compute footprint}
 \label{app:compute}
@@ -467,11 +479,11 @@ compute; we include them as a stronger no-cost baseline.
 A single fixed seed determines the train/test split and the
 canonical test set; cross-sample variation comes only from ten
 train-seeds, each controlling one bootstrap of the canonical
-training pool.
+training pool.  Canonical-data seed: $\canonicalSeed$.
 
 \paragraph{Hyperparameters.}
 Twin-bootstrap $\lambda$ is selected on BACE alone by the
-$0.02$-tolerance rule ($\lambda{=}300$) and applied unchanged to
+$\preregTolerance$-tolerance rule ($\lambda{=}300$) and applied unchanged to
 every held-out chemistry dataset.  AdamW with weight decay
 $10^{-4}$, gradient clipping at $1.0$, $\text{lr}=10^{-3}$, batch
 size $64$, $30$ epochs.  Waterbirds uses the published recipe
@@ -488,8 +500,8 @@ completed run is appended to a top-level \texttt{RUN\_LEDGER.jsonl}.
 \paragraph{Filter outcomes for the five excluded datasets.}
 Table~\ref{tab:filter-outcomes} reports the per-dataset ERM id-acc and
 the canonical majority-class baseline on the five chemistry datasets
-that fail the +$5$pp filter and are therefore excluded from the
-main analysis.
+that fail the $+\preregFilterPP$pp filter and are therefore excluded
+from the main analysis.
 
 \input{sections/tables/filter_outcomes.tex}
 

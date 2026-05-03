@@ -43,12 +43,14 @@ from paper_constants import (
     BORDERLINE_DATASETS,
     DEV_DATASET,
     EXCLUDED_DATASETS,
+    FROZEN_LAM,
     HEADLINE_DATASETS,
 )
 
 
 OUTPUTS = Path("outputs")
 OUT_PATH = Path("paper/sections/macros.tex")
+RUN_ROOT = OUTPUTS / "cross_sample"
 
 # (macro_name, value-or-string).  Values run through `_format_number`
 # which picks integer / pp / pct format from a per-macro hint.
@@ -125,6 +127,11 @@ def emit_dataset_counts() -> None:
     add("nSeedPairs", "45")             # binom(10, 2)
     add("canonicalSeed", "99")
     add("reviewFraction", "30")         # top-X% review fraction in triage
+    add("topDecilePct", "10")           # top-decile triage cutoff (figure 3)
+    # Accuracy-degradation flag in the overlap-spectrum table (daggers).
+    # Threshold is set in scripts/make_fig5_overlap.py:93 (drop > 0.05);
+    # if you change one, change the other.
+    add("accDegradeFlagPP", "5")
 
 
 def emit_magnitudes() -> None:
@@ -339,14 +346,25 @@ def emit_friedman() -> None:
                   "friedmanRankERM", "friedmanRankMCD",
                   "friedmanRankSWA",
                   "friedmanRankDeepEns", "friedmanRankBagTwo",
-                  "friedmanRankBagFive", "friedmanRankTwin"]:
+                  "friedmanRankBagFive", "friedmanRankTwin",
+                  "friedmanRankGapBagFiveTwin"]:
             add(k, "??")
         return
+    raw_ranks: dict[str, float] = {}
     for r in rows:
         if r["scope"] == "test" and r["key"] == "chi2":
             add("friedmanChi", float(r["value"]), "ratio")
         if r["scope"] == "test" and r["key"] == "p_value":
-            add("friedmanP", f"{float(r['value']):.1g}")
+            # Render as math-mode "$5{\times}10^{-8}$" instead of Python's
+            # "5e-08", which reads as a token in the rendered PDF.
+            p = float(r["value"])
+            if p > 0 and p < 1:
+                from math import floor, log10
+                exp = int(floor(log10(p)))
+                mant = p / 10 ** exp
+                add("friedmanP", f"{mant:.1f}{{\\times}}10^{{{exp}}}")
+            else:
+                add("friedmanP", f"{p:.1g}")
         if r["scope"] == "test" and r["key"] == "nemenyi_cd":
             add("friedmanCD", float(r["value"]), "ratio")
         if r["scope"] == "mean_rank":
@@ -362,6 +380,14 @@ def emit_friedman() -> None:
             macro = method_to_macro.get(r["key"])
             if macro:
                 add(macro, f"{float(r['value']):.2f}")
+                raw_ranks[r["key"]] = float(r["value"])
+    # Rank gap between bagging-K=5 and twin-bootstrap.  Computed from
+    # the raw (unrounded) ranks so subtraction gives the same value the
+    # prose quotes; subtracting the rounded macro values introduces a
+    # 1e-2 rounding error.
+    if "Bagging K=5" in raw_ranks and "Twin-bootstrap" in raw_ranks:
+        gap = abs(raw_ranks["Bagging K=5"] - raw_ranks["Twin-bootstrap"])
+        add("friedmanRankGapBagFiveTwin", f"{gap:.2f}")
 
 
 def emit_triage() -> None:
@@ -491,6 +517,24 @@ def emit_chemberta() -> None:
         add("chembertaLamTenAccBoundPP",
             str(math.ceil(max(lam_ten_abs_acc_pp))))
 
+    # Per-dataset count of "fails to reduce churn at lambda=300": the
+    # paired delta CI is non-negative on the high side (mean >= 0 or CI
+    # straddles zero).  Excludes datasets where the apparent reduction
+    # is a model collapse (handled in prose).  The denominator is the
+    # number of ChemBERTa datasets with a measurable t300 result.
+    n_fail = 0
+    n_total = 0
+    for r in rows:
+        d_lo = _f(r.get("t300_dchurn_lo"))
+        d_hi = _f(r.get("t300_dchurn_hi"))
+        if d_lo is None or d_hi is None:
+            continue
+        n_total += 1
+        if d_hi >= 0:  # CI does not lie strictly below zero -> not a real reduction
+            n_fail += 1
+    add("chembertaLamThreeHundredFailCount", str(n_fail))
+    add("chembertaLamThreeHundredDenom", str(n_total))
+
 
 def emit_waterbirds() -> None:
     rows = _read_csv(OUTPUTS / "waterbirds_lambda.csv")
@@ -613,12 +657,175 @@ def emit_per_dataset_callouts() -> None:
     cyp_row = next((r for r in cyp_pcc if r.get("dataset") == "cyp2d6_substrate"), None)
     if cyp_row:
         add("cypTwoOverallChurn", f"{float(cyp_row['overall_mean'])*100:.1f}")
+        add("cypTwoPosFrac", f"{float(cyp_row['pos_frac']):.2f}")
     dili_pcc = next((r for r in cyp_pcc if r.get("dataset") == "dili"), None)
     if dili_pcc:
         add("diliOverallChurn", f"{float(dili_pcc['overall_mean'])*100:.1f}")
+    # BBB-Martins / BBBP share the most-imbalanced positive fraction
+    # (round to 2 decimals).  Use BBB-Martins' value since it's the
+    # one the prose names first.
+    bbbm = next((r for r in cyp_pcc if r.get("dataset") == "bbb_martins"), None)
+    if bbbm:
+        add("imbalPosFracHigh", f"{float(bbbm['pos_frac']):.2f}")
+
+    # ERM-GIN id-acc / tolerance threshold for the GIN appendix.
+    bgin = _read_csv(OUTPUTS / "bace_gin.csv")
+    erm_gin = next((r for r in bgin if r.get("method") == "ERM"), None)
+    if erm_gin:
+        acc = float(erm_gin["id_acc_mean"])
+        add("ginErmAcc", f"{acc:.3f}")
+        add("ginErmAccTolerance", f"{acc - 0.02:.3f}")
+    # GIN sym-KL fold reduction at lambda=300: prose claims "99% reduction".
+    twin300_gin = next((r for r in bgin if "300" in (r.get("method") or "")), None)
+    if erm_gin and twin300_gin:
+        erm_kl = float(erm_gin["id_sym_kl_mean"])
+        twin_kl = float(twin300_gin["id_sym_kl_mean"])
+        if erm_kl > 0:
+            pct_reduce = 100.0 * (1.0 - twin_kl / erm_kl)
+            add("ginSymKLReductionPct", f"{pct_reduce:.0f}")
+
+    # BACE pairwise |Δacc| between two retrainings: the discussion
+    # claim "two models that disagree on 16% of test predictions report
+    # aggregate accuracies within ~Xpp of one another".  Sourced from
+    # fragility_magnitudes.csv (acc_diff_pp_mean is the mean pairwise
+    # |Δacc| across the 45 ERM seed pairs).
+    bace_mag = next((r for r in fmag if r.get("dataset") == "bace"), None)
+    if bace_mag:
+        import math as _math
+        # Round up to whole pp for the prose's "within ~Xpp" claim.
+        add("baceAccGapPP", str(_math.ceil(float(bace_mag["acc_diff_pp_mean"]))))
+
+    # MOF-thermal floor in the triage-convergence figure (caption only).
+    # The prose says "MOF-thermal is the floor on every K (X-Y%)".
+    conv = _read_csv(OUTPUTS / "convergence_recall.csv")
+    if conv:
+        mof_recalls = [
+            float(r["mean_recall"]) * 100
+            for r in conv
+            if r.get("dataset") == "mof_thermal"
+            and _f(r.get("mean_recall")) is not None
+        ]
+        if mof_recalls:
+            add("mofThermalConvLow", f"{min(mof_recalls):.0f}")
+            add("mofThermalConvHigh", f"{max(mof_recalls):.0f}")
+
+    # Regression id-MAE improvement vs ERM, range across 3 datasets x 3
+    # methods (prose: "all four methods improve id-MAE by 3-9% over ERM").
+    reg = _read_csv(OUTPUTS / "regression.csv")
+    if reg:
+        erm_by_ds = {r["dataset"]: float(r["id_mae"])
+                     for r in reg if r["method"] == "ERM"}
+        improvements = []
+        for r in reg:
+            ds = r.get("dataset")
+            mae = _f(r.get("id_mae"))
+            if r["method"] == "ERM" or mae is None or ds not in erm_by_ds:
+                continue
+            erm_mae = erm_by_ds[ds]
+            if erm_mae > 0:
+                improvements.append(100.0 * (erm_mae - mae) / erm_mae)
+        if improvements:
+            add("regIdMaeImproveLow", f"{min(improvements):.0f}")
+            add("regIdMaeImproveHigh", f"{max(improvements):.0f}")
 
 
 # ---------------------------------------------------------------------------
+
+def emit_wins_counts() -> None:
+    """Per-dataset paired Δ(twin - bag2) and Δ(twin - bag5) wins counts.
+
+    The prose claims "twin-bootstrap wins on $X/N$ datasets" against
+    bagging-K=2 (matched compute) and against bagging-K=5 (5x compute,
+    held-out only).  These integer ratios change only if a per-dataset
+    paired CI flips sign, so we recompute them here from the raw NPZs
+    via the analysis lib.
+
+    Twin "wins" on a dataset iff the paired Δ id-churn (twin - other)
+    has CI strictly excluding zero on the negative side
+    (mean < 0 AND hi < 0).
+    """
+    try:
+        from _analysis_lib import (
+            bootstrap_paired,
+            load_runs,
+            pairwise_metrics,
+        )
+    except ImportError:
+        for k in ("twinWinsBagTwoMain", "twinWinsBagTwoMainDenom",
+                  "twinWinsBagTwoHeldout", "twinWinsBagTwoHeldoutDenom",
+                  "twinWinsBagFiveHeldout", "twinWinsBagFiveHeldoutDenom",
+                  "bagFiveWinsTwinHeldout"):
+            add(k, "??")
+        return
+
+    if not RUN_ROOT.exists():
+        for k in ("twinWinsBagTwoMain", "twinWinsBagTwoMainDenom",
+                  "twinWinsBagTwoHeldout", "twinWinsBagTwoHeldoutDenom",
+                  "twinWinsBagFiveHeldout", "twinWinsBagFiveHeldoutDenom",
+                  "bagFiveWinsTwinHeldout"):
+            add(k, "??")
+        return
+
+    twin_glob = f"twin_indep_train*_lam{FROZEN_LAM}.npz"
+    bag2_glob = "bagging_train*_K2.npz"
+    bag5_glob = "bagging_train*_K5.npz"
+
+    def paired_delta_churn(ds_dir: Path, glob_a: str, glob_b: str):
+        """Return (mean, lo, hi) of paired (a - b) id_churn across seed pairs."""
+        ra = load_runs(ds_dir, glob_a)
+        rb = load_runs(ds_dir, glob_b)
+        if not ra or not rb:
+            return None
+        pma, pairs_a = pairwise_metrics(ra)
+        pmb, pairs_b = pairwise_metrics(rb)
+        common = [p for p in pairs_a if p in pmb]
+        if not common:
+            return None
+        deltas = [pma[p]["id_churn"] - pmb[p]["id_churn"] for p in common]
+        return bootstrap_paired(deltas)
+
+    main_datasets = [DEV_DATASET] + list(HEADLINE_DATASETS)
+
+    def count_wins(datasets, other_glob):
+        n_wins = 0
+        n_total = 0
+        for ds in datasets:
+            res = paired_delta_churn(RUN_ROOT / ds, twin_glob, other_glob)
+            if res is None:
+                continue
+            n_total += 1
+            mean, lo, hi = res
+            if mean < 0 and hi < 0:
+                n_wins += 1
+        return n_wins, n_total
+
+    w_main_b2, n_main = count_wins(main_datasets, bag2_glob)
+    w_held_b2, n_held = count_wins(HEADLINE_DATASETS, bag2_glob)
+    w_held_b5, n_held5 = count_wins(HEADLINE_DATASETS, bag5_glob)
+    add("twinWinsBagTwoMain", str(w_main_b2))
+    add("twinWinsBagTwoMainDenom", str(n_main))
+    add("twinWinsBagTwoHeldout", str(w_held_b2))
+    add("twinWinsBagTwoHeldoutDenom", str(n_held))
+    add("twinWinsBagFiveHeldout", str(w_held_b5))
+    add("twinWinsBagFiveHeldoutDenom", str(n_held5))
+    add("bagFiveWinsTwinHeldout", str(n_held5 - w_held_b5
+                                       - _ties_against_twin(HEADLINE_DATASETS,
+                                                            twin_glob, bag5_glob,
+                                                            paired_delta_churn)))
+
+
+def _ties_against_twin(datasets, twin_glob, other_glob, paired):
+    """Count datasets where the paired CI straddles zero (no winner)."""
+    n_tie = 0
+    for ds in datasets:
+        res = paired(RUN_ROOT / ds, twin_glob, other_glob)
+        if res is None:
+            continue
+        mean, lo, hi = res
+        if lo <= 0 <= hi:
+            n_tie += 1
+    return n_tie
+
 
 def main() -> None:
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -636,6 +843,7 @@ def main() -> None:
     emit_filter_outcomes()
     emit_nscaling()
     emit_per_dataset_callouts()
+    emit_wins_counts()
 
     lines = [
         r"% Auto-generated by scripts/make_paper_macros.py.  DO NOT EDIT.",

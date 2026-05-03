@@ -15,11 +15,13 @@ across datasets.  Averaging $T{=}20$ stochastic forward passes
 (deep ensembles), or averaging weight snapshots from a single
 training trajectory (SWA) all keep the data-resampling axis
 constant; bagging and twin-bootstrap operate on that axis directly.  At
-matched compute against bagging-$K{=}2$, twin-bootstrap wins on $8/9$
-datasets (CI excludes zero; the difference is not significant on
-DILI, where ERM accuracy is $\diliErmAcc$ on a $\diliNTest$-example test set).
-Against the $5\times$-compute bagging-$K{=}5$, twin-bootstrap wins on
-$5/8$ held-out datasets and trails on three (DILI, Pgp, TADF).
+matched compute against bagging-$K{=}2$, twin-bootstrap wins on
+$\twinWinsBagTwoMain/\twinWinsBagTwoMainDenom$ datasets (CI excludes
+zero; the difference is not significant on DILI, where ERM accuracy
+is $\diliErmAcc$ on a $\diliNTest$-example test set).  Against the
+$5\times$-compute bagging-$K{=}5$, twin-bootstrap wins on
+$\twinWinsBagFiveHeldout/\twinWinsBagFiveHeldoutDenom$ held-out
+datasets and trails on $\bagFiveWinsTwinHeldout$ (DILI, Pgp, TADF).
 The aggregate Friedman test rejects equal-ranks at
 $\chi^2 = \friedmanChi$, $p = \friedmanP$; twin-bootstrap ranks
 first, indistinguishable from bagging-$K{=}5$ at less than half the
@@ -36,8 +38,9 @@ compute (Appendix~\ref{app:friedman}).
     each method's across-dataset mean (twin-bootstrap solid, others
     dashed; colours match markers); the solid black line is parity
     with ERM.  Right: $\Delta$ vs.\ matched-compute bagging-$K{=}2$,
-    twin-bootstrap only; CI excludes zero on $7/8$ datasets and ties on
-    DILI.  Frozen $\lambda{=}300$ is selected on the BACE development
+    twin-bootstrap only; CI excludes zero on
+    $\twinWinsBagTwoHeldout/\twinWinsBagTwoHeldoutDenom$ datasets and
+    ties on DILI.  Frozen $\lambda{=}300$ is selected on the BACE development
     dataset alone; no held-out tuning.}
   \label{fig:main}
 \end{figure}
@@ -76,7 +79,7 @@ $\entropyTopLow\text{--}\entropyTopHigh\%$ for entropy (per-dataset
 gap $\entropyGapMin\text{--}\entropyGapMax$\,pp,
 Appendix~\ref{app:entropy}).
 A practitioner can therefore identify
-the $10\%$ most fragile predictions from a single additional
+the $\topDecilePct\%$ most fragile predictions from a single additional
 retraining --- one extra bootstrap on top of the deployed pipeline.
 
 \begin{figure}[t]
@@ -114,8 +117,10 @@ $\lambda{=}300$ (the BACE-MLP-frozen value), twin-bootstrap collapses
 accuracy by $\waterbirdsAccCollapse$pp on Waterbirds
 (ImageNet-pretrained ResNet-50) and by
 $\chembertaAccDropLow\text{--}\chembertaAccDropHigh$pp on
-ChemBERTa-77M-MTR fine-tuned on six chemistry datasets, increasing
-argmax churn on five of six ChemBERTa datasets.  Re-applying the
+ChemBERTa-77M-MTR fine-tuned on six chemistry datasets, failing to
+reduce argmax churn on
+$\chembertaLamThreeHundredFailCount/\chembertaLamThreeHundredDenom$
+of them.  Re-applying the
 same $\preregTolerance$-tolerance selection rule on each backbone's
 development set picks $\lambda{=}10$: on BACE-ChemBERTa this preserves
 accuracy (within $\chembertaLamTenAccBoundPP$pp of ERM) and cuts churn
