@@ -316,34 +316,22 @@ the fixed $\lambda$ from the MLP development run is too strong for
 GIN.  We re-applied the same selection rule on
 BACE-GIN, sweeping $\lambda \in \{1, 3, 10, 30, 100, 300\}$:
 
-\begin{center}
-\small
-\begin{tabular}{rccc}
-\toprule
-$\lambda$ & id-acc & id-churn (\%) & sym-KL \\
-\midrule
-1   & 0.781 [0.775, 0.786] & 13.3 [12.6, 14.0] & 0.144 [0.133, 0.157] \\
-3   & 0.769 [0.760, 0.777] & 10.6 [10.1, 11.1] & 0.091 [0.087, 0.096] \\
-10  & \textbf{0.749 [0.743, 0.756]} & \textbf{11.8 [10.9, 12.6]} & 0.055 [0.051, 0.060] \\
-30  & 0.706 [0.699, 0.713] & 16.1 [14.9, 17.3] & 0.028 [0.025, 0.032] \\
-100 & 0.613 [0.602, 0.624] & 16.4 [14.0, 18.7] & 0.007 [0.006, 0.008] \\
-300 & 0.591 [0.576, 0.607] & 16.6 [13.4, 19.8] & 0.004 [0.003, 0.005] \\
-\bottomrule
-\end{tabular}
-\end{center}
+\input{sections/tables/gin_lambda.tex}
 
-ERM-GIN id-acc is $0.739$, so the $0.02$-tolerance rule admits any
-$\lambda$ keeping id-acc $\geq 0.719$.  The largest $\lambda$
-satisfying this is $\lambda{=}10$ (bold).  At $\lambda{=}10$
-twin-bootstrap cuts argmax churn $-47.6\%$ vs.\ ERM-GIN (paired CI
-$[-11.9, -9.5]$pp), close to the bagging-$K{=}5$ reduction of
-$-52\%$, and improves id-accuracy by $+1$pp.  The selection
+ERM-GIN id-acc is $0.742$, so the $0.02$-tolerance rule admits any
+$\lambda$ keeping id-acc $\geq 0.722$.  The largest $\lambda$
+satisfying this is $\lambda{=}\ginRuleLam$ (bold).  At
+$\lambda{=}\ginRuleLam$ twin-bootstrap cuts argmax churn
+$-\ginRuleLamCutPct\%$ vs.\ ERM-GIN (paired CI
+$[\ginRuleLamDeltaLo, \ginRuleLamDeltaHi]$\,pp), close to the
+bagging-$K{=}5$ reduction of $-\ginBagCutLamThreeHundred\%$, and
+improves id-accuracy by $\ginRuleLamAccGain$\,pp.  The selection
 \emph{rule} transfers across architectures unchanged; the numerical
 value does not.  For practitioners changing the architecture, the
 practical recipe is a single $\lambda$ sweep on the development
 dataset before transferring to held-out data.
 
-\section{ChemBERTa: rule-selected $\lambda{=}10$ preserves accuracy and cuts churn $15$--$82\%$}
+\section{ChemBERTa: rule-selected $\lambda{=}10$ preserves accuracy and cuts churn $\chembertaCutLow$--$\chembertaCutHigh\%$}
 \label{app:chemberta_scope}
 
 We fine-tuned

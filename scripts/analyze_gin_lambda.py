@@ -91,8 +91,44 @@ def main() -> None:
         for r in csv_rows:
             r2 = dict(r); r2["rule_picked"] = (r["lam"] == rule_lam)
             w.writerow(r2)
-    # Also append the ERM baseline row for downstream consumers.
     print(f"\nWrote {csv_path}  (rule picks lam={rule_lam})")
+
+    # Auto-generate the inline GIN λ-sweep tabular for app:gin so the
+    # appendix prose stays in sync with the data.  The hand-typed
+    # version it replaces drifted across the GPU re-runs.
+    def _f3(t): return f"{t[0]:.3f} [{t[1]:.3f}, {t[2]:.3f}]"
+    def _fpct(t): return f"{t[0]*100:.1f} [{t[1]*100:.1f}, {t[2]*100:.1f}]"
+    tex_lines = [
+        r"\begin{center}",
+        r"\small",
+        r"\begin{tabular}{rccc}",
+        r"\toprule",
+        r"$\lambda$ & id-acc & id-churn (\%) & sym-KL \\",
+        r"\midrule",
+    ]
+    for lam in LAMBDAS:
+        rs = load_runs(ROOT, f"twin_indep_train*_lam{lam}.npz")
+        if not rs:
+            continue
+        accs, _ = per_run_accuracies(rs)
+        ci_acc = bootstrap_ci(accs)
+        pm, _ = pairwise_metrics(rs)
+        churn = np.array([pm[p]["id_churn"] for p in pairs_erm if p in pm])
+        kl = np.array([pm[p]["id_sym_kl"] for p in pairs_erm if p in pm])
+        if len(churn) != len(erm_churn):
+            continue
+        ci_ch = bootstrap_ci(churn)
+        ci_kl = bootstrap_ci(kl)
+        bold = (lam == rule_lam)
+        cells = [_f3(ci_acc), _fpct(ci_ch), _f3(ci_kl)]
+        if bold:
+            cells = [r"\textbf{" + c + "}" for c in cells]
+        tex_lines.append(f"{int(lam):3d} & " + " & ".join(cells) + r" \\")
+    tex_lines += [r"\bottomrule", r"\end{tabular}", r"\end{center}", ""]
+    tex_path = Path("paper/sections/tables/gin_lambda.tex")
+    tex_path.parent.mkdir(parents=True, exist_ok=True)
+    tex_path.write_text("\n".join(tex_lines))
+    print(f"Wrote {tex_path}")
 
 
 if __name__ == "__main__":

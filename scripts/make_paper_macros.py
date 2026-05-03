@@ -505,7 +505,14 @@ def emit_gin() -> None:
             rel = _f(rule.get("rel_churn_pct"))
             if rel:
                 add("ginCutLamTen", round(-rel), "pct0")
+                # One-decimal precision for the rule-selected-λ Δ-churn
+                # claim that the appendix prose quotes.
+                add("ginRuleLamCutPct", f"{-rel:.1f}")
             add("ginRuleLam", str(int(_f(rule["lam"]) or 0)))
+            add("ginRuleLamDeltaPP", _f(rule.get("d_churn_mean_pp")), "pp1")
+            add("ginRuleLamDeltaLo", _f(rule.get("d_churn_lo_pp")), "pp1")
+            add("ginRuleLamDeltaHi", _f(rule.get("d_churn_hi_pp")), "pp1")
+            add("ginRuleLamAccGain", _f(rule.get("d_acc_pp")), "pp1")
 
 
 def emit_filter_outcomes() -> None:
