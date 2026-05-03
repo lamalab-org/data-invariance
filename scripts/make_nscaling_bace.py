@@ -104,6 +104,22 @@ def main() -> None:
     out_path.write_text("\n".join(lines))
     print(f"Wrote {out_path}")
 
+    # CSV dump for paper-macros: per-M rows + a summary row carrying
+    # the log-log slope so prose can reference it via a macro.
+    import csv as _csv
+    csv_path = Path("outputs/nscaling_bace.csv")
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with csv_path.open("w", newline="") as f:
+        w = _csv.writer(f)
+        w.writerow(["scope", "M", "sym_kl_mean", "sym_kl_lo", "sym_kl_hi",
+                    "churn_mean", "churn_lo", "churn_hi"])
+        for r in rows:
+            sk = r["sym_kl"]; ch = r["churn"]
+            w.writerow(["per_M", r["M"], sk[0], sk[1], sk[2],
+                        ch[0], ch[1], ch[2]])
+        w.writerow(["slope", "log_log", slope, intercept, "", "", "", ""])
+    print(f"Wrote {csv_path}")
+
 
 if __name__ == "__main__":
     main()

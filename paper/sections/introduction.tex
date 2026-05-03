@@ -90,7 +90,7 @@ with no consistent sign.  Methods that vary the data do better.
         (Appendix~\ref{app:overlap_spectrum}).
   \item \textbf{One-bootstrap triage.}  Sorting test predictions by
         per-example fragility from a single additional retraining and
-        reviewing the top $30\%$ captures
+        reviewing the top $\reviewFraction\%$ captures
         $\triageKtenLow\text{--}\triageKtenHigh\%$ of the
         retraining-induced flips on every dataset, at the cost of one
         extra training run.

@@ -40,15 +40,15 @@ summarises out per-example variation; cross-sample fragility is the
 per-example complement, counting disagreements before any averaging.
 
 We pre-screen every dataset to ERM accuracy $\geq$ majority-class
-baseline $+5$pp (\S\ref{sec:datasets}), so the gap we measure is
+baseline $+\preregFilterPP$pp (\S\ref{sec:datasets}), so the gap we measure is
 learned-decision performance rather than majority-class
 shuffling.  Appendix~\ref{app:additional_metrics} reports paired
 $|\Delta\text{precision}|$, $|\Delta\text{recall}|$, $|\Delta F_1|$,
 and $|\Delta\text{AP}|$ between two retrainings alongside
 $|\Delta\text{acc}|$.  On the imbalanced ADME tasks, recall and
 precision drifts reach $2\text{--}3\times$ $|\Delta\text{acc}|$
-(cyp2d6\_substrate: $|\Delta\text{recall}|=10.5$\,pp vs.\
-$|\Delta\text{acc}|=4.2$\,pp), so accuracy alone does undersell the
+(cyp2d6\_substrate: $|\Delta\text{recall}|=\cypTwoDeltaRecall$\,pp
+vs.\ $|\Delta\text{acc}|=\cypTwoDeltaAcc$\,pp), so accuracy alone does undersell the
 inter-retraining variation.  Even so, the per-example argmax-churn
 rate exceeds every aggregate-metric drift on every dataset,
 typically by $2\text{--}10\times$.  Per-example disagreement is the
@@ -117,15 +117,16 @@ Skin\_Reaction), and materials-science benchmarks
 MOF-thermal-stability,
 MOF-solvent-removal~\citep{jablonka2026clever,Nandy2022}).  A pre-registered health
 filter (Appendix~\ref{app:repro}) keeps the nine datasets on which
-ERM exceeds the majority-class baseline by at least $5$pp and the
-canonical id-test set has at least $60$ examples
+ERM exceeds the majority-class baseline by at least $\preregFilterPP$pp
+and the canonical id-test set has at least $\preregMinTestSize$ examples
 (Table~\ref{tab:fragility-magnitudes}, top group).  Three datasets
-on which ERM exceeds majority by only $3$--$4$pp on a $57$--$104$-example
-test set (Skin\_Reaction, hERG, HIA\_Hou) are reported in the same
-table under a separate group; we do not run the method comparison
-on them because the small test sets do not give enough statistical
-power.  Five datasets are excluded because ERM does not
-exceed majority at the $5$pp threshold (Bioavailability\_Ma, MOF\_solvent,
+on which ERM exceeds majority by only $\borderlineGapMin$--$\borderlineGapMax$pp
+on a $\borderlineNTestMin$--$\borderlineNTestMax$-example test set
+(Skin\_Reaction, hERG, HIA\_Hou) are reported in the same table under
+a separate group; we do not run the method comparison on them because
+the small test sets do not give enough statistical power.  Five
+datasets are excluded because ERM does not exceed majority at the
+$\preregFilterPP$pp threshold (Bioavailability\_Ma, MOF\_solvent,
 CYP2C9-Sub, CYP3A4-Sub, ClinTox); their per-dataset filter outcomes
 are tabulated in Appendix~\ref{app:repro} (Table~\ref{tab:filter-outcomes}).
 Featurisation is dataset-specific.  The MoleculeNet binary tasks

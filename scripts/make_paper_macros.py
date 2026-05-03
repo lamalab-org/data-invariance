@@ -115,6 +115,16 @@ def emit_dataset_counts() -> None:
     add("overlapPctMid", "40")
     add("overlapPctLo", "0")
     add("overlapPctHi", "100")
+    # Pre-registered protocol constants.  Single source of truth here so
+    # the prose's quoted thresholds, fold counts, and review fractions
+    # can never drift from the protocol description.
+    add("preregFilterPP", "5")          # ERM > majority + 5pp filter
+    add("preregMinTestSize", "60")      # min canonical id-test size
+    add("preregTolerance", "0.02")      # lambda-selection accuracy tolerance
+    add("nSeeds", "10")                 # train_seeds per cell
+    add("nSeedPairs", "45")             # binom(10, 2)
+    add("canonicalSeed", "99")
+    add("reviewFraction", "30")         # top-X% review fraction in triage
 
 
 def emit_magnitudes() -> None:
@@ -325,14 +335,33 @@ def emit_distributional() -> None:
 def emit_friedman() -> None:
     rows = _read_csv(OUTPUTS / "friedman.csv")
     if not rows:
-        add("friedmanChi", "??")
-        add("friedmanP", "??")
+        for k in ["friedmanChi", "friedmanP", "friedmanCD",
+                  "friedmanRankERM", "friedmanRankMCD",
+                  "friedmanRankSWA",
+                  "friedmanRankDeepEns", "friedmanRankBagTwo",
+                  "friedmanRankBagFive", "friedmanRankTwin"]:
+            add(k, "??")
         return
     for r in rows:
         if r["scope"] == "test" and r["key"] == "chi2":
             add("friedmanChi", float(r["value"]), "ratio")
         if r["scope"] == "test" and r["key"] == "p_value":
             add("friedmanP", f"{float(r['value']):.1g}")
+        if r["scope"] == "test" and r["key"] == "nemenyi_cd":
+            add("friedmanCD", float(r["value"]), "ratio")
+        if r["scope"] == "mean_rank":
+            method_to_macro = {
+                "ERM": "friedmanRankERM",
+                "MC dropout": "friedmanRankMCD",
+                "SWA": "friedmanRankSWA",
+                "Deep Ens. K=5": "friedmanRankDeepEns",
+                "Bagging K=2": "friedmanRankBagTwo",
+                "Bagging K=5": "friedmanRankBagFive",
+                "Twin-bootstrap": "friedmanRankTwin",
+            }
+            macro = method_to_macro.get(r["key"])
+            if macro:
+                add(macro, f"{float(r['value']):.2f}")
 
 
 def emit_triage() -> None:
@@ -522,6 +551,55 @@ def emit_filter_outcomes() -> None:
         gaps = [_f(r["gap_pp"]) for r in rows]
         add("borderlineGapMin", round(min(gaps)), "pct0")
         add("borderlineGapMax", round(max(gaps)), "pct0")
+        # Borderline test sizes (smallest, largest among the 3 marginal
+        # datasets) for the prose claim "57--104-example test sets".
+        ns = [int(_f(r["n_id_test"]) or 0) for r in rows]
+        add("borderlineNTestMin", str(min(ns)))
+        add("borderlineNTestMax", str(max(ns)))
+
+
+def emit_nscaling() -> None:
+    """N-scaling log-log slope, surfaced for the prose claim "slope -0.22"."""
+    rows = _read_csv(OUTPUTS / "nscaling_bace.csv")
+    slope_rows = [r for r in rows if r.get("scope") == "slope"]
+    if slope_rows:
+        # CSV column "sym_kl_mean" carries the slope value (slot reuse).
+        add("nScalingSlope", f"{float(slope_rows[0]['sym_kl_mean']):.2f}")
+    else:
+        add("nScalingSlope", "??")
+
+
+def emit_per_dataset_callouts() -> None:
+    """Single-dataset claims the prose names by cell.
+
+    DILI accuracy / test size for the experiments.tex compute-matched
+    discussion; cyp2d6_substrate \\Delta-recall / \\Delta-acc for the
+    measurement.tex imbalance-undersells-accuracy paragraph.
+    """
+    fmag = _read_csv(OUTPUTS / "fragility_magnitudes.csv")
+    main = _read_csv(OUTPUTS / "main_table.csv")
+    addm = _read_csv(OUTPUTS / "additional_metrics.csv")
+
+    dili_main = next((r for r in main if r.get("dataset") == "dili"
+                      and r.get("method") == "ERM"), None)
+    dili_mag = next((r for r in fmag if r.get("dataset") == "dili"), None)
+    if dili_main:
+        add("diliErmAcc", f"{float(dili_main['id_acc_mean']):.2f}")
+    if dili_mag:
+        add("diliNTest", str(int(_f(dili_mag["n_id_test"]) or 0)))
+
+    cyp = next((r for r in addm if r.get("dataset") == "cyp2d6_substrate"), None)
+    if cyp:
+        add("cypTwoDeltaAcc", f"{float(cyp['d_acc_pp_mean']):.1f}")
+        add("cypTwoDeltaRecall", f"{float(cyp['d_recall_pp_mean']):.1f}")
+        # Per-example argmax-churn for cyp2d6, used in the same paragraph.
+    cyp_pcc = _read_csv(OUTPUTS / "per_class_churn.csv")
+    cyp_row = next((r for r in cyp_pcc if r.get("dataset") == "cyp2d6_substrate"), None)
+    if cyp_row:
+        add("cypTwoOverallChurn", f"{float(cyp_row['overall_mean'])*100:.1f}")
+    dili_pcc = next((r for r in cyp_pcc if r.get("dataset") == "dili"), None)
+    if dili_pcc:
+        add("diliOverallChurn", f"{float(dili_pcc['overall_mean'])*100:.1f}")
 
 
 # ---------------------------------------------------------------------------
@@ -540,6 +618,8 @@ def main() -> None:
     emit_waterbirds()
     emit_gin()
     emit_filter_outcomes()
+    emit_nscaling()
+    emit_per_dataset_callouts()
 
     lines = [
         r"% Auto-generated by scripts/make_paper_macros.py.  DO NOT EDIT.",

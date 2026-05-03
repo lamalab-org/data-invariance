@@ -17,7 +17,7 @@ training trajectory (SWA) all keep the data-resampling axis
 constant; bagging and twin-bootstrap operate on that axis directly.  At
 matched compute against bagging-$K{=}2$, twin-bootstrap wins on $8/9$
 datasets (CI excludes zero; the difference is not significant on
-DILI, where ERM accuracy is $0.72$ on a $76$-example test set).
+DILI, where ERM accuracy is $\diliErmAcc$ on a $\diliNTest$-example test set).
 Against the $5\times$-compute bagging-$K{=}5$, twin-bootstrap wins on
 $5/8$ held-out datasets and trails on three (DILI, Pgp, TADF).
 The aggregate Friedman test rejects equal-ranks at
@@ -61,7 +61,7 @@ Per-example fragility, computed across pairs of ERM bootstraps, ranks
 test examples by how likely they are to flip class on retraining.
 Figure~\ref{fig:decile} reports the cumulative fraction of total
 flip-mass captured if the practitioner sorts predictions by
-fragility and reviews the top fraction.  Reviewing the top $30\%$
+fragility and reviews the top fraction.  Reviewing the top $\reviewFraction\%$
 captures $\triageKtenLow\text{--}\triageKtenHigh\%$ of all flips
 when fragility is scored from all $10$ bootstraps; with a single
 extra retraining ($K{=}2$, the one-bootstrap practitioner workflow)
@@ -82,7 +82,7 @@ retraining --- one extra bootstrap on top of the deployed pipeline.
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.75\linewidth]{figures/fig3_decile.pdf}
-  \caption{\textbf{Routing the top $30\%$ of test predictions
+  \caption{\textbf{Routing the top $\reviewFraction\%$ of test predictions
     (ranked by per-example fragility from one extra retraining) to a
     human reviewer captures $\triageKtenLow$--$\triageKtenHigh\%$ of
     all retraining-induced class flips on the \nDatasetsHeadline{}
@@ -116,9 +116,9 @@ accuracy by $\waterbirdsAccCollapse$pp on Waterbirds
 $\chembertaAccDropLow\text{--}\chembertaAccDropHigh$pp on
 ChemBERTa-77M-MTR fine-tuned on six chemistry datasets, increasing
 argmax churn on five of six ChemBERTa datasets.  Re-applying the
-same $0.02$-tolerance selection rule on each backbone's development
-set picks $\lambda{=}10$: on BACE-ChemBERTa this preserves accuracy
-(within $2$pp of ERM) and cuts churn
+same $\preregTolerance$-tolerance selection rule on each backbone's
+development set picks $\lambda{=}10$: on BACE-ChemBERTa this preserves
+accuracy (within $2$pp of ERM) and cuts churn
 $\chembertaCutLow\text{--}\chembertaCutHigh\%$ on every ChemBERTa
 dataset (Appendix~\ref{app:chemberta_scope}); on Waterbirds it
 preserves accuracy (within $1$pp of ERM) and cuts churn

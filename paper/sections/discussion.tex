@@ -29,7 +29,7 @@ fingerprint multilayer perceptrons (MLPs), $\lambda{=}10$ on
 pretrained backbones); twin-bootstrap recovers most of the
 $K{=}5$ benefit at $2{\times}$-ERM compute.  (iii)~For
 triage, train one extra ERM bootstrap and rank test predictions by
-their per-example fragility; reviewing the top $30\%$ catches
+their per-example fragility; reviewing the top $\reviewFraction\%$ catches
 $\triageKtenLow\text{--}\triageKtenHigh\%$ of all flips on every dataset
 (Figure~\ref{fig:decile}), at the cost of one extra training run.
 

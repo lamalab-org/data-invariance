@@ -58,7 +58,7 @@ $\sim\overlapPctMid\%$ is the only point that reduces churn on
 every dataset.
 (iii)~\textbf{One-bootstrap triage}: a single extra retraining
 captures $\triageKtenLow\text{--}\triageKtenHigh\%$ of the flips at
-top-$30\%$ review fraction (Figure~\ref{fig:decile}).
+top-$\reviewFraction\%$ review fraction (Figure~\ref{fig:decile}).
 (iv)~\textbf{Architecture transfer}: the consistency-weight
 selection rule transfers unchanged across MLP, GIN, ChemBERTa, and
 ImageNet-pretrained ResNet-50.
@@ -234,21 +234,24 @@ argmax-churn main result (Table~\ref{tab:main}).  The summary is in
 The pairwise CIs reported in Table~\ref{tab:main} test each
 (method, dataset) cell separately.  As an aggregate cross-dataset
 test, we apply the Friedman non-parametric rank test on mean
-cross-sample id-churn over the nine datasets and six methods (ERM,
-MC dropout, Deep Ensemble $K{=}5$, Bagging $K{=}2$, Bagging $K{=}5$,
-Twin-bootstrap $\lambda{=}300$).  The test rejects the null of equal
-ranks at $\chi^2 = 38.4$, $p = 3.1 \times 10^{-7}$.  Mean ranks
-(lower is better, $1$ = best on cross-sample id-churn) are
-twin-bootstrap $1.44$, bagging $K{=}5$ $1.67$, bagging $K{=}2$ $2.89$,
-deep-ensemble $K{=}5$ $4.67$, ERM $5.00$, MC dropout $5.33$.  The
-Nemenyi critical difference at $\alpha{=}0.05$ is
-$\textit{CD}{=}2.51$; rank gaps exceeding $\textit{CD}$ identify
-pairs that differ significantly.  Twin-bootstrap is significantly
-better in rank than ERM, MC dropout, and deep ensemble; it is
-\emph{not} significantly different from bagging $K{=}5$ (rank gap
-$0.22$).  Twin-bootstrap therefore matches bagging $K{=}5$ in mean-rank
-at roughly $2{\times}$ ERM compute (Appendix~\ref{app:compute})
-versus the $5{\times}$ that bagging $K{=}5$ requires.
+cross-sample id-churn over the nine datasets and seven methods (ERM,
+MC dropout, SWA, Deep Ensemble $K{=}5$, Bagging $K{=}2$, Bagging
+$K{=}5$, Twin-bootstrap $\lambda{=}300$).  The test rejects the null
+of equal ranks at $\chi^2 = \friedmanChi$, $p = \friedmanP$.  Mean
+ranks (lower is better, $1$ = best on cross-sample id-churn) are
+twin-bootstrap $\friedmanRankTwin$, bagging $K{=}5$
+$\friedmanRankBagFive$, bagging $K{=}2$ $\friedmanRankBagTwo$, SWA
+$\friedmanRankSWA$, deep-ensemble $K{=}5$ $\friedmanRankDeepEns$,
+ERM $\friedmanRankERM$, MC dropout $\friedmanRankMCD$.  The Nemenyi
+critical difference at $\alpha{=}0.05$ is
+$\textit{CD}{=}\friedmanCD$; rank gaps exceeding $\textit{CD}$
+identify pairs that differ significantly.  Twin-bootstrap is
+significantly better in rank than ERM, MC dropout, SWA, and deep
+ensemble; it is \emph{not} significantly different from bagging
+$K{=}5$ (rank gap $0.22$).  Twin-bootstrap therefore matches bagging
+$K{=}5$ in mean-rank at roughly $2{\times}$ ERM compute
+(Appendix~\ref{app:compute}) versus the $5{\times}$ that bagging
+$K{=}5$ requires.
 
 \section{Convergence: how many bootstraps suffice for triage?}
 \label{app:convergence}
@@ -256,13 +259,13 @@ versus the $5{\times}$ that bagging $K{=}5$ requires.
 The triage workflow asks the practitioner to train one extra ERM
 bootstrap and rank predictions by fragility.  We verify that
 $K{=}2$ (one extra bootstrap) is sufficient by comparing the
-top-$30\%$ cumulative recall when the fragility ranking is computed
+top-$\reviewFraction\%$ cumulative recall when the fragility ranking is computed
 from $K \in \{2, 3, 5, 10\}$ ERM bootstraps.
 
 \begin{figure}[h]
   \centering
   \includegraphics[width=0.75\linewidth]{figures/fig_convergence.pdf}
-  \caption{\textbf{One extra bootstrap is enough: the top-$30\%$
+  \caption{\textbf{One extra bootstrap is enough: the top-$\reviewFraction\%$
     recall at $K{=}2$ is within $\triageKtwoToKtenGapLow$--$\triageKtwoToKtenGapHigh$\,pp of the $K{=}10$ gold
     standard on every dataset.}  Mean recall across $30$ random
     $K$-subsets per $K{<}10$.  Per-dataset at $K{=}2$:
