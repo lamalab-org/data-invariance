@@ -1,38 +1,31 @@
 \section{Discussion}
 \label{sec:discussion}
 
-\paragraph{Churn is reducible with methods the field already has.}
-Both procedures evaluated here are simple modifications of standard
-classifier training.  Bagging is the classical estimator
-of \citet{Breiman1996}, already available in every chemistry-ML
-toolkit; on the benchmarks we test it cuts ERM's
-$\churnMin\text{--}\churnMax\%$ churn to
-$\bagFiveFinalLow\text{--}\bagFiveFinalHigh\%$ at no accuracy cost
-and parallelises to ERM wall-clock on $K$ devices
-(Table~\ref{tab:main}).  Twin-bootstrap adds a symmetric-KL
-consistency term between two networks trained jointly on independent
-bootstraps and reaches
-$\twinFinalLow\text{--}\twinFinalHigh\%$ at $2\times$-ERM compute.
-Per-prediction stability under retraining is the column scientific-ML
-benchmarks have so far overlooked despite its weight on practitioners
-who act on individual predictions; the methods that reduce it are
-simple modifications of supervised training, not new infrastructure.
+\paragraph{Cross-sample churn is the column scientific-ML benchmarks have been missing.}
+The headline finding is empirical, not conceptual: parameter-side
+uncertainty methods that the field treats as adequate --- deep
+ensembles, MC dropout, stochastic weight averaging --- do not
+reduce cross-sample churn on these benchmarks, and on several they
+make it worse.  Their construction explains why: they sample over
+weights at fixed data, and the variance practitioners act on lives
+on the data axis they hold constant.  An accuracy-only benchmark
+cannot tell them apart from data-side methods that do reduce the
+rate, because the per-prediction signal they differ on is the column
+nobody reads.  Adding cross-sample churn to the standard report
+changes which uncertainty methods look adequate.
 
 \paragraph{The data-resampling protocol is the design lever.}
-Cross-sample stability is set less by the model class than by how the
-training procedure resamples data between independent runs.  The
+Cross-sample stability is set less by the model class than by how
+the training procedure resamples data between independent runs.  The
 codistillation-vs.\ twin-bootstrap comparison
 (Appendix~\ref{app:overlap_spectrum}) isolates the inter-network
-bootstrap overlap as the operative parameter: at $\overlapPctHi\%$
-overlap churn increases on DILI; at $\sim\overlapPctMid\%$ churn never
-increases on any of the \nDatasetsHeadline{} chemistry datasets we
-tested.  The consistency weight $\lambda$ that controls how strongly
-the procedure exploits this overlap takes a different numerical
-value on different architectures, but the development-set rule that
-selects it transfers unchanged across MLP, GIN, ChemBERTa, and
-ImageNet-pretrained ResNet-50
-(Section~\ref{sec:generalisation}).  Cross-sample stability can
-therefore be designed in at training time --- without changing the
-model class or the deployment pipeline --- by tuning a single
+bootstrap overlap as the operative parameter; the consistency weight
+$\lambda$ that controls how strongly the procedure exploits the
+overlap takes a different numerical value on different
+architectures, but the development-set rule that selects it
+transfers unchanged across MLP, GIN, ChemBERTa, and ImageNet-pretrained
+ResNet-50 (Section~\ref{sec:generalisation}).  Cross-sample stability
+can therefore be designed in at training time, without changing the
+model class or the deployment pipeline, by tuning a single
 hyperparameter on the development set with the same rule.
 
