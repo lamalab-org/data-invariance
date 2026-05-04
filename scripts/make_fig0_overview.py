@@ -84,13 +84,9 @@ def main() -> None:
     # stabilisation at the top.  This makes the visual gap between the
     # left and right panels maximal — the rows at the top are flippy
     # under ERM and uniform under twin-bootstrap, which is the message.
-    # contrast = erm_churn - twin_churn
-    # order = np.argsort(-contrast)
-    # keep = order[:args.n_examples]
-    # erm_panel = erm_preds[:, keep].T   # (N_examples, S)
-    # twin_panel = twin_preds[:, keep].T
     
-    # Cluster rows once, using ERM predictions, then show the same rows/order in both panels.
+    # Cluster rows once, using ERM predictions, then show the same 
+    # rows/order in both panels.
     # Pick examples with ERM fragility first.
     # Keep rows exactly as already selected
     contrast = erm_churn - twin_churn
