@@ -7,7 +7,10 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=24G
 #SBATCH --time=02:00:00
-#SBATCH --array=0-3
+#SBATCH --array=0-3%6
+# %6 caps concurrent running tasks (combined with chemberta/waterbirds
+# from the same submit wrapper, slurm could exceed the per-user QOS
+# GRES limit and kill tasks with signal 53 at startup).
 
 # GIN architecture cross-check on BACE: 4 methods × 10 seeds.
 #   0: ERM

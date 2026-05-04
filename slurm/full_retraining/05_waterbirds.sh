@@ -7,7 +7,8 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=40G
 #SBATCH --time=03:00:00
-#SBATCH --array=0-2
+#SBATCH --array=0-2%6
+# %6 caps concurrent running tasks; see 03_chemberta.sh comment.
 
 # Waterbirds (ImageNet-pretrained ResNet-50): 3 methods × 10 seeds.
 #   0: ERM

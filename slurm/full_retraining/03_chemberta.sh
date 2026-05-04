@@ -7,7 +7,11 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=40G
 #SBATCH --time=03:00:00
-#SBATCH --array=0-17
+#SBATCH --array=0-17%6
+# %6 caps concurrent running tasks at 6 to stay under the per-user
+# QOS GRES limit; without this slurm starts tasks beyond the limit
+# and kills them with signal 53 at zero elapsed (Reason:
+# QOSMaxGRESPerUser).
 
 # ChemBERTa scope: 6 datasets × 3 methods (ERM, twin lam=300, twin lam=10).
 # 10 seeds per cell (the user explicitly asked for 10 to match headline).
