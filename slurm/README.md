@@ -1,7 +1,7 @@
 # SLURM dispatch
 
 This directory holds slurm submit scripts for running the paper's
-cross-sample fragility experiments on the Draco cluster (or any slurm
+cross-sample churn experiments on the Draco cluster (or any slurm
 cluster — adjust `--partition` and `--gres` as needed).
 
 ## Layout

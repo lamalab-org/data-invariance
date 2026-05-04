@@ -1,63 +1,78 @@
-# Adversarial Data Splitting for Training Stability
+# Cross-sample prediction churn
 
-## The problem
+Code and paper source for *Reducing cross-sample prediction churn in
+scientific machine learning* (NeurIPS 2026 submission).
 
-Machine learning models are sensitive to the composition of their training data. Small changes in which examples are included can meaningfully shift predictions. Existing approaches to this problem either require pre-defined environment labels (IRM, V-REx) or capture disagreement without feeding it back into training (ensembles).
+Two classifiers trained on independent bootstraps of the same
+chemistry training set assign different classes to 8–22% of test
+molecules, while their aggregate accuracy differs by only 1–4
+percentage points.  We call this *cross-sample prediction churn* —
+the population-level analogue of prediction churn for the small-N
+from-scratch regime.  Bagging cuts churn 43–52% on every dataset at
+no accuracy cost; twin-bootstrap (two networks with a sym-KL
+consistency loss on independent bootstraps) cuts a further 41% beyond
+matched-compute bagging-K=2.
 
-## The idea
+## Repo layout
 
-Instead of randomly partitioning training data and penalising disagreement, we **learn the worst-case partition** — the split of the training set that maximises prediction disagreement between two model heads — and then regularise against it.
+```
+paper/                       NeurIPS source: main.tex + sections/*.tex
+scripts/                     analysis pipeline (training drivers, table
+                             and figure generators, paper-macro emitter)
+configs/dataset/             per-dataset YAMLs consumed by build_cfg
+data.py / data_molnet.py /   dataset loaders (MolNet, TDC, Waterbirds, TADF)
+  data_tdc.py
+models.py                    MLP + ResNet/ChemBERTa/GIN backbone factories
+train.py                     make_dataloaders + _build_model
+utils.py                     seed setting, device selection
+tests/                       analysis-lib tests
+outputs/                     git-ignored: NPZ predictions, derived CSVs
+```
 
-This is a minimax game:
+## Reproducing the paper
 
-- **Inner loop (adversary):** find the data partition that most destabilises the model's predictions
-- **Outer loop (model):** train to be robust to that worst-case split
+The paper's tables, figures, and macros all regenerate from saved
+NPZs.  No model retraining required to rebuild the PDF:
 
-Each training example gets a soft assignment weight $s_i \in [0, 1]$ learned by the adversary. Head A is trained on examples weighted by $s_i$, head B on examples weighted by $1 - s_i$. The adversary maximises the KL divergence between the two heads' predictions; the model minimises it.
+```bash
+make analysis    # CSVs from NPZs in outputs/cross_sample{,_seed7,_seed42}/
+make tables      # paper/sections/tables/*.tex from CSVs
+make macros      # paper/sections/macros.tex from CSVs
+make figures     # paper/figures/*.pdf
+cd paper && latexmk -pdf main.tex
+```
 
-## Why this is different
+To retrain from scratch on a single canonical seed:
 
-| Method | Key limitation |
-|--------|----------------|
-| IRM, V-REx | Require pre-defined environment labels |
-| Deep ensembles | Disagreement is not fed back into training |
-| Consistency regularisation | Penalises input perturbations, not training data composition |
-| DRO | Robustifies against test distribution shift, not training data composition |
+```bash
+bash scripts/run_cpu_blocks_local.sh             # ~2-3 hours on a 12-core Mac
+```
 
-## Byproducts
+To replicate the canonical-seed sensitivity sweep
+(Appendix~\ref{app:seed_sensitivity}):
 
-1. **Instance-level stability scores** — for each test prediction, how much can the worst-case data partition destabilise it? A new form of epistemic uncertainty: not "the model is uncertain" but "the model's confidence is an artefact of which data it trained on."
-2. **Data attribution** — the learned assignment weights $s_i$ reveal which training examples are "contentious" — their inclusion or exclusion flips predictions elsewhere.
+```bash
+bash scripts/run_seed_sweep.sh 7  &              # parallel seeds
+bash scripts/run_seed_sweep.sh 42 &
+wait
+uv run python scripts/aggregate_seed_sensitivity.py
+```
 
-## Experiments
-
-We use **Colored MNIST** as the primary benchmark. Digits 0–4 vs 5–9 (binary), with color assigned as a spurious cue. Training correlation 0.9 (color strongly predicts label), test correlation 0.1 (color is mostly misleading). A model that relies on color will fail badly out-of-distribution.
-
-Four conditions:
-
-| Condition | Description |
-|-----------|-------------|
-| ERM | Standard training, single head — the baseline that fails OOD |
-| Random split | Random K=2 partition + KL penalty — a V-REx-like baseline |
-| **Adversarial split** | Learned worst-case partition + KL penalty — **our method** |
-| Oracle split | Partition by ground-truth color label — upper bound |
-
-The key comparison is random vs adversarial. If adversarial splitting is substantially better, the paper works.
+ChemBERTa, GIN, and Waterbirds runs require a GPU and are dispatched
+on the cluster via `slurm/`.
 
 ## Setup
 
 ```bash
-# Install dependencies
-make install
-
-# Run ERM baseline
-python run.py method=erm
-
-# Run adversarial split (our method)
-python run.py method=adversarial_split
-
-# Sweep lambda
-python run.py -m method=adversarial_split training.lambda_disagree=0.1,1.0,10.0
+uv sync --group dev
+uv run pre-commit install
 ```
 
-Requires Python 3.11+. Experiments are logged to [Weights & Biases](https://wandb.ai) under the `data-invariance` project.
+Python 3.13 + PyTorch 2.11.  See `pyproject.toml` for the full
+dependency list.
+
+## Tests
+
+```bash
+uv run pytest tests/
+```
