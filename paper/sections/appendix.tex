@@ -12,8 +12,9 @@ empirical results (per-molecule case study, distributional
 disagreement, Friedman test, triage convergence, entropy baseline).
 Appendices~\ref{app:gin}--\ref{app:regression} document the
 cross-architecture and cross-task generalisation evidence.
-Appendices~\ref{app:compute}--\ref{app:repro} cover compute and
-reproducibility.
+Appendix~\ref{app:compute} reports the per-method compute footprint;
+Appendix~\ref{app:filter_outcomes} lists the datasets excluded by
+the pre-registered health filter.
 
 \section{Comparison to prior churn and reproducibility work}
 \label{app:related_table}
@@ -169,15 +170,14 @@ canonical seed.
 
 \input{sections/tables/seed_sensitivity.tex}
 
-\paragraph{Out-of-scope settings.}
-The pretrained-backbone scope studies (GIN, ChemBERTa, Waterbirds:
-Appendices~\ref{app:gin}--\ref{app:waterbirds_lambda}) are reported on
-canonical seed $\canonicalSeed$ only, because each requires GPU
-compute that we did not replicate at the additional canonical seeds.
-We treat their results as architecture-feasibility evidence rather
-than as quantitative claims about effect sizes; the cross-seed
-robustness of the rule (Section~\ref{sec:generalisation}) is what
-transfers, not the specific reduction percentages.
+\paragraph{Pretrained-backbone scope studies.}
+For the pretrained-backbone scope studies (GIN, ChemBERTa, Waterbirds:
+Appendices~\ref{app:gin}--\ref{app:waterbirds_lambda}) we replicate
+ERM and the rule-selected $\lambda$ on all $\nCanonicalSeeds$
+canonical seeds; the development $\lambda$-Pareto sweeps within those
+studies are run on canonical seed $\canonicalSeed$ only, since the
+goal there is architecture-feasibility evidence and the rule-selected
+$\lambda$ does not change across seeds.
 
 \section{Development Pareto curve on BACE}
 \label{app:pareto}
@@ -223,12 +223,11 @@ where all three methods completed.
 \input{sections/tables/overlap_spectrum.tex}
 
 Codistillation has the largest mean churn reduction on most datasets
-but trips the $\accDegradeFlagPP$\,pp accuracy-degradation flag on Pgp and
-MOF-thermal (two daggers); twin-shared trips the flag on MOF-thermal
-and increases churn on DILI; twin-bootstrap at ${\sim}40\%$ matches
-codistillation on never increasing churn while tripping the accuracy
-flag on a single dataset (MOF-thermal, where all three operating
-points collapse).  Among the three points, only twin-bootstrap at
+but drops id-accuracy by more than $\accDegradeFlagPP$\,pp on Pgp and
+MOF-thermal; twin-shared drops accuracy on MOF-thermal and increases
+churn on DILI; twin-bootstrap at ${\sim}40\%$ matches codistillation
+on never increasing churn while only collapsing accuracy on a single
+dataset (MOF-thermal, where all three operating points collapse).  Among the three points, only twin-bootstrap at
 ${\sim}\overlapPctMid\%$ overlap satisfies both criteria
 simultaneously, which is what motivates its use as the default
 operating point.
@@ -517,42 +516,12 @@ terms this is roughly $2\times$ ERM, matched to bagging-$K{=}2$.  The
 $5\times$ Bagging-$K{=}5$ results in the same table are not matched
 compute; we include them as a stronger no-cost baseline.
 
-\section{Reproducibility}
-\label{app:repro}
+\section{Filter outcomes for excluded datasets}
+\label{app:filter_outcomes}
 
-\paragraph{Canonical-data protocol.}
-A single fixed seed determines the train/test split and the
-canonical test set; cross-sample variation comes only from ten
-train-seeds, each controlling one bootstrap of the canonical
-training pool.  Canonical-data seed: $\canonicalSeed$.
-
-\paragraph{Hyperparameters.}
-Twin-bootstrap $\lambda$ is selected on BACE alone by the
-$\preregTolerance$-tolerance rule ($\lambda{=}300$) and applied unchanged to
-every held-out chemistry dataset.  AdamW with weight decay
-$10^{-4}$, gradient clipping at $1.0$, $\text{lr}=10^{-3}$, batch
-size $64$, $30$ epochs.  Waterbirds uses the published recipe
-($\text{lr}=10^{-4}$, batch size $64$, $15$ epochs).
-
-\paragraph{Code release.}
-A single \texttt{Makefile} entry-point covers training sweeps and
-analysis; every paper table and figure is regenerated through this
-pipeline.  Each run saves predictions and a reproducibility manifest
-(git commit, command, full config, environment, canonical / test data
-hashes, wall-clock) as a sidecar JSON next to the NPZ; one row per
-completed run is appended to a top-level \texttt{RUN\_LEDGER.jsonl}.
-
-\paragraph{Filter outcomes for the five excluded datasets.}
-Table~\ref{tab:filter-outcomes} reports the per-dataset ERM id-acc and
-the canonical majority-class baseline on the five chemistry datasets
-that fail the $+\preregFilterPP$pp filter and are therefore excluded
-from the main analysis.
+Table~\ref{tab:filter-outcomes} reports the per-dataset ERM id-acc
+and the canonical majority-class baseline on the five chemistry
+datasets that fail the $+\preregFilterPP$pp filter and are therefore
+excluded from the main analysis.
 
 \input{sections/tables/filter_outcomes.tex}
-
-% (Numerical provenance is now machine-checked: every quoted number in
-% the prose imports from paper/sections/macros.tex via \input, and the
-% scripts that produce each table / figure are documented in
-% scripts/README.md.  Each NPZ also has a sidecar manifest.json with the
-% git commit, command, env, and data hashes; one row per saved NPZ in
-% outputs/cross_sample/RUN_LEDGER.jsonl.)

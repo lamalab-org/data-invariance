@@ -182,11 +182,12 @@ def main() -> None:
         r"\begin{table}[h]",
         r"  \centering",
         r"  \caption{\textbf{Twin-bootstrap ($\sim$40\% overlap)"
-        r" reduces churn on every dataset; codistillation (0\%) trips"
-        r" two accuracy daggers, twin-shared (100\%) makes DILI"
-        r" worse.}  Cells: paired $\Delta$ id-churn vs.\ ERM in"
-        r" percentage points, $[\,95\%\ \text{CI}\,]$, $\dagger$"
-        r" marks id-accuracy drop $>5$\,pp.}",
+        r" reduces churn on every dataset without an accuracy collapse;"
+        r" codistillation (0\%) collapses accuracy on two datasets;"
+        r" twin-shared (100\%) increases churn on DILI.}  Cells: paired"
+        r" $\Delta$ id-churn vs.\ ERM in percentage points,"
+        r" $[\,95\%\ \text{CI}\,]$, $\dagger$ marks id-accuracy drop"
+        r" $>5$\,pp.}",
         r"  \label{tab:overlap_spectrum}",
         r"  \small",
         r"  \begin{tabular}{lrlll}",

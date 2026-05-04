@@ -70,11 +70,11 @@ A pre-registered health filter
 (ERM accuracy $\geq$ majority $+ \preregFilterPP$pp on a canonical
 test set $\geq \preregMinTestSize$ examples) keeps nine datasets for
 the method comparison, flags three borderline datasets, and excludes
-five; per-dataset filter outcomes are in Appendix~\ref{app:repro}.  Featurisation is
-the standard chemistry choice per dataset family ($2048$-bit Morgan
-radius-2 fingerprints for MoleculeNet/TDC; $+217$ RDKit descriptors
-for TADF; $174$ RAC descriptors plus GSA for
-MOFs~\citep{Moosavi2020}; full details in
-Appendix~\ref{app:repro}).  The default architecture is a
-$256$-unit MLP trained from scratch on these features.
+five; per-dataset filter outcomes are in
+Appendix~\ref{app:filter_outcomes}.  Featurisation is the standard
+chemistry choice per dataset family: $2048$-bit Morgan radius-2
+fingerprints for MoleculeNet/TDC; $+217$ RDKit descriptors for
+TADF; $174$ RAC descriptors plus geometric solvent-accessibility
+features for MOFs~\citep{Moosavi2020}.  The default architecture is
+a $256$-unit MLP trained from scratch on these features.
 

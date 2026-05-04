@@ -119,7 +119,7 @@ def main() -> None:
         r"accuracy by $27$\,pp; at the rule-selected $\lambda{=}10$, "
         r"twin-bootstrap preserves accuracy and cuts argmax churn "
         r"$52\%$.  All cells report mean $[\,95\%\ \text{CI}\,]$ over "
-        r"five train-seeds (\\$\\binom{5}{2}{=}10$ pairs for paired "
+        r"five train-seeds ($\binom{5}{2}{=}10$ pairs for paired "
         r"quantities).}",
         r"\label{tab:waterbirds_lambda}",
         r"\small",

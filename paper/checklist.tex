@@ -47,7 +47,7 @@
     \item {\bf Experimental result reproducibility}
     \item[] Question: Does the paper fully disclose all the information needed to reproduce the main experimental results of the paper to the extent that it affects the main claims and/or conclusions of the paper (regardless of whether the code and data are provided or not)?
     \item[] Answer: \answerYes{}
-    \item[] Justification: Appendix~\ref{app:repro} documents the canonical-data-seed protocol, the frozen $\lambda$ and the rule used to select it, dataset-by-dataset training hyperparameters (also in \texttt{scripts/run\_experiment.py:HPARAMS}), and the Makefile targets that regenerate every paper table and figure from saved NPZ predictions.
+    \item[] Justification: Section~\ref{sec:measurement} states the canonical-data-seed protocol; Section~\ref{sec:methods} states the optimiser, hyperparameters, the frozen $\lambda$, and the development-set rule used to select it; the accompanying anonymised code regenerates every paper table and figure from saved predictions.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include experiments.
@@ -67,7 +67,7 @@
 \item {\bf Open access to data and code}
     \item[] Question: Does the paper provide open access to the data and code, with sufficient instructions to faithfully reproduce the main experimental results, as described in supplemental material?
     \item[] Answer: \answerYes{}
-    \item[] Justification: All datasets are public (MoleculeNet via DeepChem, TDC ADME/Tox, public materials-science datasets, Waterbirds via WILDS). Anonymised code with the Makefile recipe described in Appendix~\ref{app:repro} accompanies the submission.
+    \item[] Justification: All datasets are public (MoleculeNet via DeepChem, TDC ADME/Tox, public materials-science datasets, Waterbirds via WILDS).  Anonymised code accompanies the submission.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that paper does not include experiments requiring code.
@@ -84,7 +84,7 @@
 \item {\bf Experimental setting/details}
     \item[] Question: Does the paper specify all the training and test details (e.g., data splits, hyperparameters, how they were chosen, type of optimizer) necessary to understand the results?
     \item[] Answer: \answerYes{}
-    \item[] Justification: Section~\ref{sec:methods} (Algorithm~1) gives the training procedure; Appendix~\ref{app:repro} lists the optimiser (AdamW, weight decay $10^{-4}$), per-dataset learning rate, batch size and epoch count, the canonical-data-seed protocol, and the pre-registered $\lambda$ selection rule.
+    \item[] Justification: Section~\ref{sec:methods} (Algorithm~1) states the training procedure, optimiser (AdamW, weight decay $10^{-4}$), gradient clipping, learning rate, batch size, and epoch count; Section~\ref{sec:measurement} states the canonical-data-seed protocol; the pre-registered $\lambda$-selection rule and its development-set Pareto curve are in Section~\ref{sec:methods} and Appendix~\ref{app:pareto}.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include experiments.
@@ -178,7 +178,7 @@
 \item {\bf New assets}
     \item[] Question: Are new assets introduced in the paper well documented and is the documentation provided alongside the assets?
     \item[] Answer: \answerNA{}
-    \item[] Justification: The paper does not release new datasets or trained model checkpoints. The accompanying code, including saved NPZ predictions sufficient to regenerate every reported number, is documented in the Makefile and Appendix~\ref{app:repro}.
+    \item[] Justification: The paper does not release new datasets or trained model checkpoints.  The anonymised code release contains the saved predictions and analysis pipeline sufficient to regenerate every reported number.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not release new assets.
@@ -214,7 +214,7 @@
     \item[] Question: Does the paper describe the usage of LLMs if it is an important, original, or non-standard component of the core methods in this research? Note that if the LLM is used only for writing, editing, or formatting purposes and does \emph{not} impact the core methodology, scientific rigor, or originality of the research, declaration is not required.
     %this research?
     \item[] Answer: \answerNA{}
-    \item[] Justification: LLMs were used only for writing assistance and code review; the core methodology (cross-sample churn, bagging, twin-bootstrap) is not LLM-based.
+    \item[] Justification: Large language models (Anthropic Claude) were used substantially throughout this work for prose drafting and revision, and for implementing analysis, table-generation, and figure-generation code.  The research direction, problem framing, experimental design, and interpretation of results were determined by the human authors.  The core methodology --- cross-sample churn measurement, bagging baseline, and twin-bootstrap with sym-KL consistency --- is not LLM-derived.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the core method development in this research does not involve LLMs as any important, original, or non-standard components.

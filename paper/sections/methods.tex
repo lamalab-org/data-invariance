@@ -58,9 +58,19 @@ network's own bootstrap, and the consistency term
 $\mathcal{L}_{\mathrm{cons}}$ is the symmetric KL between the two
 networks' softmax distributions evaluated on the union of the two
 mini-batches.  At deployment, predictions are averaged.
-Algorithm~\ref{alg:twin-bootstrap} gives the per-epoch procedure.
 
-\paragraph{Algorithm.}
+\paragraph{Mechanism.}
+At $\lambda{=}0$ the procedure is $K{=}2$ bagging.  At $\lambda > 0$
+the consistency term penalises divergence on every example seen in
+either mini-batch, including those that appear in both bootstraps.
+Bootstrap-with-replacement at size $N$ covers ${\sim}63\%$ of unique
+indices in expectation, so two independent bootstraps share
+${\sim}0.63^2 \approx 40\%$ of indices.  The consistency loss
+therefore acts on the overlap while the cross-entropy losses
+specialise on the non-shared remainder; this is the operating point
+we use.  Algorithm~\ref{alg:twin-bootstrap} gives the per-epoch
+procedure.
+
 \begin{algorithm}[H]
   \caption{Twin-bootstrap training (one epoch).}
   \label{alg:twin-bootstrap}
@@ -80,15 +90,6 @@ Algorithm~\ref{alg:twin-bootstrap} gives the per-epoch procedure.
     \EndFor
   \end{algorithmic}
 \end{algorithm}
-
-\paragraph{Mechanism.}
-At $\lambda{=}0$ the procedure is $K{=}2$ bagging.  At $\lambda > 0$
-the consistency term penalises divergence on every example seen in
-either mini-batch, including those that appear in both bootstraps.
-Bootstrap-with-replacement at size $N$ covers ${\sim}63\%$ of unique
-indices in expectation, so two independent bootstraps share
-${\sim}0.63^2 \approx 40\%$ of indices --- the operating point we
-use.
 
 \paragraph{Hyperparameter selection.}
 A single development dataset (BACE) is used to select $\lambda$ via

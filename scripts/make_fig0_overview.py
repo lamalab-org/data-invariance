@@ -115,7 +115,7 @@ def main() -> None:
         ax.imshow(panel, aspect="auto", cmap=cmap, interpolation="nearest",
                   vmin=0, vmax=1)
         ax.set_title(title, fontsize=9, pad=4)
-        ax.set_xlabel("retraining (train_seed 1–10)", fontsize=8)
+        ax.set_xlabel("retraining 1–10", fontsize=8)
         ax.set_xticks(np.arange(panel.shape[1]))
         ax.set_xticklabels([str(i + 1) for i in range(panel.shape[1])],
                            fontsize=7)

@@ -2,32 +2,37 @@
 \label{sec:discussion}
 
 \paragraph{Churn is reducible with methods the field already has.}
-The two procedures that work --- bagging and twin-bootstrap --- need
-nothing exotic.  Bagging is a 30-year-old method already implemented
-in every chemistry-ML toolkit; on the benchmarks we test it cuts
-ERM's $\churnMin\text{--}\churnMax\%$ churn down to
+Both procedures evaluated here are simple modifications of standard
+classifier training.  Bagging is the classical estimator
+of \citet{Breiman1996}, already available in every chemistry-ML
+toolkit; on the benchmarks we test it cuts ERM's
+$\churnMin\text{--}\churnMax\%$ churn to
 $\bagFiveFinalLow\text{--}\bagFiveFinalHigh\%$ at no accuracy cost
 and parallelises to ERM wall-clock on $K$ devices
-(Table~\ref{tab:main}).  Twin-bootstrap, which we propose, requires
-two networks trained jointly with a sym-KL consistency loss --- a
-modification of standard training that any group running PyTorch can
-deploy --- and pushes the rate to
+(Table~\ref{tab:main}).  Twin-bootstrap adds a symmetric-KL
+consistency term between two networks trained jointly on independent
+bootstraps and reaches
 $\twinFinalLow\text{--}\twinFinalHigh\%$ at $2\times$-ERM compute.
-Neither method requires a new optimisation framework, an unusual loss
-beyond cross-entropy plus KL, or specialised hardware.  The
-practical implication: per-prediction stability under retraining is a
-column the field can start reporting tomorrow.
+Per-prediction stability under retraining is the column scientific-ML
+benchmarks have so far overlooked despite its weight on practitioners
+who act on individual predictions; the methods that reduce it are
+simple modifications of supervised training, not new infrastructure.
 
-\paragraph{Stability is a property of the procedure.}
-What sets a model's cross-sample churn is the training procedure that
-produced its weights --- the optimiser, the schedule, and especially
-the data-resampling protocol.  In the codistillation-vs.\
-twin-bootstrap comparison (Appendix~\ref{app:overlap_spectrum}), a
-single hyperparameter on the procedure --- the fraction of data the
-two networks share --- separates a setting where churn increases on
-DILI ($\overlapPctHi\%$ overlap) from one where churn never increases
-on any dataset ($\sim\overlapPctMid\%$).  The same lever, the
-consistency weight $\lambda$, takes a different value on a different
-architecture, but the rule that selects it is unchanged
-(Section~\ref{sec:generalisation}).
+\paragraph{The data-resampling protocol is the design lever.}
+Cross-sample stability is set less by the model class than by how the
+training procedure resamples data between independent runs.  The
+codistillation-vs.\ twin-bootstrap comparison
+(Appendix~\ref{app:overlap_spectrum}) isolates the inter-network
+bootstrap overlap as the operative parameter: at $\overlapPctHi\%$
+overlap churn increases on DILI; at $\sim\overlapPctMid\%$ churn never
+increases on any of the \nDatasetsHeadline{} chemistry datasets we
+tested.  The consistency weight $\lambda$ that controls how strongly
+the procedure exploits this overlap takes a different numerical
+value on different architectures, but the development-set rule that
+selects it transfers unchanged across MLP, GIN, ChemBERTa, and
+ImageNet-pretrained ResNet-50
+(Section~\ref{sec:generalisation}).  Cross-sample stability can
+therefore be designed in at training time --- without changing the
+model class or the deployment pipeline --- by tuning a single
+hyperparameter on the development set with the same rule.
 

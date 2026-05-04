@@ -96,11 +96,16 @@ def main():
                 mew=1.5 if is_frozen else 1.0,
                 zorder=4 if is_frozen else 3)
         if lam in individually_labelled:
+            # Halo bbox keeps the inline λ label legible against the
+            # dense cluster of error bars and the bagging marker.
             ax.annotate(rf"$\lambda{{=}}{lam:g}$", (x, y),
                         xytext=individually_labelled[lam],
                         textcoords="offset points",
-                        fontsize=7, color="0.30",
-                        fontweight="bold" if is_frozen else "normal")
+                        fontsize=9, color="0.15",
+                        fontweight="bold" if is_frozen else "normal",
+                        bbox=dict(boxstyle="round,pad=0.18",
+                                  fc="white", ec="0.70",
+                                  lw=0.4, alpha=0.9))
 
     # ERM and bagging reference points (no inline labels — handled by legend).
     if erm is not None:
