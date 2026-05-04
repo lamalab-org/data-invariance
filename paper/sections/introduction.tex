@@ -76,10 +76,10 @@ the twin-bootstrap procedure we propose --- do reduce it.
         while aggregate accuracy moves only
         $\accDiffMin\text{--}\accDiffMax$\,pp
         (Table~\ref{tab:fragility-magnitudes}).
-  \item \textbf{Bagging} as a free-lunch baseline:
+  \item \textbf{Bagging.}
         $K$-bootstrap bagging~\citep{Breiman1996} cuts churn
         $\bagFiveLow\text{--}\bagFiveHigh\%$ on every dataset at no
-        accuracy cost (Table~\ref{tab:main}).
+        accuracy cost, at $K\times$-ERM compute (Table~\ref{tab:main}).
   \item \textbf{Twin-bootstrap}, the codistillation operating point
         at $\sim\overlapPctMid\%$ inter-network bootstrap overlap:
         at matched $2\times$-ERM compute it cuts churn a further
