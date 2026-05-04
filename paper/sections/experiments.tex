@@ -31,7 +31,7 @@ five independently initialised networks at fixed data and raise mean
 accuracy by $\deepEnsAccDelta$\,pp without changing churn, while
 twin-bootstrap varies the data sample and cuts churn a median
 $\twinMedianReduction\%$ at a small accuracy cost
-($\twinAccDelta$\,pp on average).  The two move independently.
+($\twinAccDelta$\,pp on average).
 
 \begin{figure}[t]
   \centering
@@ -40,7 +40,7 @@ $\twinMedianReduction\%$ at a small accuracy cost
     benchmark; MC dropout, deep ensembles, and SWA do not.}  Left: paired
     $\Delta$ id-churn vs.\ ERM for five methods, one row per dataset
     (smallest $N$ at top), $95\%$ paired-bootstrap CIs across
-    $\binom{10}{2}=45$ seed pairs.  Vertical reference lines mark
+    the $\nSeedPairs$ seed pairs.  Vertical reference lines mark
     each method's across-dataset mean (twin-bootstrap solid, others
     dashed; colours match markers); the solid black line is parity
     with ERM.  Right: $\Delta$ vs.\ matched-compute bagging-$K{=}2$,
@@ -114,8 +114,10 @@ in Appendix~\ref{app:case_study} (Figure~\ref{fig:case_study}).
 \label{sec:generalisation}
 
 The main result on small-$N$ from-scratch MLPs holds across three
-other architectures and on regression. The numerical value of
-$\lambda$ is architecture-specific; the rule that selects it is not.
+other architectures and on regression.  Different architectures
+require different $\lambda$ values, but the same accuracy-tolerance
+rule on the development set picks each one --- the recipe transfers
+even when the value does not.
 
 \paragraph{Pretrained backbones.}
 The BACE-MLP-frozen $\lambda{=}300$ over-constrains pretrained

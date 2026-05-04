@@ -15,6 +15,12 @@ Sym-KL varies by ${\sim}\symKLDatasetSpread\times$ across datasets,
 and the variation is task-dependent rather than a function of
 training-set size alone (e.g.\ TADF and BACE both have
 $N \approx 1000$ but differ by ${\sim}2\times$ in sym-KL).
+Per-example churn exceeds aggregate-metric drift on every dataset
+under any aggregate (precision, recall, $F_1$, AP;
+Appendix~\ref{app:additional_metrics}) and concentrates on the
+minority class on imbalanced datasets (BBB-Martins, BBBP, CYP2D6-Sub;
+Appendix~\ref{app:per_class_churn}) --- the class practitioners
+typically act on.
 
 \input{sections/tables/fragility_magnitudes.tex}
 

@@ -29,33 +29,6 @@ We use ``cross-sample churn'' (or just ``churn'' when context is
 clear) for $\bar\rho$ and ``class-flip rate'' for the same quantity
 reported as a percentage; the two names refer to the same quantity.
 
-\paragraph{Aggregate metrics hide per-prediction drift.}
-Every aggregate metric (accuracy, AUROC, precision, recall, $F_1$,
-AP) is a population average that summarises out per-example variation;
-churn counts disagreements before any averaging.  We pre-screen
-to ERM accuracy $\geq$ majority-class baseline $+\preregFilterPP$pp
-so the gap we measure is learned-decision performance rather than
-majority shuffling.  On every dataset, the per-example class-flip
-rate exceeds every aggregate-metric drift, typically by
-$2\text{--}10\times$ (e.g.\ cyp2d6\_substrate:
-$|\Delta\text{recall}|=\cypTwoDeltaRecall$\,pp,
-$|\Delta\text{acc}|=\cypTwoDeltaAcc$\,pp;
-Appendix~\ref{app:additional_metrics}).  The disagreement also
-concentrates on the minority class on imbalanced datasets
-($2\text{--}4\times$ majority on BBB-Martins, BBBP, CYP2D6-Sub;
-Appendix~\ref{app:per_class_churn}) --- the class that drives
-next-step decisions.
-
-\paragraph{Churn is not a recoding of accuracy.}
-At the dataset level, the mean class-flip rate correlates with mean
-ERM accuracy at Pearson $\churnAccCorrPearson$ (Spearman
-$\churnAccCorrSpearman$) across the \nDatasetsHeadline{} chemistry
-benchmarks --- harder tasks show more churn.  But the methods that
-most reduce churn are not the methods that most improve accuracy:
-deep ensembles raise mean accuracy without reducing churn, and
-twin-bootstrap cuts churn at a small accuracy cost
-(Section~\ref{sec:experiments}, Table~\ref{tab:main}).
-
 \paragraph{Bootstrap estimator.}
 A practitioner has one observed training set $S$, not a population
 $\mathcal{D}$.  We estimate $\rho$ by drawing two independent

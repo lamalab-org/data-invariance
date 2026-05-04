@@ -1,19 +1,22 @@
 \section{Discussion}
 \label{sec:discussion}
 
-\paragraph{Reducing cross-sample prediction churn.}
-The intro's toxicity classifier loses class on
-$\churnMin\text{--}\churnMax\%$ of test molecules between retrainings
-on independent bootstraps of the same training population.
-Bagging-$K{=}5$ cuts that to
+\paragraph{Churn is reducible with methods the field already has.}
+The two procedures that work --- bagging and twin-bootstrap --- need
+nothing exotic.  Bagging is a 30-year-old method already implemented
+in every chemistry-ML toolkit; on the benchmarks we test it cuts
+ERM's $\churnMin\text{--}\churnMax\%$ churn down to
 $\bagFiveFinalLow\text{--}\bagFiveFinalHigh\%$ at no accuracy cost
-($5\times$-ERM compute, Table~\ref{tab:main}).  Twin-bootstrap at
-$\lambda{=}300$ ($2\times$-ERM compute) cuts it to
-$\twinFinalLow\text{--}\twinFinalHigh\%$,
-beating matched-compute bagging-$K{=}2$ on
-$\twinWinsBagTwoMain/\twinWinsBagTwoMainDenom$ datasets and
-matching the $K{=}5$ result in mean rank
-(Appendix~\ref{app:friedman}).
+and parallelises to ERM wall-clock on $K$ devices
+(Table~\ref{tab:main}).  Twin-bootstrap, which we propose, requires
+two networks trained jointly with a sym-KL consistency loss --- a
+modification of standard training that any group running PyTorch can
+deploy --- and pushes the rate to
+$\twinFinalLow\text{--}\twinFinalHigh\%$ at $2\times$-ERM compute.
+Neither method requires a new optimisation framework, an unusual loss
+beyond cross-entropy plus KL, or specialised hardware.  The
+practical implication: per-prediction stability under retraining is a
+column the field can start reporting tomorrow.
 
 \paragraph{A recommended workflow.}
 A tiered recipe that practitioners can adopt incrementally on an
@@ -27,17 +30,16 @@ bootstrap and route the top-$\reviewFraction\%$-churn predictions
 to a reviewer (Figure~\ref{fig:decile}).
 
 \paragraph{Stability is a property of the procedure.}
-A model's cross-sample churn is not a fact about the trained
-weights; it is a fact about the procedure that produced them ---
-the optimiser, the schedule, the data-resampling protocol.  In the
-codistillation-vs.\ twin-bootstrap comparison
-(Appendix~\ref{app:overlap_spectrum}), a single hyperparameter on
-the procedure --- the fraction of data the two networks share ---
-separates a setting where churn increases on DILI ($\overlapPctHi\%$
-overlap) from one where churn never increases on any dataset
-($\sim\overlapPctMid\%$).  The same lever, the consistency
-weight $\lambda$, takes a different value on a different architecture
-but the rule that selects it is unchanged
+What sets a model's cross-sample churn is the training procedure that
+produced its weights --- the optimiser, the schedule, and especially
+the data-resampling protocol.  In the codistillation-vs.\
+twin-bootstrap comparison (Appendix~\ref{app:overlap_spectrum}), a
+single hyperparameter on the procedure --- the fraction of data the
+two networks share --- separates a setting where churn increases on
+DILI ($\overlapPctHi\%$ overlap) from one where churn never increases
+on any dataset ($\sim\overlapPctMid\%$).  The same lever, the
+consistency weight $\lambda$, takes a different value on a different
+architecture, but the rule that selects it is unchanged
 (Section~\ref{sec:generalisation}).
 
 \paragraph{Cross-sample churn belongs in the benchmark report.}
@@ -48,7 +50,9 @@ test the per-example flip rate is many times larger than the
 aggregate-accuracy drift it lives behind
 (Section~\ref{sec:churn-magnitudes}, Figure~\ref{fig:overview}).
 Clinical biostatistics already reports per-individual stability
-intervals~\citep{Riley2023}; the case for doing the same in
-scientific ML rests on the magnitudes we measure.  The protocol
-surfaces the rate, bagging and twin-bootstrap reduce it, and a
-one-bootstrap triage identifies which predictions will flip first.
+intervals~\citep{Riley2023}; the case for adding a churn column to
+scientific-ML benchmarks is the same case --- the magnitudes are
+large enough to matter (Section~\ref{sec:churn-magnitudes}).  Once
+the column is in the report, bagging and twin-bootstrap reduce it,
+and a one-bootstrap triage identifies which predictions will flip
+first.

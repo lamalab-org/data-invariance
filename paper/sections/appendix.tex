@@ -129,7 +129,7 @@ $|\Delta\text{accuracy}|$ between two retrainings.  Accuracy on
 imbalanced binary tasks can mask class-specific drift, so we
 additionally compute paired $|\Delta|$ for precision, recall, $F_1$,
 and average precision (AP) on each of the \nDatasetsHeadline{} chemistry
-datasets, using the same $\binom{10}{2}=45$ seed pairs of ERM
+datasets, using the same $\nSeedPairs$ seed pairs of ERM
 bootstraps.
 Table~\ref{tab:additional-metrics} reports the result.  On the
 imbalanced ADME datasets (cyp2d6\_substrate, DILI), recall and
