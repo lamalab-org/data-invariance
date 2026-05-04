@@ -6,7 +6,9 @@ classification (MoleculeNet, TDC ADME and Tox, materials-science).
 Regression is covered for three MoleculeNet benchmarks
 (Appendix~\ref{app:regression}); Waterbirds is a single vision
 cross-check; multi-class classification and structured outputs are
-not tested.  Pretrained-backbone results (ChemBERTa, ResNet-50, GIN)
-are single-canonical-seed cross-checks, not full sweeps replicated
-across canonical seeds.  We use $K{=}2$ throughout twin-bootstrap and
-do not study larger head counts.
+not tested.  We use $K{=}2$ throughout twin-bootstrap and do not study larger head
+counts.  The development $\lambda$-Pareto sweeps (BACE, BACE-GIN,
+BACE-ChemBERTa, Waterbirds) are reported on canonical seed
+$\canonicalSeed$ alone; the headline pretrained-backbone results
+(ERM, $\lambda{=}300$, $\lambda{=}10$) are replicated across all
+$\nCanonicalSeeds$ canonical seeds.

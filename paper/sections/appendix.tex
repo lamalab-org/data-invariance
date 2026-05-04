@@ -418,13 +418,13 @@ ChemBERTa accuracy by
 $\chembertaAccDropLow\text{--}\chembertaAccDropHigh$pp on every
 dataset and fails to reduce the class-flip rate on
 $\chembertaLamThreeHundredFailCount/\chembertaLamThreeHundredDenom$
-datasets: the paired CI of $\Delta$ class-flip rate vs.\ ERM either
-excludes zero on the high side (BACE, Pgp, AMES, DILI: strict
-increase) or straddles zero (BBB-Martins).  The one apparent
-decrease (BBBP) is a model collapse to the majority-class predictor,
-not a real cut.  Same diagnosis as the
-GIN architecture cross-check (Appendix~\ref{app:gin}): the $\lambda$
-tuned on a from-scratch MLP is too strong for pretrained
+datasets: the across-seed-mean paired $\Delta$ vs.\ ERM is positive
+on BACE, Pgp, and DILI (strict increase, all three canonical seeds
+agree), and the one apparent decrease (BBBP) is a model collapse to
+the majority-class predictor, not a real cut.  AMES and BBB-Martins
+are within paired CI of zero on average across seeds.  Same diagnosis
+as the GIN architecture cross-check (Appendix~\ref{app:gin}): the
+$\lambda$ tuned on a from-scratch MLP is too strong for pretrained
 representations.
 
 \paragraph{Rule-selected $\lambda$ on BACE-ChemBERTa is $\lambda{=}10$.}

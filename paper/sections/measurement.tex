@@ -78,11 +78,12 @@ Confidence intervals come from $10{,}000$-sample bootstrap on the
 seed-pair distribution; cross-method deltas are paired.
 
 We replicate the entire protocol on $\nCanonicalSeeds$ independent
-canonical seeds ($\canonicalSeed$, $7$, $42$); magnitudes quoted in
-prose are across-seed means and the $\lambda$-selection rule picks
+canonical seeds ($\canonicalSeed$, $7$, $42$) for both the headline
+chemistry-MLP comparison and the pretrained-backbone scope checks
+(GIN, ChemBERTa, Waterbirds); magnitudes quoted in prose are
+across-seed means and the $\lambda$-selection rule picks
 $\lambda{=}300$ on every seed independently
-(Appendix~\ref{app:seed_sensitivity}).  Pretrained-backbone
-cross-checks (GIN, ChemBERTa, Waterbirds) are single-seed.
+(Appendix~\ref{app:seed_sensitivity}).
 
 \paragraph{Datasets.}
 \label{sec:datasets}
