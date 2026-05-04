@@ -65,11 +65,10 @@ proxy --- the quantity computable from a single observed training
 set.
 
 \paragraph{Measurement protocol.}
-A single fixed seed --- which we call the \emph{canonical} seed
---- determines the train/test split once and for all; the resulting
-training pool and test set are reused across every method and every
-train seed, so test-side variance is zero by construction within a
-canonical seed.  For each train seed $s \in \{1, \dots, \nSeeds\}$ we
+A \emph{canonical} seed determines a single train/test split; within
+that split, the training pool and test set are reused across every
+method and every train seed, so test-side variance is zero by
+construction.  For each train seed $s \in \{1, \dots, \nSeeds\}$ we
 draw a bootstrap $S^{(s)}$ from the canonical training pool and train
 $f^{(s)} = \mathcal{A}(S^{(s)})$ on it.  Cross-sample churn is the average of
 $\mathbf{1}[\arg\max f^{(s)}(x) \neq \arg\max f^{(s')}(x)]$ over all
@@ -77,12 +76,13 @@ $\binom{\nSeeds}{2}{=}\nSeedPairs$ pairs $(s, s')$ and over the canonical test s
 Confidence intervals come from $10{,}000$-sample bootstrap on the
 seed-pair distribution; cross-method deltas are paired.
 
-We replicate the entire protocol on $\nCanonicalSeeds$ independent
-canonical seeds ($\canonicalSeed$, $7$, $42$) for both the headline
-chemistry-MLP comparison and the pretrained-backbone scope checks
-(GIN, ChemBERTa, Waterbirds); magnitudes quoted in prose are
-across-seed means and the $\lambda$-selection rule picks
-$\lambda{=}300$ on every seed independently
+We run $\nCanonicalSeeds$ independent replicates of the protocol at
+canonical seeds $\canonicalSeed$, $7$, and $42$ (each replicate is a
+different train/test split with its own ten train seeds), for both
+the chemistry-MLP comparison and the pretrained-backbone scope
+checks (GIN, ChemBERTa, Waterbirds).  Magnitudes quoted in prose are
+across-replicate means; the $\lambda$-selection rule picks
+$\lambda{=}300$ on every replicate independently
 (Appendix~\ref{app:seed_sensitivity}).
 
 \paragraph{Datasets.}
@@ -96,9 +96,9 @@ materials-science benchmarks (TADF~\citep{jablonka2026clever, Huang2024},
 MOF-thermal-stability, MOF-solvent-removal~\citep{jablonka2026clever, Nandy2022}).
 A pre-registered health filter
 (ERM accuracy $\geq$ majority $+ \preregFilterPP$pp on a canonical
-test set $\geq \preregMinTestSize$ examples) keeps nine headline
-datasets, flags three borderline datasets, and excludes five; per-dataset
-filter outcomes are in Appendix~\ref{app:repro}.  Featurisation is
+test set $\geq \preregMinTestSize$ examples) keeps nine datasets for
+the method comparison, flags three borderline datasets, and excludes
+five; per-dataset filter outcomes are in Appendix~\ref{app:repro}.  Featurisation is
 the standard chemistry choice per dataset family ($2048$-bit Morgan
 radius-2 fingerprints for MoleculeNet/TDC; $+217$ RDKit descriptors
 for TADF; $174$ RAC descriptors plus GSA for
