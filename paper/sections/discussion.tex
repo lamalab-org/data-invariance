@@ -28,13 +28,18 @@ can therefore be designed in at training time, without changing the
 model class or the deployment pipeline, by tuning a single
 hyperparameter on the development set with the same rule.
 
-\paragraph{Outlook.}
-The construction generalises beyond bootstrap resampling.  Wherever
-the practitioner cares about stability under a specific source of
-variation --- temporal data refreshes, federated training rounds,
-covariate shift between train and deployment --- the same recipe
-applies: vary that axis during training, evaluate models on
-per-prediction disagreement under that axis, and rule out fixed-axis
-uncertainty methods that cannot even see the rate.  Cross-sample
-bootstrap variance is the most operationally relevant case for
-scientific machine learning today; other axes are open.
+\paragraph{Broader impacts.}
+Reducing cross-sample churn has operational consequences because
+deployment-driven domains route substantial wet-lab effort to the
+molecules a model ranks highest at any given retraining; reducing
+the rate at which that ranking flips between dataset updates cuts
+wasted experimental work and makes computational triage decisions
+reproducible.  Two cautions are warranted.  Low churn is not
+correctness: a stably wrong model looks identical to a stably right
+one under this metric, and the churn-ranked triage workflow only
+flags predictions that disagree across retrainings, not those that
+agree but are jointly miscalibrated.  Cross-sample churn is also a
+bootstrap-variance quantity --- it does not characterise stability
+under distribution shift between the training population and the
+deployment domain, which requires separate measurement.
+
