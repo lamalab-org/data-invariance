@@ -1,20 +1,20 @@
 \begin{table}[h]
 \centering
-\caption{\textbf{At matched $2\times$-ERM compute, twin-bootstrap beats bagging-$K{=}2$ on every regression dataset; the methods rank identically to the classification headline.}  Per-method id-MAE and cross-sample fragility (mean $|f_A - f_B|$ between bootstrap retrainings) on three MoleculeNet regression benchmarks.  All reported quantities are mean $[\,95\%\ \text{CI}\,]$ over $\binom{10}{2}{=}45$ seed pairs (or $10$ retrainings for id-MAE).  Paired $\Delta$ fragility vs.\ ERM in the bottom rows; bold marks the best matched-compute method per dataset.  Bagging-$K{=}5$ ($5\times$-ERM compute) included as a stronger no-cost reference.}
+\caption{\textbf{At matched $2\times$-ERM compute, twin-bootstrap beats bagging-$K{=}2$ on every regression dataset; the methods rank identically to the classification headline.}  Per-method id-MAE and cross-sample churn (mean $|f_A - f_B|$ between bootstrap retrainings) on three MoleculeNet regression benchmarks.  All reported quantities are mean $[\,95\%\ \text{CI}\,]$ over $\binom{10}{2}{=}45$ seed pairs (or $10$ retrainings for id-MAE).  Paired $\Delta$ churn vs.\ ERM in the bottom rows; bold marks the best matched-compute method per dataset.  Bagging-$K{=}5$ ($5\times$-ERM compute) included as a stronger no-cost reference.}
 \label{tab:regression}
 \scriptsize
 \begin{tabular}{lcccccc}
 \toprule
 & \multicolumn{2}{c}{ESOL ($N{=}1128$)} & \multicolumn{2}{c}{FreeSolv ($N{=}642$)} & \multicolumn{2}{c}{Lipo ($N{=}4200$)} \\
 \cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
-Method & id-MAE & fragility & id-MAE & fragility & id-MAE & fragility \\
+Method & id-MAE & churn & id-MAE & churn & id-MAE & churn \\
 \midrule
 ERM & 0.94 & 0.52 & 1.65 & 0.69 & 0.66 & 0.38 \\
 Bagging-$K{=}2$ & 0.89 & 0.35 & 1.60 & 0.49 & 0.63 & 0.26 \\
 Bagging-$K{=}5$ & 0.86 & 0.22 & 1.54 & 0.29 & 0.61 & 0.17 \\
 Twin-bootstrap $\lambda{=}3$ & 0.86 & 0.30 & 1.56 & 0.42 & 0.62 & 0.23 \\
 \midrule
-\multicolumn{7}{l}{\emph{Paired $\Delta$ fragility vs.\ ERM (45 seed-pairs, mean $[\,95\%\ \text{CI}\,]$):}} \\
+\multicolumn{7}{l}{\emph{Paired $\Delta$ churn vs.\ ERM (45 seed-pairs, mean $[\,95\%\ \text{CI}\,]$):}} \\
 Bagging-$K{=}2$ & \multicolumn{2}{c}{-0.17 [-0.19, -0.15] (-32\%)} & \multicolumn{2}{c}{-0.20 [-0.23, -0.16] (-29\%)} & \multicolumn{2}{c}{-0.11 [-0.12, -0.11] (-30\%)} \\
 Bagging-$K{=}5$ & \multicolumn{2}{c}{-0.30 [-0.32, -0.28] (-57\%)} & \multicolumn{2}{c}{-0.40 [-0.43, -0.36] (-58\%)} & \multicolumn{2}{c}{-0.21 [-0.21, -0.20] (-55\%)} \\
 Twin-bootstrap $\lambda{=}3$ & \multicolumn{2}{c}{\textbf{-0.22 [-0.23, -0.21] (-42\%)}} & \multicolumn{2}{c}{\textbf{-0.27 [-0.30, -0.23] (-39\%)}} & \multicolumn{2}{c}{\textbf{-0.15 [-0.16, -0.15] (-40\%)}} \\

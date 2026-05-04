@@ -4,7 +4,7 @@ chemistry training set assign different classes to
 $\churnMin\text{--}\churnMax\%$ of test molecules, while their
 aggregate accuracy differs by only $\accDiffMin\text{--}\accDiffMax$
 percentage points.  We call this \emph{cross-sample prediction
-fragility}.  Across \nDatasetsHeadline{} chemistry benchmarks the
+churn}.  Across \nDatasetsHeadline{} chemistry benchmarks the
 standard parameter-side techniques --- deep ensembles, Monte Carlo
 dropout, and stochastic weight averaging (SWA) --- shift the
 class-flip rate by $\paramSideLow\%$ to $\paramSideHigh\%$ relative
@@ -14,6 +14,6 @@ $\bagFiveLow\text{--}\bagFiveHigh\%$ on every dataset at no
 accuracy cost.  \emph{Twin-bootstrap} --- two networks trained on
 independent bootstraps with a soft consistency loss --- cuts a
 further median $\twinFurtherMedianReductionVsBagTwo\%$ beyond
-bagging-$K{=}2$ at matched $2\times$-ERM compute.  Cross-sample fragility belongs alongside accuracy in
+bagging-$K{=}2$ at matched $2\times$-ERM compute.  Cross-sample churn belongs alongside accuracy in
 small-$N$ scientific-ML benchmark reports.
 \end{abstract}

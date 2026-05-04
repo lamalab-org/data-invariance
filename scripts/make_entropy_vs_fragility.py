@@ -123,9 +123,9 @@ def main() -> None:
     lines = [
         r"\begin{table}[h]",
         r"  \centering",
-        r"  \caption{\textbf{Per-example fragility beats single-model "
+        r"  \caption{\textbf{Per-example churn beats single-model "
         r"predictive entropy as a retraining-flip predictor on every "
-        r"chemistry dataset.}  Fragility is computed from one extra "
+        r"chemistry dataset.}  Churn is computed from one extra "
         r"bootstrap pair on the canonical id-test.  ``Top-10\%\ recall'' "
         r"is the fraction of all retraining-induced flips captured by "
         r"the top decile of the score; ``AuPC'' is the area under the "
@@ -136,7 +136,7 @@ def main() -> None:
         r"    \toprule",
         r"    & \multicolumn{2}{c}{Top-10\% recall (\%)} "
         r"& \multicolumn{2}{c}{AuPC} \\",
-        r"    Dataset & Fragility & Entropy & Fragility & Entropy \\",
+        r"    Dataset & Churn & Entropy & Churn & Entropy \\",
         r"    \midrule",
     ]
     for r in rows:

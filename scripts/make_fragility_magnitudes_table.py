@@ -128,8 +128,8 @@ def main() -> None:
         + f"{min_acc_diff:.1f}" + r"\,--\," + f"{max_acc_diff:.1f}"
         + r"\,pp on average, but disagree on $8\text{--}22\%$ of "
         r"individual test predictions.}  "
-        r"Cross-bootstrap fragility on the canonical id-test of each "
-        r"dataset.  Top group: nine headline datasets (dev + held-out) "
+        r"Cross-bootstrap class-flip rate on the canonical id-test of "
+        r"each dataset.  Top group: nine headline datasets (dev + held-out) "
         r"that pass the +5pp ERM-vs-majority filter and have "
         r"$N_{\text{id-test}} \geq 60$.  Bottom group: three borderline "
         r"datasets that pass the filter only marginally (+3 to +4pp on "
@@ -137,9 +137,9 @@ def main() -> None:
         r"in the headline method comparison.  ERM id-acc is the mean "
         r"across $10$ retrainings; $|\Delta\text{acc}|$ is the mean "
         r"absolute accuracy difference between two retrainings, averaged "
-        r"over the same $45$ pairs as the churn column.  Argmax churn is "
-        r"the per-example class-disagreement rate; sym-KL is the "
-        r"corresponding distributional gap.  All paired columns report "
+        r"over the same $45$ pairs as the churn column.  Class-flip rate is "
+        r"the per-example argmax-disagreement rate (cross-sample churn); "
+        r"sym-KL is the corresponding distributional gap.  All paired columns report "
         r"mean with $95\%$ paired-bootstrap CIs ($10{,}000$ resamples).}",
         r"  \label{tab:fragility-magnitudes}",
         r"  \scriptsize",

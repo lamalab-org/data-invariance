@@ -71,7 +71,7 @@ def main() -> None:
     out_path = Path("paper/sections/tables/nscaling_bace.tex")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     caption = (
-        r"\textbf{Cross-sample fragility decreases with training-pool "
+        r"\textbf{Cross-sample churn decreases with training-pool "
         r"size on BACE, with a visible plateau between $M{=}600$ and "
         r"$M{=}800$.}  Within-dataset $N$-scaling under the cross-sample "
         r"bootstrap protocol.  Each row is mean cross-pair sym-KL and "
@@ -79,7 +79,7 @@ def main() -> None:
         r"$45$ pairs of $10$ retrainings with paired-bootstrap $95\%$ "
         r"CIs ($10{,}000$ resamples).  The within-dataset log-log slope "
         r"of sym-KL vs $M$ is $" + f"{slope:.2f}" + r"$; the plateau "
-        r"reflects an irreducible boundary-disagreement floor (fragility "
+        r"reflects an irreducible boundary-disagreement floor (churn "
         r"decreases with $N$ but not to zero)."
     )
     lines = [

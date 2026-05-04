@@ -117,11 +117,11 @@ def main():
         r"\caption{\textbf{At matched $2\times$-ERM compute, twin-bootstrap "
         r"beats bagging-$K{=}2$ on every regression dataset; the methods "
         r"rank identically to the classification headline.}  Per-method "
-        r"id-MAE and cross-sample fragility (mean $|f_A - f_B|$ between "
+        r"id-MAE and cross-sample churn (mean $|f_A - f_B|$ between "
         r"bootstrap retrainings) on three MoleculeNet regression "
         r"benchmarks.  All reported quantities are mean $[\,95\%\ "
         r"\text{CI}\,]$ over $\binom{10}{2}{=}45$ seed pairs (or $10$ "
-        r"retrainings for id-MAE).  Paired $\Delta$ fragility vs.\ ERM "
+        r"retrainings for id-MAE).  Paired $\Delta$ churn vs.\ ERM "
         r"in the bottom rows; bold marks the best matched-compute method "
         r"per dataset.  Bagging-$K{=}5$ ($5\times$-ERM compute) included "
         r"as a stronger no-cost reference.}",
@@ -133,7 +133,7 @@ def main():
         r" & \multicolumn{2}{c}{FreeSolv ($N{=}642$)}"
         r" & \multicolumn{2}{c}{Lipo ($N{=}4200$)} \\",
         r"\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}",
-        r"Method & id-MAE & fragility & id-MAE & fragility & id-MAE & fragility \\",
+        r"Method & id-MAE & churn & id-MAE & churn & id-MAE & churn \\",
         r"\midrule",
     ]
     for name, _ in METHODS:
@@ -148,7 +148,7 @@ def main():
         lines.append(f"{name} & " + " & ".join(cells) + r" \\")
     lines += [
         r"\midrule",
-        r"\multicolumn{7}{l}{\emph{Paired $\Delta$ fragility vs.\ ERM "
+        r"\multicolumn{7}{l}{\emph{Paired $\Delta$ churn vs.\ ERM "
         r"(45 seed-pairs, mean $[\,95\%\ \text{CI}\,]$):}} \\",
     ]
     # Identify the best matched-compute method per dataset: between

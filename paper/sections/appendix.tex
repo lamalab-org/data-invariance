@@ -15,7 +15,7 @@ cross-architecture and cross-task generalisation evidence.
 Appendices~\ref{app:compute}--\ref{app:repro} cover compute and
 reproducibility.
 
-\section{Cross-sample fragility is the data-sampling slice no prior churn work measures}
+\section{The data-sampling slice no prior churn work measures}
 \label{app:related_table}
 
 \begin{table}[h]
@@ -84,7 +84,7 @@ $\nScalingSymKLMin$ at $M{=}\nScalingMmin$ before ticking back up
 slightly to $\nScalingSymKLEnd$ at $M{=}968$ (Table~\ref{tab:nscaling};
 log-log slope $\nScalingSlope$, computed on canonical-seed
 $\canonicalSeed$ alone for protocol consistency).  More data reduces
-fragility but does not drive it to zero, motivating the methods we
+churn but does not drive it to zero, motivating the methods we
 propose for the regime where simply collecting more data is not
 available.
 
@@ -156,7 +156,7 @@ statistical power.
 \label{app:seed_sensitivity}
 
 The canonical seed determines the train/test split.  All
-single-canonical-seed estimates of cross-sample fragility therefore
+single-canonical-seed estimates of cross-sample churn therefore
 inherit a sensitivity to which examples ended up in the test set.
 We replicate the entire main-table protocol on $\nCanonicalSeeds$
 canonical seeds ($\canonicalSeed$, $7$, $42$) for each method-dataset
@@ -324,9 +324,9 @@ $K{=}5$ requires.
 \label{app:convergence}
 
 The triage workflow asks the practitioner to train one extra ERM
-bootstrap and rank predictions by fragility.  We verify that
+bootstrap and rank predictions by churn.  We verify that
 $K{=}2$ (one extra bootstrap) is sufficient by comparing the
-top-$\reviewFraction\%$ cumulative recall when the fragility ranking is computed
+top-$\reviewFraction\%$ cumulative recall when the churn ranking is computed
 from $K \in \{2, 3, 5, 10\}$ ERM bootstraps.
 
 \begin{figure}[h]
@@ -337,30 +337,30 @@ from $K \in \{2, 3, 5, 10\}$ ERM bootstraps.
     standard on every dataset.}  Mean recall across $30$ random
     $K$-subsets per $K{<}10$.  Per-dataset at $K{=}2$:
     $\triageKtwoLow$--$\triageKtwoHigh\%$.  At $K{=}10$ (using all
-    ten bootstraps to score fragility):
+    ten bootstraps to score churn):
     $\triageKtenLow$--$\triageKtenHigh\%$.  MOF-thermal is the floor
     on every $K$ ($\mofThermalConvLow$--$\mofThermalConvHigh\%$);
     BBBP and BBB-Martins reach $\overlapPctHi\%$ recall by $K{=}5$.}
   \label{fig:convergence}
 \end{figure}
 
-\section{Predictive entropy: a weaker flip-predictor than fragility on every dataset}
+\section{Predictive entropy: a weaker flip-predictor than churn on every dataset}
 \label{app:entropy}
 
-A natural deployment-cheaper alternative to per-example fragility is
+A natural deployment-cheaper alternative to per-example churn is
 the predictive entropy of a single trained model: the practitioner
 already has access to a softmax distribution at deployment time and
 need not train a second model.  We test whether the per-example
 entropy ranks test predictions for retraining-flip risk as well as
-fragility does.
+churn does.
 
 \input{sections/tables/entropy_vs_fragility.tex}
 
-Across the eight held-out datasets, fragility captures more of the
+Across the eight held-out datasets, churn captures more of the
 total flip-mass in its top decile and has a larger area under the
 precision-vs-coverage curve than predictive entropy.  The gap is
 consistent and ranges from $\entropyGapMin$pp to $\entropyGapMax$pp on top-decile recall.  The
-practitioner cost of computing fragility is one additional ERM
+practitioner cost of computing churn is one additional ERM
 training run, which the speedup over training a full
 $K$-bootstrap-bagging ensemble may amortise; entropy is free at
 deployment time but is a meaningfully weaker signal.
@@ -471,7 +471,7 @@ the methods extend to continuous targets we run the same protocol on
 three small-$N$ MoleculeNet regression benchmarks: ESOL ($N{=}1128$,
 $\log$ aqueous solubility), FreeSolv ($N{=}642$, hydration free
 energy in kcal/mol), and Lipophilicity ($N{=}4200$, $\log D_{7.4}$).
-Cross-sample fragility for regression is the per-example absolute
+Cross-sample churn for regression is the per-example absolute
 prediction difference between two retrainings on independent bootstraps:
 $\rho_{\mathrm{reg}}(\mathcal{A}, x) =
 \mathbb{E}_{S_A, S_B}|f_{S_A}(x) - f_{S_B}(x)|$.  The
@@ -486,7 +486,7 @@ $\nSeedPairs$ seed-pairs) are unchanged.
 
 \input{sections/tables/regression.tex}
 
-At matched compute, twin-bootstrap cuts regression fragility by
+At matched compute, twin-bootstrap cuts regression churn by
 $\regTwinLow\text{--}\regTwinHigh\%$ while bagging-$K{=}2$ cuts
 $\regBagTwoLow\text{--}\regBagTwoHigh\%$; twin-bootstrap wins on every
 dataset by ${\sim}10$pp of relative reduction.  This mirrors the

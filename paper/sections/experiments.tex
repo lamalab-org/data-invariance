@@ -58,22 +58,22 @@ Table~\ref{tab:distributional}, Appendix~\ref{app:distributional}).  Pipelines t
 softmax (uncertainty-weighted ranking, candidate scoring) see a
 larger gap between the two than the argmax-churn column reflects.
 
-\paragraph{Fragility-ranked triage.}
+\paragraph{Churn-ranked triage.}
 \label{sec:churn-decile}
-Per-example fragility, computed across pairs of ERM bootstraps, ranks
+Per-example churn, computed across pairs of ERM bootstraps, ranks
 test examples by how likely they are to flip class on retraining.
 Figure~\ref{fig:decile} reports the cumulative fraction of total
 flip-mass captured if the practitioner sorts predictions by
-fragility and reviews the top fraction.  Reviewing the top $\reviewFraction\%$
+churn and reviews the top fraction.  Reviewing the top $\reviewFraction\%$
 captures $\triageKtenLow\text{--}\triageKtenHigh\%$ of all flips
-when fragility is scored from all $10$ bootstraps; with a single
+when churn is scored from all $10$ bootstraps; with a single
 extra retraining ($K{=}2$, the one-bootstrap practitioner workflow)
 the top-$30\%$ recall is
 $\triageKtwoLow\text{--}\triageKtwoHigh\%$, within
 $\triageKtwoToKtenGapLow\text{--}\triageKtwoToKtenGapHigh$\,pp
 of the $K{=}10$ gold standard on every dataset
 (Appendix~\ref{app:convergence}).  Predictive entropy from a single
-ERM model ranks worse on this task: fragility captures
+ERM model ranks worse on this task: churn captures
 $\fragTopLow\text{--}\fragTopHigh\%$ of flips in its top decile vs.\
 $\entropyTopLow\text{--}\entropyTopHigh\%$ for entropy (per-dataset
 gap $\entropyGapMin\text{--}\entropyGapMax$\,pp,
@@ -86,12 +86,12 @@ retraining --- one extra bootstrap on top of the deployed pipeline.
   \centering
   \includegraphics[width=0.75\linewidth]{figures/fig3_decile.pdf}
   \caption{\textbf{Routing the top $\reviewFraction\%$ of test predictions
-    (ranked by per-example fragility from one extra retraining) to a
+    (ranked by per-example churn from one extra retraining) to a
     human reviewer captures $\triageKtenLow$--$\triageKtenHigh\%$ of
     all retraining-induced class flips on the \nDatasetsHeadline{}
     chemistry datasets.}  Each curve is one
     dataset (BACE in red, held-out in grey); $x$-axis is the fraction
-    of test predictions reviewed in fragility-rank order, $y$-axis
+    of test predictions reviewed in churn-rank order, $y$-axis
     is the cumulative fraction of total flip-mass captured.  The
     diagonal marks random ranking; the shaded band marks the
     practical review fraction.  The triage workflow is a
@@ -135,7 +135,7 @@ On three regression benchmarks (ESOL, FreeSolv, Lipophilicity;
 Appendix~\ref{app:regression}) the methods extend to continuous
 targets and rank the same way as on classification.  At matched
 $2\times$-ERM compute, twin-bootstrap cuts prediction-difference
-fragility $\regTwinLow\text{--}\regTwinHigh\%$ vs.\ ERM while
+churn $\regTwinLow\text{--}\regTwinHigh\%$ vs.\ ERM while
 bagging-$K{=}2$ cuts $\regBagTwoLow\text{--}\regBagTwoHigh\%$
 (twin-bootstrap wins on every dataset).  Bagging-$K{=}5$ at
 $5\times$-ERM compute is strongest at

@@ -1,4 +1,4 @@
-\section{Cross-sample prediction fragility}
+\section{Cross-sample prediction churn}
 \label{sec:preliminaries}
 \label{sec:measurement}
 
@@ -7,35 +7,32 @@ A learner $\mathcal{A}$ maps a training set
 $S = \{(x_i, y_i)\}_{i=1}^{N}$ drawn iid from population $\mathcal{D}$
 to a classifier $f_S = \mathcal{A}(S)$ that returns a class
 $\hat{y}(x) = \arg\max_c f_S(x)_c$ at each test example $x$.
-Cross-sample fragility quantifies how $\hat{y}(x)$ changes when $S$
+Cross-sample churn quantifies how $\hat{y}(x)$ changes when $S$
 is replaced by an independent iid draw from $\mathcal{D}$.
 
 \paragraph{Definition.}
 Given two iid training samples $S_A, S_B \sim \mathcal{D}^N$ and a
-test example $x$, the \emph{cross-sample fragility} of $\mathcal{A}$ at
+test example $x$, the \emph{cross-sample churn} of $\mathcal{A}$ at
 $x$ is
 \begin{equation}
   \rho(\mathcal{A}, x) =
   \mathbb{P}_{S_A, S_B}\!\big[\arg\max f_{S_A}(x) \neq \arg\max f_{S_B}(x)\big].
 \end{equation}
-A fragility-aware report supplements the standard accuracy with the
+A churn-aware report supplements the standard accuracy with the
 expected per-example argmax disagreement
 $\bar\rho(\mathcal{A}) = \mathbb{E}_x [\rho(\mathcal{A}, x)]$, and
 optionally with a distributional analogue
 $\bar\rho_{\mathrm{KL}}(\mathcal{A})
 = \mathbb{E}_x \big[\tfrac{1}{2}(\mathrm{KL}(f_{S_A}(x) \| f_{S_B}(x))
                                 + \mathrm{KL}(f_{S_B}(x) \| f_{S_A}(x)))\big]$.
-Throughout the paper, ``fragility'' is the conceptual name for
-$\bar\rho$; ``class-flip rate'' is its operational expression as a
-percentage and is what figure axes and table cells display.  When we
-need to connect to prior literature on prediction churn we use
-``argmax churn'' (\S\ref{sec:related}); the three names refer to the
-same quantity.
+We use ``cross-sample churn'' (or just ``churn'' when context is
+clear) for $\bar\rho$ and ``class-flip rate'' for the same quantity
+reported as a percentage; the two names refer to the same quantity.
 
 \paragraph{Per-example, not aggregate.}
 Every aggregate metric (accuracy, AUROC, precision, recall, $F_1$,
 AP) is a population average that summarises out per-example variation;
-fragility counts disagreements before any averaging.  We pre-screen
+churn counts disagreements before any averaging.  We pre-screen
 to ERM accuracy $\geq$ majority-class baseline $+\preregFilterPP$pp
 so the gap we measure is learned-decision performance rather than
 majority shuffling.  On every dataset, the per-example class-flip
@@ -49,16 +46,16 @@ concentrates on the minority class on imbalanced datasets
 Appendix~\ref{app:per_class_churn}) --- the class that drives
 next-step decisions.
 
-\paragraph{Fragility correlates with task difficulty, but is not
+\paragraph{Churn correlates with task difficulty, but is not
 explained by it.}
 At the dataset level, the mean class-flip rate correlates with mean
 ERM accuracy at Pearson $\churnAccCorrPearson$ (Spearman
 $\churnAccCorrSpearman$) across the \nDatasetsHeadline{} chemistry
-benchmarks --- harder tasks show more fragility.  At the
+benchmarks --- harder tasks show more churn.  At the
 per-method level, decoupling: deep ensembles raise mean accuracy by
-$\deepEnsAccDelta$\,pp without reducing fragility, while twin-bootstrap
-cuts fragility a median $\twinMedianReduction\%$ at $\twinAccDelta$\,pp
-mean accuracy cost (Table~\ref{tab:main}).  Fragility is not a
+$\deepEnsAccDelta$\,pp without reducing churn, while twin-bootstrap
+cuts churn a median $\twinMedianReduction\%$ at $\twinAccDelta$\,pp
+mean accuracy cost (Table~\ref{tab:main}).  Churn is not a
 recoding of accuracy.
 
 \paragraph{Bootstrap estimator.}
