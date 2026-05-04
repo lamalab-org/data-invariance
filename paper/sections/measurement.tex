@@ -29,7 +29,7 @@ We use ``cross-sample churn'' (or just ``churn'' when context is
 clear) for $\bar\rho$ and ``class-flip rate'' for the same quantity
 reported as a percentage; the two names refer to the same quantity.
 
-\paragraph{Per-example, not aggregate.}
+\paragraph{Aggregate metrics hide per-prediction drift.}
 Every aggregate metric (accuracy, AUROC, precision, recall, $F_1$,
 AP) is a population average that summarises out per-example variation;
 churn counts disagreements before any averaging.  We pre-screen
@@ -46,13 +46,15 @@ concentrates on the minority class on imbalanced datasets
 Appendix~\ref{app:per_class_churn}) --- the class that drives
 next-step decisions.
 
-\paragraph{Difficulty confound.}
+\paragraph{Churn is not a recoding of accuracy.}
 At the dataset level, the mean class-flip rate correlates with mean
 ERM accuracy at Pearson $\churnAccCorrPearson$ (Spearman
 $\churnAccCorrSpearman$) across the \nDatasetsHeadline{} chemistry
-benchmarks --- harder tasks show more churn.  This is not a
-confound; the per-method picture is decoupled
-(Section~\ref{sec:experiments}).
+benchmarks --- harder tasks show more churn.  But the methods that
+most reduce churn are not the methods that most improve accuracy:
+deep ensembles raise mean accuracy without reducing churn, and
+twin-bootstrap cuts churn at a small accuracy cost
+(Section~\ref{sec:experiments}, Table~\ref{tab:main}).
 
 \paragraph{Bootstrap estimator.}
 A practitioner has one observed training set $S$, not a population
@@ -81,9 +83,9 @@ canonical seeds $\canonicalSeed$, $7$, and $42$ (each replicate is a
 different train/test split with its own ten train seeds), for both
 the chemistry-MLP comparison and the pretrained-backbone scope
 checks (GIN, ChemBERTa, Waterbirds).  Magnitudes quoted in prose are
-across-replicate means; the $\lambda$-selection rule picks
-$\lambda{=}300$ on every replicate independently
-(Appendix~\ref{app:seed_sensitivity}).
+across-replicate means; the development hyperparameter-selection
+rule (Section~\ref{sec:methods}) picks the same value on every
+replicate independently (Appendix~\ref{app:seed_sensitivity}).
 
 \paragraph{Datasets.}
 \label{sec:datasets}
