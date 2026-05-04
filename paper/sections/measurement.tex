@@ -95,14 +95,32 @@ set.
 A single fixed seed --- which we call the \emph{canonical} seed
 --- determines the train/test split once and for all; the resulting
 training pool and test set are reused across every method and every
-train seed, so test-side variance is zero by construction.
-For each train seed $s \in \{1, \dots, 10\}$ we draw a bootstrap
-$S^{(s)}$ from the canonical training pool and train
+train seed, so test-side variance is zero by construction within a
+canonical seed.  For each train seed $s \in \{1, \dots, \nSeeds\}$ we
+draw a bootstrap $S^{(s)}$ from the canonical training pool and train
 $f^{(s)} = \mathcal{A}(S^{(s)})$ on it.  Cross-sample churn is the average of
 $\mathbf{1}[\arg\max f^{(s)}(x) \neq \arg\max f^{(s')}(x)]$ over all
-$\binom{10}{2}=45$ pairs $(s, s')$ and over the canonical test set.
+$\binom{\nSeeds}{2}{=}\nSeedPairs$ pairs $(s, s')$ and over the canonical test set.
 Confidence intervals come from $10{,}000$-sample bootstrap on the
 seed-pair distribution; cross-method deltas are paired.
+
+We replicate the entire protocol on
+$\nCanonicalSeeds$ independent canonical seeds
+($\canonicalSeed$, $7$, and $42$).  Magnitudes quoted in prose are
+across-seed means; the development $\lambda$-selection rule selects
+$\lambda{=}300$ on every canonical seed independently
+(Appendix~\ref{app:seed_sensitivity}).  Tables in the main paper
+display the $\canonicalSeed$ canonical-seed view with within-seed
+paired-bootstrap CIs; Appendix table~\ref{tab:seed_sensitivity}
+reports the per-seed value of every cell in Table~\ref{tab:main}.
+Single-seed estimates of cross-sample churn vary by up to
+$\maxAcrossSeedChurnSpreadPP$\,pp on individual (dataset, method)
+cells, comparable to the across-dataset spread, while paired
+$\Delta$-churn vs.\ ERM is much more stable across canonical seeds
+(largest across-seed range $\maxAcrossSeedDeltaSpreadPP$\,pp on a
+single cell, typically a small fraction of the magnitude of the
+reduction).  Pretrained-backbone appendices (GIN, ChemBERTa,
+Waterbirds) are reported on canonical seed $\canonicalSeed$ only.
 
 \paragraph{Datasets.}
 \label{sec:datasets}

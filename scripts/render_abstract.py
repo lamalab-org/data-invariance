@@ -60,8 +60,12 @@ def expand_macros(text: str, macros: dict[str, str]) -> str:
         text = text.replace(f"\\{name}{{}}", macros[name])
         # Form 2: \name followed by non-letter (TeX's natural termination).
         # Use a lookahead so we don't eat the following character.
+        # Pass a lambda (not the value string) so the value is treated as
+        # a literal -- otherwise re.sub interprets backslash escapes
+        # like the ``\l`` in ``\lambda`` as template references.
         pattern = re.compile(rf"\\{name}(?![A-Za-z])")
-        text = pattern.sub(macros[name], text)
+        value = macros[name]
+        text = pattern.sub(lambda _m, v=value: v, text)
     return text
 
 

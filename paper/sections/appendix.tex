@@ -3,6 +3,8 @@ Appendix~\ref{app:related_table} compares this paper to prior churn /
 reproducibility work in tabular form.
 Appendices~\ref{app:nscaling}--\ref{app:borderline} support the
 measurement framework ($N$-scaling, borderline datasets).
+Appendix~\ref{app:seed_sensitivity} reports the canonical-seed
+sensitivity of every magnitude in the main table.
 Appendices~\ref{app:pareto}--\ref{app:ablations} support the methods
 (Pareto curve, overlap spectrum, ablations).
 Appendices~\ref{app:case_study}--\ref{app:entropy} support the
@@ -149,6 +151,52 @@ Table~\ref{tab:fragility-magnitudes} (separated by a midrule from
 the nine main-comparison datasets).  We do not run the method
 comparison on them because the small test sets do not give enough
 statistical power.
+
+\section{Canonical-seed sensitivity}
+\label{app:seed_sensitivity}
+
+The canonical seed determines the train/test split.  All
+single-canonical-seed estimates of cross-sample fragility therefore
+inherit a sensitivity to which examples ended up in the test set.
+We replicate the entire main-table protocol on $\nCanonicalSeeds$
+canonical seeds ($\canonicalSeed$, $7$, $42$) for each method-dataset
+cell ($\nSeeds$ train-seeds each), and report the per-cell across-seed
+mean (Table~\ref{tab:main}, Table~\ref{tab:fragility-magnitudes}) with
+the per-seed values tabulated below.
+
+\paragraph{What changes across canonical seeds.}
+The largest across-seed range observed for any single
+(dataset, method) cell is $\maxAcrossSeedChurnSpreadPP$\,pp on the
+absolute id-churn rate, attained on \maxAcrossSeedChurnSpreadCell.
+Magnitudes are seed-sensitive because the test set composition
+changes between canonical seeds.  Paired comparisons --- the headline
+$\Delta$-churn columns of Table~\ref{tab:main} --- are computed within
+seed and so factor out the test-set composition; the largest
+across-seed range of any paired $\Delta$ in our suite is
+$\maxAcrossSeedDeltaSpreadPP$\,pp (\maxAcrossSeedDeltaSpreadCell),
+typically a small fraction of the magnitude of the reduction.
+
+\paragraph{What does not change.}
+The qualitative ranking ``data-side $>$ parameter-side'' (bagging and
+twin-bootstrap reduce churn vs.\ ERM on every seed; deep ensemble /
+MC dropout / SWA do not consistently reduce churn) holds on every
+canonical seed individually.  Wins counts and Friedman ranks computed
+per-seed agree with the across-seed average reported in
+Section~\ref{sec:experiments}.  The $\preregTolerance$-tolerance
+$\lambda$-selection rule on BACE selects $\lambda{=}300$ on every
+canonical seed.
+
+\input{sections/tables/seed_sensitivity.tex}
+
+\paragraph{Out-of-scope settings.}
+The pretrained-backbone scope studies (GIN, ChemBERTa, Waterbirds:
+Appendices~\ref{app:gin}--\ref{app:waterbirds_lambda}) are reported on
+canonical seed $\canonicalSeed$ only, because each requires GPU
+compute that we did not replicate at the additional canonical seeds.
+We treat their results as architecture-feasibility evidence rather
+than as quantitative claims about effect sizes; the cross-seed
+robustness of the rule (Section~\ref{sec:generalisation}) is what
+transfers, not the specific reduction percentages.
 
 \section{Development Pareto curve on BACE}
 \label{app:pareto}
