@@ -137,7 +137,12 @@ $\ginCutLamTen\%$ at no accuracy cost (Appendix~\ref{app:gin}).
 \paragraph{Regression.}
 On three regression benchmarks (ESOL, FreeSolv, Lipophilicity;
 Appendix~\ref{app:regression}) the methods extend to continuous
-targets and rank the same way as on classification.  At matched
+targets and rank the same way as on classification.  Cross-sample
+churn for regression is the per-example absolute prediction
+difference between two retrainings; on ERM, that churn is
+$\regFragRatioLow\text{--}\regFragRatioHigh\%$ of the deployed
+model's mean absolute error --- a single retraining moves predictions
+by roughly half the test-set MAE on average.  At matched
 $2\times$-ERM compute, twin-bootstrap cuts prediction-difference
 churn $\regTwinLow\text{--}\regTwinHigh\%$ vs.\ ERM while
 bagging-$K{=}2$ cuts $\regBagTwoLow\text{--}\regBagTwoHigh\%$

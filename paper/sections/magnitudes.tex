@@ -21,11 +21,4 @@ $N \approx 1000$ but differ by ${\sim}2\times$ in sym-KL).
 The within-task $N$-scaling on BACE (Appendix~\ref{app:nscaling})
 trends downward with a log-log slope of $\nScalingSlope$ and reaches a
 soft floor near $M{\approx}\nScalingMmin$ before plateauing --- churn
-decreases with training-pool size but not to zero.  Three regression
-benchmarks (ESOL, FreeSolv, Lipophilicity; Appendix~\ref{app:regression})
-show the analogue: the per-example absolute prediction difference
-between two retrainings is $\regFragRatioLow\text{--}\regFragRatioHigh\%$
-of the deployed model's mean absolute error, so a single retraining
-moves predictions by roughly half the test-set MAE on average.  Both the classification
-class-flip rate and the regression prediction-difference churn
-are what data-side methods should reduce.
+decreases with training-pool size but not to zero.
