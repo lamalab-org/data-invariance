@@ -6,9 +6,11 @@ Aggregate accuracy moves by $\accDiffMin\text{--}\accDiffMax$
 percentage points; the class label flips on
 $\churnMin\text{--}\churnMax\%$ of test molecules
 (Figure~\ref{fig:overview}).  We call this \emph{cross-sample
-prediction churn}: the fraction of test predictions that change class
-between two models trained on independent samples of the same
-training population.
+prediction churn} --- the fraction of test predictions that change
+class between two models trained on independent samples of the same
+training population --- and a per-prediction stability gap that
+aggregate-accuracy reporting in scientific-ML benchmarks systematically
+hides.
 
 \begin{figure}[t]
   \centering
@@ -72,15 +74,20 @@ the twin-bootstrap procedure we propose --- do reduce it.
         $\accDiffMin\text{--}\accDiffMax$\,pp --- a
         $\churnAccRatioMin\text{--}\churnAccRatioMax\times$ ratio
         (Table~\ref{tab:fragility-magnitudes}).
-  \item \textbf{Two reduction methods that work where parameter-side
-        does not.}  Bagging-$K{=}5$~\citep{Breiman1996} cuts churn
+  \item \textbf{Bagging as a free-lunch baseline.}
+        $K$-bootstrap bagging~\citep{Breiman1996} cuts churn
         $\bagFiveLow\text{--}\bagFiveHigh\%$ on every dataset at no
-        accuracy cost; \emph{twin-bootstrap} (two networks trained
+        accuracy cost --- a baseline that has not previously been
+        evaluated for churn reduction in this regime
+        (Table~\ref{tab:main}).
+  \item \textbf{Twin-bootstrap (proposed).}  Two networks trained
         on independent bootstraps with a sym-KL consistency loss
-        between their predictions) cuts a further median
-        $\twinFurtherMedianReductionVsBagTwo\%$ beyond
-        matched-compute bagging-$K{=}2$ and matches $5\times$-compute
-        bagging-$K{=}5$ in mean rank
+        between their predictions; the codistillation family at
+        $\sim\overlapPctMid\%$ inter-network bootstrap overlap.  At
+        matched $2\times$-ERM compute against bagging-$K{=}2$,
+        twin-bootstrap cuts churn a further median
+        $\twinFurtherMedianReductionVsBagTwo\%$ beyond bagging and
+        matches $5\times$-compute bagging-$K{=}5$ in mean rank
         (Table~\ref{tab:main}, Figure~\ref{fig:main}).
   \item \textbf{Per-prediction triage on top of any deployed model.}
         Sorting test predictions by per-example churn from a single
