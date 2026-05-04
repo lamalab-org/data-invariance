@@ -2,17 +2,16 @@
 \label{sec:discussion}
 
 \paragraph{Cross-sample churn is the column scientific-ML benchmarks have been missing.}
-The headline finding is empirical, not conceptual: parameter-side
-uncertainty methods that the field treats as adequate --- deep
-ensembles, MC dropout, stochastic weight averaging --- do not
-reduce cross-sample churn on these benchmarks, and on several they
-make it worse.  Their construction explains why: they sample over
-weights at fixed data, and the variance practitioners act on lives
-on the data axis they hold constant.  An accuracy-only benchmark
-cannot tell them apart from data-side methods that do reduce the
-rate, because the per-prediction signal they differ on is the column
-nobody reads.  Adding cross-sample churn to the standard report
-changes which uncertainty methods look adequate.
+Parameter-side uncertainty methods that the field treats as adequate
+--- deep ensembles, MC dropout, stochastic weight averaging ---
+do not reduce cross-sample churn on these benchmarks, and on several
+they make it worse.  Their construction explains why: they sample
+over weights at fixed data, and the variance practitioners act on
+lives on the data axis they hold constant.  An accuracy-only
+benchmark cannot separate them from data-side methods that do
+reduce the rate, because the per-prediction signal they differ on
+is the column nobody reads.  Adding cross-sample churn to the
+standard report changes which uncertainty methods look adequate.
 
 \paragraph{The data-resampling protocol is the design lever.}
 Cross-sample stability is set less by the model class than by how
@@ -29,3 +28,13 @@ can therefore be designed in at training time, without changing the
 model class or the deployment pipeline, by tuning a single
 hyperparameter on the development set with the same rule.
 
+\paragraph{Outlook.}
+The construction generalises beyond bootstrap resampling.  Wherever
+the practitioner cares about stability under a specific source of
+variation --- temporal data refreshes, federated training rounds,
+covariate shift between train and deployment --- the same recipe
+applies: vary that axis during training, evaluate models on
+per-prediction disagreement under that axis, and rule out fixed-axis
+uncertainty methods that cannot even see the rate.  Cross-sample
+bootstrap variance is the most operationally relevant case for
+scientific machine learning today; other axes are open.

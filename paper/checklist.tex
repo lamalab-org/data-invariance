@@ -5,7 +5,7 @@
 \item {\bf Claims}
     \item[] Question: Do the main claims made in the abstract and introduction accurately reflect the paper's contributions and scope?
     \item[] Answer: \answerYes{}
-    \item[] Justification: The abstract and Section~\ref{sec:introduction} describe what we measure (cross-sample prediction churn on nine chemistry benchmarks, replicated on three canonical-data seeds), the methods we evaluate (bagging) and propose (twin-bootstrap), the strict no-test-tuning protocol with $\lambda$ frozen on a single development dataset, and the regime in which the consistency loss applies (small-$N$ from-scratch; the rule re-runs to select a smaller $\lambda$ on pretrained backbones, Section~\ref{sec:generalisation}).
+    \item[] Justification: The abstract and Section~\ref{sec:introduction} state the measurement, the methods, the no-test-tuning protocol, and the regime in which each method applies.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the abstract and introduction do not include the claims made in the paper.
@@ -17,7 +17,7 @@
 \item {\bf Limitations}
     \item[] Question: Does the paper discuss the limitations of the work performed by the authors?
     \item[] Answer: \answerYes{}
-    \item[] Justification: Section~\ref{sec:limitations} discusses the chemistry-classification scope of the headline magnitudes, the regression and Waterbirds cross-checks, the single-canonical-seed status of the pretrained-backbone (ChemBERTa, GIN, Waterbirds) appendices, and the fact that we use $K{=}2$ throughout twin-bootstrap.  Appendix~\ref{app:seed_sensitivity} additionally documents the canonical-seed sensitivity of the headline-table magnitudes.
+    \item[] Justification: Section~\ref{sec:limitations}; canonical-seed sensitivity is documented in Appendix~\ref{app:seed_sensitivity}.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper has no limitation while the answer \answerNo{} means that the paper has limitations, but those are not discussed in the paper. 
@@ -33,7 +33,7 @@
 \item {\bf Theory assumptions and proofs}
     \item[] Question: For each theoretical result, does the paper provide the full set of assumptions and a complete (and correct) proof?
     \item[] Answer: \answerNA{}
-    \item[] Justification: The paper makes no formal theoretical claims; cross-sample churn is presented as a measurable empirical quantity.  The within-dataset $N$-scaling experiment in Appendix~\ref{app:nscaling} reports a log-log slope of $\nScalingSlope$ with a soft floor near $M{\approx}\nScalingMmin$, but we do not derive this rate from any formal bound.
+    \item[] Justification: The paper makes no formal theoretical claims; cross-sample churn is presented as a measurable empirical quantity.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include theoretical results. 
@@ -47,7 +47,7 @@
     \item {\bf Experimental result reproducibility}
     \item[] Question: Does the paper fully disclose all the information needed to reproduce the main experimental results of the paper to the extent that it affects the main claims and/or conclusions of the paper (regardless of whether the code and data are provided or not)?
     \item[] Answer: \answerYes{}
-    \item[] Justification: Section~\ref{sec:measurement} states the canonical-data-seed protocol; Section~\ref{sec:methods} states the optimiser, hyperparameters, the frozen $\lambda$, and the development-set rule used to select it; the accompanying anonymised code regenerates every paper table and figure from saved predictions.
+    \item[] Justification: Sections~\ref{sec:measurement}--\ref{sec:methods} state the protocol, optimiser, hyperparameters, and the $\lambda$-selection rule; the anonymised code regenerates every table and figure from saved predictions.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include experiments.
@@ -67,7 +67,7 @@
 \item {\bf Open access to data and code}
     \item[] Question: Does the paper provide open access to the data and code, with sufficient instructions to faithfully reproduce the main experimental results, as described in supplemental material?
     \item[] Answer: \answerYes{}
-    \item[] Justification: All datasets are public (MoleculeNet via DeepChem, TDC ADME/Tox, public materials-science datasets, Waterbirds via WILDS).  Anonymised code accompanies the submission.
+    \item[] Justification: All datasets are public; anonymised code accompanies the submission.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that paper does not include experiments requiring code.
@@ -84,7 +84,7 @@
 \item {\bf Experimental setting/details}
     \item[] Question: Does the paper specify all the training and test details (e.g., data splits, hyperparameters, how they were chosen, type of optimizer) necessary to understand the results?
     \item[] Answer: \answerYes{}
-    \item[] Justification: Section~\ref{sec:methods} (Algorithm~1) states the training procedure, optimiser (AdamW, weight decay $10^{-4}$), gradient clipping, learning rate, batch size, and epoch count; Section~\ref{sec:measurement} states the canonical-data-seed protocol; the pre-registered $\lambda$-selection rule and its development-set Pareto curve are in Section~\ref{sec:methods} and Appendix~\ref{app:pareto}.
+    \item[] Justification: Section~\ref{sec:methods} (Algorithm~1) and Section~\ref{sec:measurement} cover the training procedure, hyperparameters, and canonical-data-seed protocol; the $\lambda$-selection rule and Pareto curve are in Section~\ref{sec:methods} and Appendix~\ref{app:pareto}.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include experiments.
@@ -95,7 +95,7 @@
 \item {\bf Experiment statistical significance}
     \item[] Question: Does the paper report error bars suitably and correctly defined or other appropriate information about the statistical significance of the experiments?
     \item[] Answer: \answerYes{}
-    \item[] Justification: Every reported delta carries a paired-bootstrap $95\%$ confidence interval over the $\binom{10}{2}=45$ seed pairs ($10{,}000$ resamples on the seed-pair distribution). The protocol is stated in Section~\ref{sec:experiments} and the bootstrap implementation is in \texttt{scripts/\_analysis\_lib.py}.
+    \item[] Justification: Every reported $\Delta$ carries a paired-bootstrap $95\%$ CI over the $\binom{10}{2}=45$ seed pairs (Section~\ref{sec:experiments}).
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include experiments.
@@ -112,7 +112,7 @@
 \item {\bf Experiments compute resources}
     \item[] Question: For each experiment, does the paper provide sufficient information on the computer resources (type of compute workers, memory, time of execution) needed to reproduce the experiments?
     \item[] Answer: \answerYes{}
-    \item[] Justification: Compute footprint is reported in Appendix~\ref{app:compute}: small-$N$ chemistry experiments run end-to-end on a single laptop CPU within a budget of approximately $50$ CPU-hours; the Waterbirds analysis uses a single A100 GPU with a $\sim 6$ GPU-hour budget.
+    \item[] Justification: Compute footprint in Appendix~\ref{app:compute} ($\sim 50$ CPU-hours for the chemistry experiments; $\sim 6$ A100-GPU-hours for Waterbirds).
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include experiments.
@@ -124,7 +124,7 @@
 \item {\bf Code of ethics}
     \item[] Question: Does the research conducted in the paper conform, in every respect, with the NeurIPS Code of Ethics \url{https://neurips.cc/public/EthicsGuidelines}?
     \item[] Answer: \answerYes{}
-    \item[] Justification: The work uses public scientific benchmarks; no human subjects, no scraped or sensitive data, no risk of dual-use models. Anonymity is preserved in the submission.
+    \item[] Justification: Public scientific benchmarks; no human subjects, sensitive data, or dual-use risk; anonymity preserved.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the authors have not reviewed the NeurIPS Code of Ethics.
@@ -136,7 +136,7 @@
 \item {\bf Broader impacts}
     \item[] Question: Does the paper discuss both potential positive societal impacts and negative societal impacts of the work performed?
     \item[] Answer: \answerYes{}
-    \item[] Justification: The intended positive impact is more reliable scientific machine learning predictions in deployment-driven domains (drug discovery, materials science), reducing wasted experimental effort caused by unstable retraining. We see no direct path to negative societal impact: the methods are training-time stabilisers for standard supervised classifiers and do not introduce new misuse vectors beyond those of the underlying classifiers.
+    \item[] Justification: Positive impact: more reliable scientific-ML predictions in deployment-driven domains (drug discovery, materials science).  No direct negative path: the methods are training-time stabilisers for standard supervised classifiers.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that there is no societal impact of the work performed.
@@ -162,7 +162,7 @@
 \item {\bf Licenses for existing assets}
     \item[] Question: Are the creators or original owners of assets (e.g., code, data, models), used in the paper, properly credited and are the license and terms of use explicitly mentioned and properly respected?
     \item[] Answer: \answerYes{}
-    \item[] Justification: All datasets are cited (MoleculeNet, Therapeutics Data Commons, the materials-science TADF / MOF / perovskite / battery sources, Waterbirds via WILDS) in Section~\ref{sec:datasets}. Each dataset is used within its public license; no proprietary or scraped data.
+    \item[] Justification: All datasets cited in Section~\ref{sec:datasets}; each used within its public license.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not use existing assets.
@@ -178,7 +178,7 @@
 \item {\bf New assets}
     \item[] Question: Are new assets introduced in the paper well documented and is the documentation provided alongside the assets?
     \item[] Answer: \answerNA{}
-    \item[] Justification: The paper does not release new datasets or trained model checkpoints.  The anonymised code release contains the saved predictions and analysis pipeline sufficient to regenerate every reported number.
+    \item[] Justification: No new datasets or model checkpoints are released; the anonymised code release contains the saved predictions and analysis pipeline.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not release new assets.
@@ -214,7 +214,7 @@
     \item[] Question: Does the paper describe the usage of LLMs if it is an important, original, or non-standard component of the core methods in this research? Note that if the LLM is used only for writing, editing, or formatting purposes and does \emph{not} impact the core methodology, scientific rigor, or originality of the research, declaration is not required.
     %this research?
     \item[] Answer: \answerNA{}
-    \item[] Justification: Large language models (Anthropic Claude) were used substantially throughout this work for prose drafting and revision, and for implementing analysis, table-generation, and figure-generation code.  The research direction, problem framing, experimental design, and interpretation of results were determined by the human authors.  The core methodology --- cross-sample churn measurement, bagging baseline, and twin-bootstrap with sym-KL consistency --- is not LLM-derived.
+    \item[] Justification: Anthropic Claude was used substantially for prose drafting and for implementing analysis and figure-generation code.  The research direction, framing, and interpretation are by the human authors; the core methodology is not LLM-derived.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the core method development in this research does not involve LLMs as any important, original, or non-standard components.
