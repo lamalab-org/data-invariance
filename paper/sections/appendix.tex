@@ -128,11 +128,11 @@ still exceeds every aggregate-metric drift on every dataset.
 These three datasets pass the ERM-versus-majority filter only
 marginally ($+\borderlineGapMin$ to $+\borderlineGapMax$pp on test
 sets of $\borderlineNTestMin$--$\borderlineNTestMax$ examples).
-Their cross-sample magnitudes appear in the bottom group of
-Table~\ref{tab:fragility-magnitudes} (separated by a midrule from
-the nine main-comparison datasets).  We do not run the method
-comparison on them because the small test sets do not give enough
-statistical power.
+Their cross-sample magnitudes are reported below; the method
+comparison is not run on them because the small test sets do not give
+enough statistical power.
+
+\input{sections/tables/borderline_magnitudes.tex}
 
 \section{Canonical-seed sensitivity}
 \label{app:seed_sensitivity}
@@ -392,7 +392,7 @@ twin-bootstrap at the rule-selected $\lambda$ on the five held-out
 datasets.  All runs use five train-seeds, giving
 $\binom{5}{2}=10$ seed-pairs per dataset.
 
-\paragraph{The BACE-MLP-frozen $\lambda$ does not transfer.}  At
+\paragraph{The $\lambda$ chosen on the BACE MLP does not transfer.}  At
 $\lambda{=}300$ (the value selected on BACE-MLP) twin-bootstrap drops
 ChemBERTa accuracy by
 $\chembertaAccDropLow\text{--}\chembertaAccDropHigh$pp on every

@@ -1,0 +1,19 @@
+\begin{table}[h]
+  \centering
+  \caption{\textbf{Cross-sample magnitudes for the three borderline datasets.}  These pass the ERM-vs-majority filter only marginally (+3 to +4\,pp on test sets of 57--104 examples) and are reported here for transparency; method comparisons are not run on them because the small test sets do not give enough statistical power.  Columns and CI conventions match Table~\ref{tab:fragility-magnitudes}.}
+  \label{tab:borderline-magnitudes}
+  \scriptsize
+  \resizebox{\linewidth}{!}{%
+  \begin{tabular}{lrrrl@{\hspace{1em}}ll}
+    \toprule
+    & & & \multicolumn{2}{c}{Aggregate accuracy} & \multicolumn{2}{c}{Per-prediction disagreement} \\
+    \cmidrule(lr){4-5} \cmidrule(lr){6-7}
+    Dataset & $N_{\text{train}}$ & $N_{\text{id-test}}$ & ERM id-acc & $|\Delta\text{acc}|$ (pp) & Argmax churn (\%) & Sym-KL (nats) \\
+    \midrule
+    SkinReact & 232 & 57 & 0.675 [0.596, 0.737] & 4.3 [3.4, 5.3] & \textbf{20.3 [18.8, 21.8]} & \textbf{1.035 [0.931, 1.140]} \\
+    HIA & 370 & 92 & 0.908 [0.891, 0.924] & 1.0 [0.8, 1.3] & \textbf{2.1 [1.8, 2.5]} & \textbf{0.106 [0.086, 0.127]} \\
+    hERG & 420 & 104 & 0.751 [0.702, 0.798] & 3.1 [2.5, 3.8] & \textbf{15.9 [14.9, 16.9]} & \textbf{0.724 [0.668, 0.779]} \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}

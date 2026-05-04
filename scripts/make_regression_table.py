@@ -116,7 +116,8 @@ def main():
         r"\centering",
         r"\caption{\textbf{At matched $2\times$-ERM compute, twin-bootstrap "
         r"beats bagging-$K{=}2$ on every regression dataset; the methods "
-        r"rank identically to the classification headline.}  Per-method "
+        r"rank identically to the classification main-table result.}  "
+        r"Per-method "
         r"id-MAE and cross-sample churn (mean $|f_A - f_B|$ between "
         r"bootstrap retrainings) on three MoleculeNet regression "
         r"benchmarks.  All reported quantities are mean $[\,95\%\ "

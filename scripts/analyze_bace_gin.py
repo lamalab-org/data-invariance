@@ -155,7 +155,7 @@ def main() -> None:
         r"rather than less relevant on this backbone.  "
         f"Bagging-$K{{=}}5$ cuts churn $\\ginBagCutLamThreeHundred\\%$ and "
         f"improves id-accuracy by $\\ginBagAccGain$pp.  "
-        r"Twin-bootstrap at the BACE-MLP-frozen $\lambda{=}300$ reduces "
+        r"Twin-bootstrap at the $\lambda{=}300$ chosen on the BACE MLP reduces "
         f"sym-KL by ${twin_kl_rel:+.0f}\\%$ but drops id-accuracy by "
         r"$\ginAccDropLamThreeHundred$pp --- well outside the $0.02$ "
         r"selection-rule tolerance ERM-GIN id-acc would impose.  Bold "
