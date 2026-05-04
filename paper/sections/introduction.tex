@@ -37,36 +37,32 @@ reroutes synthesis based on the new top predictions confronts the
 violation on every dataset update; cross-sample churn quantifies
 it.
 
-Cross-sample churn is the population-level analogue of
-\emph{prediction churn}~\citep{launch_and_iterate, bhojanapalli2021reproducibility,
-jiang2022}.  Prior work measures churn between a new model and a
-deployed incumbent at web scale, where the incumbent is fixed.
-Scientific machine learning often retrains from scratch on a few
-hundred to a few thousand examples and has no incumbent; what varies
-between retrainings is the sample drawn from the training population.
-
-This is the data-sampling slice of epistemic uncertainty,
-complementary to the parameter-sampling that deep
-ensembles~\citep{lakshminarayanan2017simple} and Monte Carlo (MC)
-dropout~\citep{gal2015dropout} capture.  Across our
-\nDatasetsHeadline{} chemistry benchmarks, deep ensembles and MC
-dropout shift the class-flip rate by $\paramSideLow\%$ to
-$\paramSideHigh\%$ relative to empirical risk minimisation (ERM),
-with no consistent sign.  These methods marginalise over network
-weights at fixed bootstrap (deep ensembles, MC dropout) or smooth
-one optimisation trajectory (SWA); the data-sampling axis is held
-constant, so the variance they reduce is orthogonal to churn.
-Methods that vary the data --- bagging and twin-bootstrap --- do
-better.
+Two literatures are nearby and not quite a fit.  \emph{Prediction
+churn}~\citep{launch_and_iterate, bhojanapalli2021reproducibility,
+jiang2022} measures disagreement between a candidate model and a
+fixed deployed incumbent on web-scale data; in scientific ML there is
+no incumbent, and the binding source of variance is the small
+training set itself, redrawn between retrainings.  \emph{Epistemic
+uncertainty} tools --- deep
+ensembles~\citep{lakshminarayanan2017simple}, Monte Carlo (MC)
+dropout~\citep{gal2015dropout}, and stochastic weight averaging
+(SWA)~\citep{izmailov2018averaging} --- sample over weights at fixed
+data and capture the parameter-side slice of model variance, but not
+the data-sampling slice we measure: across our $\nDatasetsHeadline$
+chemistry benchmarks, the three of them shift the class-flip rate by
+$\paramSideLow\%$ to $\paramSideHigh\%$ relative to empirical risk
+minimisation (ERM), with no consistent sign.  Methods that vary the
+data --- bagging~\citep{Breiman1996} and the twin-bootstrap procedure
+we propose --- do reduce it.
 
 \paragraph{Contributions.}
 \begin{itemize}\itemsep0pt
   \item \textbf{The data-sampling axis of model variance.}  Deep
-        ensembles, MC dropout, and SWA all marginalise over weights at
-        fixed data and miss this axis entirely.  We define
-        \emph{cross-sample prediction churn} as its measurable
-        analogue and give a bootstrap protocol computable from a
-        single observed training set
+        ensembles, MC dropout, and SWA all sample over weights at
+        fixed data and miss this axis.  We define and measure
+        \emph{cross-sample prediction churn}: the disagreement
+        between two classifiers trained on independent bootstraps of
+        the same training population
         (Section~\ref{sec:measurement}).
   \item \textbf{Magnitudes that aggregate-only reporting hides.}  On
         \nDatasetsHeadline{} chemistry benchmarks (MoleculeNet, TDC
