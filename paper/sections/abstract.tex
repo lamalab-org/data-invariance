@@ -14,10 +14,9 @@ training set --- the regime that drug discovery, materials, and
 biostatistics actually inhabit.  The standard parameter-side
 techniques (deep ensembles, MC dropout, stochastic weight averaging)
 do not reduce this gap; they sample over weights at fixed data, the
-orthogonal axis.  Two data-side methods do.  Bagging --- a classical
-baseline that has not previously been evaluated for churn reduction
-in this regime --- cuts the rate $\bagFiveLow\text{--}\bagFiveHigh\%$
-on every dataset at no accuracy cost ($K\times$-ERM compute).  We propose \emph{twin-bootstrap} --- two
+orthogonal axis.  Two data-side methods do.  Bagging cuts the rate
+$\bagFiveLow\text{--}\bagFiveHigh\%$ on every dataset at no accuracy
+cost ($K\times$-ERM compute).  We propose \emph{twin-bootstrap} --- two
 networks trained on independent bootstraps with a sym-KL consistency
 loss between their predictions --- which cuts a further median
 $\twinFurtherMedianReductionVsBagTwo\%$ beyond bagging-$K{=}2$ at
