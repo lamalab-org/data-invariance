@@ -80,12 +80,12 @@ the twin-bootstrap procedure we propose --- do reduce it.
         accuracy cost --- a baseline that has not previously been
         evaluated for churn reduction in this regime
         (Table~\ref{tab:main}).
-  \item \textbf{Twin-bootstrap (proposed).}  Two networks trained
-        on independent bootstraps with a sym-KL consistency loss
-        between their predictions; the codistillation family at
-        $\sim\overlapPctMid\%$ inter-network bootstrap overlap.  At
-        matched $2\times$-ERM compute against bagging-$K{=}2$,
-        twin-bootstrap cuts churn a further median
+  \item \textbf{Twin-bootstrap.}  We propose twin-bootstrap: two
+        networks trained on independent bootstraps with a sym-KL
+        consistency loss between their predictions; the codistillation
+        family at $\sim\overlapPctMid\%$ inter-network bootstrap
+        overlap.  At matched $2\times$-ERM compute against
+        bagging-$K{=}2$, twin-bootstrap cuts churn a further median
         $\twinFurtherMedianReductionVsBagTwo\%$ beyond bagging and
         matches $5\times$-compute bagging-$K{=}5$ in mean rank
         (Table~\ref{tab:main}, Figure~\ref{fig:main}).
