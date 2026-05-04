@@ -37,23 +37,23 @@ reroutes synthesis based on the new top predictions confronts the
 violation on every dataset update; cross-sample churn quantifies
 it.
 
-Two literatures are nearby and not quite a fit.  \emph{Prediction
-churn}~\citep{launch_and_iterate, bhojanapalli2021reproducibility,
-jiang2022} measures disagreement between a candidate model and a
-fixed deployed incumbent on web-scale data; in scientific ML there is
-no incumbent, and the binding source of variance is the small
-training set itself, redrawn between retrainings.  \emph{Epistemic
-uncertainty} tools --- deep
+Two existing approaches are adjacent but do not address this.
+\emph{Prediction churn}~\citep{launch_and_iterate,
+bhojanapalli2021reproducibility, jiang2022} measures disagreement
+between a candidate model and a fixed deployed incumbent on web-scale
+data; in scientific ML there is no incumbent, and the binding source
+of variance is the small training set itself, redrawn between
+retrainings.  \emph{Epistemic uncertainty} tools --- deep
 ensembles~\citep{lakshminarayanan2017simple}, Monte Carlo (MC)
 dropout~\citep{gal2015dropout}, and stochastic weight averaging
 (SWA)~\citep{izmailov2018averaging} --- sample over weights at fixed
-data and capture the parameter-side slice of model variance, but not
-the data-sampling slice we measure: across our $\nDatasetsHeadline$
-chemistry benchmarks, the three of them shift the class-flip rate by
-$\paramSideLow\%$ to $\paramSideHigh\%$ relative to empirical risk
-minimisation (ERM), with no consistent sign.  Methods that vary the
-data --- bagging~\citep{Breiman1996} and the twin-bootstrap procedure
-we propose --- do reduce it.
+data and so capture the parameter-side slice of model variance, but
+not the data-sampling slice we measure: across our
+$\nDatasetsHeadline$ chemistry benchmarks, the three together shift
+the class-flip rate by $\paramSideLow\%$ to $\paramSideHigh\%$
+relative to empirical risk minimisation (ERM), with no consistent
+sign.  Methods that vary the data --- bagging~\citep{Breiman1996} and
+the twin-bootstrap procedure we propose --- do reduce it.
 
 \paragraph{Contributions.}
 \begin{itemize}\itemsep0pt
