@@ -8,8 +8,8 @@ $\churnMin\text{--}\churnMax\%$ of test molecules
 (Figure~\ref{fig:overview}).  We call this \emph{cross-sample
 prediction churn} --- the fraction of test predictions that change
 class between two models trained on independent samples of the same
-training population --- and a per-prediction stability gap that
-aggregate-accuracy reporting in scientific-ML benchmarks systematically
+training population.
+This is a per-prediction stability gap that aggregate-accuracy reporting in scientific-ML benchmarks systematically
 hides.  In closed-loop laboratories, Bayesian-optimisation campaigns,
 and virtual-screening pipelines, model predictions feed directly into
 experimental decisions: each prediction is the unit of action --- the
@@ -41,10 +41,9 @@ rotation, and translation; $E(3)$-equivariant message passing and
 permutation-equivariant aggregators are standard.  \emph{Sample invariance} --- invariance to which independent
 draw of the training population the model was fit on --- is the
 analogue on the data axis, but is not routinely measured in scientific
-ML.  A practitioner who refreshes a screening set, retrains, and
+ML.  A practitioner who updates a screening set, retrains, and
 reroutes synthesis based on the new top predictions confronts the
-violation on every dataset update; cross-sample churn quantifies
-it.
+challenge of cross-sample churn on every dataset update.
 
 Two existing approaches are adjacent but do not address this.
 \emph{Prediction churn}~\citep{launch_and_iterate,
@@ -67,7 +66,7 @@ the twin-bootstrap procedure we propose --- do reduce it.
 \paragraph{Contributions.}
 \begin{itemize}\itemsep0pt
   \item \textbf{Cross-sample prediction churn} as the data-sampling
-        analogue of model variance --- the slice that deep ensembles,
+        analogue of model variance --- the slice of uncertainty that deep ensembles,
         MC dropout, and SWA all miss because they sample over weights
         at fixed data (Section~\ref{sec:measurement}).
   \item \textbf{Magnitudes} on \nDatasetsHeadline{} chemistry benchmarks
