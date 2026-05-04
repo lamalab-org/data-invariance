@@ -32,56 +32,34 @@ need to connect to prior literature on prediction churn we use
 ``argmax churn'' (\S\ref{sec:related}); the three names refer to the
 same quantity.
 
-\paragraph{Imbalance, accuracy, and other aggregate metrics.}
-Accuracy on imbalanced data can mask class-specific drift: two
-models that swap predictions on the minority class while agreeing on
-the majority can post near-identical accuracy and very different
-precision or recall.  Every aggregate metric (accuracy, AUROC,
-precision, recall, $F_1$, AP) is a population average that
-summarises out per-example variation; cross-sample fragility is the
-per-example complement, counting disagreements before any averaging.
+\paragraph{Per-example, not aggregate.}
+Every aggregate metric (accuracy, AUROC, precision, recall, $F_1$,
+AP) is a population average that summarises out per-example variation;
+fragility counts disagreements before any averaging.  We pre-screen
+to ERM accuracy $\geq$ majority-class baseline $+\preregFilterPP$pp
+so the gap we measure is learned-decision performance rather than
+majority shuffling.  On every dataset, the per-example class-flip
+rate exceeds every aggregate-metric drift, typically by
+$2\text{--}10\times$ (e.g.\ cyp2d6\_substrate:
+$|\Delta\text{recall}|=\cypTwoDeltaRecall$\,pp,
+$|\Delta\text{acc}|=\cypTwoDeltaAcc$\,pp;
+Appendix~\ref{app:additional_metrics}).  The disagreement also
+concentrates on the minority class on imbalanced datasets
+($2\text{--}4\times$ majority on BBB-Martins, BBBP, CYP2D6-Sub;
+Appendix~\ref{app:per_class_churn}) --- the class that drives
+next-step decisions.
 
-We pre-screen every dataset to ERM accuracy $\geq$ majority-class
-baseline $+\preregFilterPP$pp (\S\ref{sec:datasets}), so the gap we measure is
-learned-decision performance rather than majority-class
-shuffling.  Appendix~\ref{app:additional_metrics} reports paired
-$|\Delta\text{precision}|$, $|\Delta\text{recall}|$, $|\Delta F_1|$,
-and $|\Delta\text{AP}|$ between two retrainings alongside
-$|\Delta\text{acc}|$.  On the imbalanced ADME tasks, recall and
-precision drifts reach $2\text{--}3\times$ $|\Delta\text{acc}|$
-(cyp2d6\_substrate: $|\Delta\text{recall}|=\cypTwoDeltaRecall$\,pp
-vs.\ $|\Delta\text{acc}|=\cypTwoDeltaAcc$\,pp), so accuracy alone does undersell the
-inter-retraining variation.  Even so, the per-example argmax-churn
-rate exceeds every aggregate-metric drift on every dataset,
-typically by $2\text{--}10\times$.  Per-example disagreement is the
-quantity that drives next-step decisions in scientific ML, and it
-dominates aggregate-metric drift under any of these summary
-statistics.  Minority-class predictions are
-$2\text{--}4\times$ more unstable across retrainings than
-majority-class predictions on the most imbalanced datasets
-(BBB-Martins, BBBP, CYP2D6-Sub; Appendix~\ref{app:per_class_churn}):
-the disagreement concentrates on the class practitioners care about.
-
-\paragraph{Churn correlates with task difficulty, but is not
+\paragraph{Fragility correlates with task difficulty, but is not
 explained by it.}
-At the dataset level, the mean class-flip rate correlates with mean ERM
-accuracy at Pearson $\churnAccCorrPearson$ (Spearman
+At the dataset level, the mean class-flip rate correlates with mean
+ERM accuracy at Pearson $\churnAccCorrPearson$ (Spearman
 $\churnAccCorrSpearman$) across the \nDatasetsHeadline{} chemistry
-benchmarks: harder datasets show more churn.  This is expected --- a
-less-certain decision boundary is crossed in different places by two
-retrainings.  It is not a confound.  The data-side methods we
-evaluate reduce churn on every dataset regardless of difficulty
-(Figure~\ref{fig:main}).  The pattern is not a side effect of
-accuracy improvement: deep ensembles raise mean accuracy by
-$\deepEnsAccDelta$\,pp without reducing churn (Table~\ref{tab:main}),
-while twin-bootstrap cuts churn by a median
-$\twinMedianReduction\%$ at a slight accuracy degradation
-($\twinAccDelta$\,pp on average) --- the strongest churn reducer is
-also among the weaker accuracy improvers, and the strongest
-accuracy improvers do not consistently reduce churn.  At the
-per-example level, fragility captures retraining-flip risk better
-than predictive entropy (Appendix~\ref{app:entropy}).  Churn is not
-a recoding of accuracy.
+benchmarks --- harder tasks show more fragility.  At the
+per-method level, decoupling: deep ensembles raise mean accuracy by
+$\deepEnsAccDelta$\,pp without reducing fragility, while twin-bootstrap
+cuts fragility a median $\twinMedianReduction\%$ at $\twinAccDelta$\,pp
+mean accuracy cost (Table~\ref{tab:main}).  Fragility is not a
+recoding of accuracy.
 
 \paragraph{Bootstrap estimator.}
 A practitioner has one observed training set $S$, not a population
@@ -106,64 +84,31 @@ $\binom{\nSeeds}{2}{=}\nSeedPairs$ pairs $(s, s')$ and over the canonical test s
 Confidence intervals come from $10{,}000$-sample bootstrap on the
 seed-pair distribution; cross-method deltas are paired.
 
-We replicate the entire protocol on
-$\nCanonicalSeeds$ independent canonical seeds
-($\canonicalSeed$, $7$, and $42$).  Magnitudes quoted in prose are
-across-seed means; the development $\lambda$-selection rule selects
-$\lambda{=}300$ on every canonical seed independently
-(Appendix~\ref{app:seed_sensitivity}).  Tables in the main paper
-display the $\canonicalSeed$ canonical-seed view with within-seed
-paired-bootstrap CIs; Appendix table~\ref{tab:seed_sensitivity}
-reports the per-seed value of every cell in Table~\ref{tab:main}.
-Single-seed estimates of cross-sample churn vary by up to
-$\maxAcrossSeedChurnSpreadPP$\,pp on individual (dataset, method)
-cells, comparable to the across-dataset spread, while paired
-$\Delta$-churn vs.\ ERM is much more stable across canonical seeds
-(largest across-seed range $\maxAcrossSeedDeltaSpreadPP$\,pp on a
-single cell, typically a small fraction of the magnitude of the
-reduction).  Pretrained-backbone appendices (GIN, ChemBERTa,
-Waterbirds) are reported on canonical seed $\canonicalSeed$ only.
+We replicate the entire protocol on $\nCanonicalSeeds$ independent
+canonical seeds ($\canonicalSeed$, $7$, $42$); magnitudes quoted in
+prose are across-seed means and the $\lambda$-selection rule picks
+$\lambda{=}300$ on every seed independently
+(Appendix~\ref{app:seed_sensitivity}).  Pretrained-backbone
+cross-checks (GIN, ChemBERTa, Waterbirds) are single-seed.
 
 \paragraph{Datasets.}
 \label{sec:datasets}
-We measure cross-sample fragility on seventeen chemistry benchmarks
-($N \in [\,304, 4658\,]$) drawn from
+Seventeen chemistry benchmarks ($N \in [\,304, 4658\,]$):
 MoleculeNet~\citep{Wu2018} (BACE, BBBP, ClinTox),
-the Therapeutics Data Commons (TDC)~\citep{huang2021therapeutics} ADME
-suite (HIA\_Hou, Bioavailability\_Ma, Pgp\_Broccatelli, BBB\_Martins,
-CYP2C9-Sub, CYP2D6-Sub, CYP3A4-Sub), TDC Tox (hERG, DILI, AMES,
-Skin\_Reaction), and materials-science benchmarks
-(TADF~\citep{jablonka2026clever, Huang2024},
-MOF-thermal-stability,
-MOF-solvent-removal~\citep{jablonka2026clever,Nandy2022}).  A pre-registered health
-filter (Appendix~\ref{app:repro}) keeps the nine datasets on which
-ERM exceeds the majority-class baseline by at least $\preregFilterPP$pp
-and the canonical id-test set has at least $\preregMinTestSize$ examples
-(Table~\ref{tab:fragility-magnitudes}, top group).  Three datasets
-on which ERM exceeds majority by only $\borderlineGapMin$--$\borderlineGapMax$pp
-on a $\borderlineNTestMin$--$\borderlineNTestMax$-example test set
-(Skin\_Reaction, hERG, HIA\_Hou) are reported in the same table under
-a separate group; we do not run the method comparison on them because
-the small test sets do not give enough statistical power.  Five
-datasets are excluded because ERM does not exceed majority at the
-$\preregFilterPP$pp threshold (Bioavailability\_Ma, MOF\_solvent,
-CYP2C9-Sub, CYP3A4-Sub, ClinTox); their per-dataset filter outcomes
-are tabulated in Appendix~\ref{app:repro} (Table~\ref{tab:filter-outcomes}).
-Featurisation is dataset-specific.  The MoleculeNet binary tasks
-(BACE, BBBP, ClinTox) and the TDC ADME/Tox tasks (DILI,
-Pgp\_Broccatelli, BBB\_Martins, AMES, CYP2C9-Sub, CYP2D6-Sub,
-CYP3A4-Sub, hERG, HIA\_Hou, Skin\_Reaction, Bioavailability\_Ma)
-use $2048$-bit Morgan fingerprints at radius $2$, computed via
-RDKit~\citep{rdkit}.  TADF uses the same Morgan fingerprints
-concatenated with $217$ RDKit-derived molecular descriptors
-(molecular weight, EState indices, partial charges, etc.).  MOF-thermal-stability and
-MOF-solvent-removal use $174$ Revised Auto-Correlation (RAC)
-descriptors over metal-centre, linker, functional-group, and
-ligand-chemistry atoms at depths $0$--$3$, plus geometric surface
-area (GSA), the standard featurisation for MOF property
-prediction~\citep{Moosavi2020}.  All inputs are
-column-standardised before training.  The default architecture used
-throughout the main comparison is a $256$-unit MLP trained from
-scratch on these features.  Appendices~\ref{app:gin} and~\ref{app:chemberta_scope}
-report cross-checks on a graph network and on ChemBERTa-77M-MTR.
+the TDC~\citep{huang2021therapeutics} ADME and Tox suites
+(HIA\_Hou, Bioavailability\_Ma, Pgp\_Broccatelli, BBB\_Martins,
+CYP\{2C9,2D6,3A4\}-Sub, hERG, DILI, AMES, Skin\_Reaction), and
+materials-science benchmarks (TADF~\citep{jablonka2026clever, Huang2024},
+MOF-thermal-stability, MOF-solvent-removal~\citep{jablonka2026clever, Nandy2022}).
+A pre-registered health filter
+(ERM accuracy $\geq$ majority $+ \preregFilterPP$pp on a canonical
+test set $\geq \preregMinTestSize$ examples) keeps nine headline
+datasets, flags three borderline datasets, and excludes five; per-dataset
+filter outcomes are in Appendix~\ref{app:repro}.  Featurisation is
+the standard chemistry choice per dataset family ($2048$-bit Morgan
+radius-2 fingerprints for MoleculeNet/TDC; $+217$ RDKit descriptors
+for TADF; $174$ RAC descriptors plus GSA for
+MOFs~\citep{Moosavi2020}; full details in
+Appendix~\ref{app:repro}).  The default architecture is a
+$256$-unit MLP trained from scratch on these features.
 

@@ -177,10 +177,8 @@ def emit_main_table() -> None:
     rows = _read_csv(OUTPUTS / "main_table.csv")
     if not rows:
         for k in ["bagFiveLow", "bagFiveHigh", "twinMedianReduction",
-                  "twinLow", "twinHigh",
                   "paramSideLow", "paramSideHigh",
                   "baceErmChurn", "baceTwinChurn",
-                  "paramSideAbsLow", "paramSideAbsHigh",
                   "bagFiveFinalLow", "bagFiveFinalHigh",
                   "twinFinalLow", "twinFinalHigh"]:
             add(k, "??")
@@ -216,8 +214,6 @@ def emit_main_table() -> None:
         add("bagFiveLow", -max(bag5), "pct0")    # most-negative = strongest cut
         add("bagFiveHigh", -min(bag5), "pct0")
     if twin:
-        add("twinLow", -max(twin), "pct0")
-        add("twinHigh", -min(twin), "pct0")
         add("twinMedianReduction", -median(twin), "pct0")
 
     # Twin-bootstrap incremental reduction relative to bagging-K=2 (the
@@ -246,21 +242,6 @@ def emit_main_table() -> None:
     if param_side:
         add("paramSideLow", min(param_side), "pp1")
         add("paramSideHigh", max(param_side), "pp1")
-
-    # Absolute pp deltas (not relative %) for the discussion section
-    # claim "$-4.6$ to $+1.8$\,pp across the nine datasets".
-    def _abs_pp(rs: list[dict[str, Any]]) -> list[float]:
-        out = []
-        for r in rs:
-            d = _f(r.get("delta_id_churn_mean"))
-            if d is not None:
-                out.append(d * 100)
-        return out
-
-    param_pp = _abs_pp(_by_method("MC dropout")) + _abs_pp(_by_method("Deep Ensemble K=5"))
-    if param_pp:
-        add("paramSideAbsLow", min(param_pp), "pp1")
-        add("paramSideAbsHigh", max(param_pp), "pp1")
 
     # Final-churn ranges (not deltas): used in the "discussion" workflow
     # paragraph.  Bagging-K=5 cuts ERM 16-22% to FinalLow-FinalHigh%, etc.
@@ -502,29 +483,20 @@ def emit_chemberta() -> None:
         return
     drops_pp = []
     cuts_pct = []
-    lam_ten_abs_acc_pp = []
     for r in rows:
         erm_acc = _f(r.get("erm_acc"))
         t300 = _f(r.get("t300_acc"))
-        t10 = _f(r.get("t10_acc"))
         if erm_acc and t300:
             drops_pp.append((erm_acc - t300) * 100)
         rel10 = _f(r.get("t10_rel"))
         if rel10:
             cuts_pct.append(-rel10)  # negate so positive = cut
-        if erm_acc and t10:
-            lam_ten_abs_acc_pp.append(abs(erm_acc - t10) * 100)
     if drops_pp:
         add("chembertaAccDropLow", round(min(drops_pp)), "pct0")
         add("chembertaAccDropHigh", round(max(drops_pp)), "pct0")
     if cuts_pct:
         add("chembertaCutLow", round(min(cuts_pct)), "pct0")
         add("chembertaCutHigh", round(max(cuts_pct)), "pct0")
-    if lam_ten_abs_acc_pp:
-        # Round up to whole pp -- the prose says "within Xpp".
-        import math
-        add("chembertaLamTenAccBoundPP",
-            str(math.ceil(max(lam_ten_abs_acc_pp))))
 
     # Per-dataset count of "fails to reduce churn at lambda=300": the
     # paired delta CI is non-negative on the high side (mean >= 0 or CI
@@ -548,9 +520,7 @@ def emit_chemberta() -> None:
 def emit_waterbirds() -> None:
     rows = _read_csv(OUTPUTS / "waterbirds_lambda.csv")
     if not rows:
-        for k in ["waterbirdsAccCollapse", "waterbirdsLamTenCut",
-                  "waterbirdsLamTenDeltaPP", "waterbirdsLamTenDeltaLo",
-                  "waterbirdsLamTenDeltaHi"]:
+        for k in ["waterbirdsAccCollapse", "waterbirdsLamTenCut"]:
             add(k, "??")
         return
     erm_acc = _f(next((r["id_acc_mean"] for r in rows if r["method"] == "ERM"), None))
@@ -563,19 +533,6 @@ def emit_waterbirds() -> None:
         rel = _f(t10.get("rel_pct"))
         if rel:
             add("waterbirdsLamTenCut", round(-rel), "pct0")
-        d_mean = _f(t10.get("d_churn_mean_pp"))
-        d_lo = _f(t10.get("d_churn_lo_pp"))
-        d_hi = _f(t10.get("d_churn_hi_pp"))
-        if d_mean is not None:
-            add("waterbirdsLamTenDeltaPP", d_mean, "pp1")
-            add("waterbirdsLamTenDeltaLo", d_lo, "pp1")
-            add("waterbirdsLamTenDeltaHi", d_hi, "pp1")
-        # |dAcc| bound at lambda=10, rounded up to whole pp for the
-        # "within Xpp of ERM" prose claim.
-        if erm_acc:
-            import math
-            add("waterbirdsLamTenAccBoundPP",
-                str(math.ceil(abs(erm_acc - _f(t10["id_acc_mean"])) * 100)))
 
 
 def emit_gin() -> None:
@@ -589,11 +546,10 @@ def emit_gin() -> None:
             rel = _f(bag5.get("rel_churn_pct"))
             if rel:
                 add("ginBagCutLamThreeHundred", round(-rel), "pct0")
-            add("ginBagDeltaPP", _f(bag5.get("d_churn_mean_pp")), "pp1")
-            add("ginBagDeltaLo", _f(bag5.get("d_churn_lo_pp")), "pp1")
-            add("ginBagDeltaHi", _f(bag5.get("d_churn_hi_pp")), "pp1")
             add("ginBagAccGain", _f(bag5.get("d_acc_pp")), "pp1")
         if twin300:
+            # Used by the auto-generated paper/sections/tables/gin.tex
+            # caption; not in body prose.
             add("ginAccDropLamThreeHundred",
                 round(-_f(twin300.get("d_acc_pp"))), "pct0")
 
@@ -746,17 +702,6 @@ def emit_per_dataset_callouts() -> None:
         if erm_kl > 0:
             pct_reduce = 100.0 * (1.0 - twin_kl / erm_kl)
             add("ginSymKLReductionPct", f"{pct_reduce:.0f}")
-
-    # BACE pairwise |Δacc| between two retrainings: the discussion
-    # claim "two models that disagree on 16% of test predictions report
-    # aggregate accuracies within ~Xpp of one another".  Sourced from
-    # fragility_magnitudes.csv (acc_diff_pp_mean is the mean pairwise
-    # |Δacc| across the 45 ERM seed pairs).
-    bace_mag = next((r for r in fmag if r.get("dataset") == "bace"), None)
-    if bace_mag:
-        import math as _math
-        # Round up to whole pp for the prose's "within ~Xpp" claim.
-        add("baceAccGapPP", str(_math.ceil(float(bace_mag["acc_diff_pp_mean"]))))
 
     # MOF-thermal floor in the triage-convergence figure (caption only).
     # The prose says "MOF-thermal is the floor on every K (X-Y%)".

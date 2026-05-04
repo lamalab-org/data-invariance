@@ -110,40 +110,25 @@ other architectures and on regression. The numerical value of
 $\lambda$ is architecture-specific; the rule that selects it is not.
 
 \paragraph{Pretrained backbones.}
-A pretrained backbone has already absorbed regularisation from its
-pretraining corpus, so the from-scratch $\lambda$ over-constrains
-it.  At
-$\lambda{=}300$ (the BACE-MLP-frozen value), twin-bootstrap collapses
-accuracy by $\waterbirdsAccCollapse$pp on Waterbirds
-(ImageNet-pretrained ResNet-50) and by
-$\chembertaAccDropLow\text{--}\chembertaAccDropHigh$pp on
-ChemBERTa-77M-MTR fine-tuned on six chemistry datasets, failing to
-reduce the class-flip rate on
-$\chembertaLamThreeHundredFailCount/\chembertaLamThreeHundredDenom$
-of them.  Re-applying the
-same $\preregTolerance$-tolerance selection rule on each backbone's
-development set picks $\lambda{=}10$: on BACE-ChemBERTa this preserves
-accuracy (within $\chembertaLamTenAccBoundPP$pp of ERM) and cuts churn
-$\chembertaCutLow\text{--}\chembertaCutHigh\%$ on every ChemBERTa
-dataset (Appendix~\ref{app:chemberta_scope}); on Waterbirds it
-preserves accuracy (within $\waterbirdsLamTenAccBoundPP$pp of ERM)
-and cuts churn $\waterbirdsLamTenCut\%$
-($\waterbirdsLamTenDeltaPP$pp [$\waterbirdsLamTenDeltaLo$,
-$\waterbirdsLamTenDeltaHi$], Appendix~\ref{app:waterbirds_lambda}).
-Bagging is independent of $\lambda$ and works on every backbone we
-tested.
+The BACE-MLP-frozen $\lambda{=}300$ over-constrains pretrained
+representations: twin-bootstrap collapses accuracy by
+$\waterbirdsAccCollapse$pp on Waterbirds (ImageNet ResNet-50) and
+by $\chembertaAccDropLow\text{--}\chembertaAccDropHigh$pp on
+ChemBERTa-77M-MTR.  Re-applying the
+$\preregTolerance$-tolerance selection rule on each backbone's
+development set picks $\lambda{=}10$, which preserves accuracy and
+cuts the class-flip rate on every ChemBERTa dataset
+(Appendix~\ref{app:chemberta_scope}) and on Waterbirds
+(Appendix~\ref{app:waterbirds_lambda}).  Bagging is independent of
+$\lambda$ and works on every backbone we tested.
 
 \paragraph{Graph networks.}
-On a non-fingerprint architecture (a $3$-layer GIN on RDKit graphs of
-BACE), bagging-$K{=}5$ transfers cleanly: it cuts the class-flip rate by
-$\ginBagCutLamThreeHundred\%$ ($\ginBagDeltaPP$pp [$\ginBagDeltaLo$,
-$\ginBagDeltaHi$]) and improves id-accuracy by $\ginBagAccGain$pp.
-Twin-bootstrap at $\lambda{=}300$ drops id-accuracy by
-$\ginAccDropLamThreeHundred$pp and is rejected by the same
-accuracy-tolerance rule that selected $\lambda{=}300$ on the MLP;
-re-running the rule on BACE-GIN selects $\lambda{=}\ginRuleLam$,
-which cuts the class-flip rate $\ginCutLamTen\%$ at no accuracy cost
-(Appendix~\ref{app:gin}).
+On a $3$-layer GIN on RDKit graphs of BACE, bagging-$K{=}5$ transfers
+cleanly and improves id-accuracy by $\ginBagAccGain$pp.  Twin-bootstrap
+at $\lambda{=}300$ collapses accuracy and is rejected by the same
+$\preregTolerance$-tolerance rule; re-running the rule on BACE-GIN
+selects $\lambda{=}\ginRuleLam$, which cuts the class-flip rate
+$\ginCutLamTen\%$ at no accuracy cost (Appendix~\ref{app:gin}).
 
 \paragraph{Regression.}
 On three regression benchmarks (ESOL, FreeSolv, Lipophilicity;

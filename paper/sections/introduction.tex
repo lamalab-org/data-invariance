@@ -63,51 +63,32 @@ better.
 \begin{itemize}\itemsep0pt
   \item \textbf{Measurement protocol.}  We define
         \emph{cross-sample prediction fragility}, the population-level
-        analogue of prediction churn, and give a measurement protocol
-        for the small-$N$ from-scratch regime where deployment-loop
-        churn measurement does not apply.
-  \item \textbf{Magnitudes.}  On \nDatasetsHeadline{} chemistry benchmarks
-        (MoleculeNet, Therapeutics Data Commons (TDC) ADME and Tox,
-        materials-science) fragility flips
-        $\churnMin\text{--}\churnMax\%$ of test predictions across
-        retrainings --- many times larger than the parameter-variance
-        axis deep ensembles and MC dropout capture (which leave
-        $\paramSideLow\%$ to $\paramSideHigh\%$ relative on the
-        class-flip rate, no consistent direction).
-  \item \textbf{Bagging as a free-lunch baseline.}
-        $K$-bootstrap bagging~\citep{Breiman1996} reduces the
-        class-flip rate $\bagFiveLow\text{--}\bagFiveHigh\%$ on every
-        held-out dataset, paired bootstrap CI excluding zero, with no
-        accuracy regression.
-  \item \textbf{Twin-bootstrap.}  Two networks trained on independent
-        bootstraps with a sym-KL consistency loss between their
-        predictions: the codistillation family~\citep{anil2018large}
-        at $\sim\overlapPctMid\%$ inter-network bootstrap overlap.  At
-        matched $2\times$-ERM compute against bagging-$K{=}2$ it cuts
-        the class-flip rate by a further median
-        $\twinMedianReduction\%$ (range
-        $\twinLow\text{--}\twinHigh\%$) and reduces distributional
-        disagreement by a further factor of
-        ${\sim}\symKLTwinAdditionalFoldMedian$.  Among three overlap
-        points ($\overlapPctLo\%$, $\sim\overlapPctMid\%$,
-        $\overlapPctHi\%$), only $\sim\overlapPctMid\%$ reduces churn
-        on every dataset
-        (Appendix~\ref{app:overlap_spectrum}).
-  \item \textbf{One-bootstrap triage.}  Sorting test predictions by
-        per-example fragility from a single additional retraining and
-        reviewing the top $\reviewFraction\%$ captures
-        $\triageKtenLow\text{--}\triageKtenHigh\%$ of the
-        retraining-induced flips on every dataset, at the cost of one
-        extra training run.
-  \item \textbf{The recipe is portable.}  A single rule for picking
-        $\lambda$ on the development dataset produces a working value
-        on every architecture we tested --- the default MLP, a
-        from-scratch GIN (Appendix~\ref{app:gin}), ChemBERTa
-        fine-tuned on six chemistry benchmarks
-        (Appendix~\ref{app:chemberta_scope}), and ImageNet-pretrained
-        ResNet-50 fine-tuned on Waterbirds
-        (Appendix~\ref{app:waterbirds_lambda}) --- though the value
-        differs by architecture.  Bagging requires no tuning and
-        works on every architecture and backbone we tested.
+        analogue of prediction churn for the small-$N$ from-scratch
+        regime where the deployment-loop churn measurement does not
+        apply.
+  \item \textbf{Magnitudes.}  On \nDatasetsHeadline{} chemistry
+        benchmarks (MoleculeNet, TDC ADME and Tox, materials-science)
+        fragility flips $\churnMin\text{--}\churnMax\%$ of test
+        predictions across retrainings; deep ensembles, MC dropout,
+        and SWA do not consistently reduce it
+        (Section~\ref{sec:fragility-magnitudes},
+        Table~\ref{tab:fragility-magnitudes}).
+  \item \textbf{Bagging is a free-lunch reducer.}  $K$-bootstrap
+        bagging~\citep{Breiman1996} cuts fragility
+        $\bagFiveLow\text{--}\bagFiveHigh\%$ on every held-out
+        dataset with no accuracy regression
+        (Table~\ref{tab:main}).
+  \item \textbf{Twin-bootstrap and one-bootstrap triage.}
+        Two networks trained on independent bootstraps with a sym-KL
+        consistency loss --- the codistillation family at
+        $\sim\overlapPctMid\%$ inter-network bootstrap overlap.  At
+        matched $2\times$-ERM compute against bagging-$K{=}2$,
+        twin-bootstrap cuts fragility a further median
+        $\twinFurtherMedianReductionVsBagTwo\%$ beyond bagging
+        (Table~\ref{tab:main}, Figure~\ref{fig:main}); sorting test
+        predictions by per-example fragility from one extra
+        retraining captures
+        $\triageKtenLow\text{--}\triageKtenHigh\%$ of all flips on
+        every dataset (Section~\ref{sec:churn-decile}).
 \end{itemize}
 
