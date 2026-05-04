@@ -1,10 +1,12 @@
-"""Dataset/model construction used by `scripts/cross_sample_train.py`.
+"""Dataset/model construction shared with `scripts/cross_sample_train.py`.
 
-The original module hosted the full training pipeline for the prior
-group-robustness research direction (ERM/JTT/LfF/V-REx with environment
-discovery and SWA model selection).  Only `_build_model` and
-`make_dataloaders` are needed by the current paper pipeline; everything
-else has been removed.
+Two entry points:
+- `_build_model(cfg, loaders, device)` instantiates the architecture
+  (MLP / pretrained ResNet-50 / ChemBERTa / GIN) for a given run.
+- `make_dataloaders(cfg)` builds canonical train/test loaders from
+  the raw dataset, using the canonical-data seed for the split.
+The cross-sample training loop (bagging, twin-bootstrap, MC dropout,
+deep ensembles, SWA) lives in `scripts/cross_sample_train.py`.
 """
 from __future__ import annotations
 

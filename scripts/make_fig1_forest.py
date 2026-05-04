@@ -69,6 +69,7 @@ def main() -> None:
     # (blue / red), and open vs filled within each group.
     method_styles = {
         "MC dropout":    dict(marker="o", mfc="white",   mec="0.45",    ms=5.0, zorder=1),
+        "SWA":           dict(marker="o", mfc="0.85",    mec="0.20",    ms=5.0, zorder=1.5),
         "Deep Ens. K=5": dict(marker="o", mfc="0.65",    mec="0.30",    ms=5.0, zorder=2),
         "Bagging K=2":   dict(marker="o", mfc="white",   mec="#1f77b4", ms=5.5, zorder=3),
         "Bagging K=5":   dict(marker="o", mfc="#1f77b4", mec="#0d3a5c", ms=6.0, zorder=4),
@@ -102,9 +103,29 @@ def main() -> None:
 
     # ---------- Left: Δ vs ERM, all 4 methods ----------
     n_methods = len(METHOD_ORDER)
-    intra_offset = 0.20
+    # Tighter intra-row offset so the five method markers cluster within a
+    # row instead of bleeding into adjacent rows (5 markers x 0.16 spacing
+    # span ±0.32; row gap is 0.36 — adjacent rows visually separate).
+    intra_offset = 0.16
     row_spacing = 1.0
     yticks, yticklabels = [], []
+
+    n_rows = len(HEADLINE_DATASETS)
+    # Row identity: alternating shading (visible but unobtrusive) plus a
+    # thin separator at every row boundary so a reader can quickly tell
+    # which markers belong to the same dataset.
+    for i in range(n_rows):
+        if i % 2 == 0:
+            for ax in (ax_l, ax_r):
+                ax.axhspan(
+                    i * row_spacing - 0.5 * row_spacing,
+                    i * row_spacing + 0.5 * row_spacing,
+                    facecolor="0.88", edgecolor="none", zorder=-1,
+                )
+    for i in range(n_rows + 1):
+        y = (i - 0.5) * row_spacing
+        for ax in (ax_l, ax_r):
+            ax.axhline(y, color="0.65", linewidth=0.3, zorder=0, alpha=0.7)
 
     for i, ds in enumerate(reversed(HEADLINE_DATASETS)):
         y_centre = i * row_spacing

@@ -44,12 +44,10 @@ HEADLINE_DATASETS = [
     "ames",
 ]
 
-# Once MOF-thermal was re-run without the (V-REx-style) spurious-correlation
-# injection it had inherited from the project's prior research direction,
-# the consistency collapse went away (twin-indep id-acc moved from 0.535 =
-# majority to 0.640 = 12pp above majority).  MOF-thermal now passes the
-# headline filter and is included in the methods comparison.  No magnitudes-only
-# dataset remains.
+# Datasets reported in the magnitudes table only (passed the
+# +preregFilterPP ERM-vs-majority filter but excluded from the methods
+# comparison).  Empty: every health-filter-passing dataset is in both
+# tables.
 MAGNITUDES_EXTRA: list[str] = []
 
 # Borderline datasets: pass the ERM-vs-majority filter only marginally

@@ -51,14 +51,11 @@ $\binom{\nSeeds}{2}{=}\nSeedPairs$ pairs $(s, s')$ and over the canonical test s
 Confidence intervals come from $10{,}000$-sample bootstrap on the
 seed-pair distribution; cross-method deltas are paired.
 
-We run $\nCanonicalSeeds$ independent replicates of the protocol at
-canonical seeds $\canonicalSeed$, $7$, and $42$ (each replicate is a
-different train/test split with its own ten train seeds), for both
-the chemistry-MLP comparison and the pretrained-backbone scope
-checks (GIN, ChemBERTa, Waterbirds).  Magnitudes quoted in prose are
-across-replicate means; the development hyperparameter-selection
-rule (Section~\ref{sec:methods}) picks the same value on every
-replicate independently (Appendix~\ref{app:seed_sensitivity}).
+For the chemistry-MLP comparison we run $\nCanonicalSeeds$
+replicates at canonical seeds $\canonicalSeed$, $7$, and $42$;
+quoted magnitudes are across-replicate means and the $\lambda$-selection
+rule picks the same value on every replicate
+(Appendix~\ref{app:seed_sensitivity}).
 
 \paragraph{Datasets.}
 \label{sec:datasets}

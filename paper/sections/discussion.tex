@@ -18,17 +18,6 @@ beyond cross-entropy plus KL, or specialised hardware.  The
 practical implication: per-prediction stability under retraining is a
 column the field can start reporting tomorrow.
 
-\paragraph{A recommended workflow.}
-A tiered recipe that practitioners can adopt incrementally on an
-existing pipeline.  (i)~Bagging-$K{=}5$ on the deployed predictor,
-parallelisable to ERM wall-clock at $5\times$ compute
-(Table~\ref{tab:main}).  (ii)~Twin-bootstrap at the rule-selected
-$\lambda$ when $5\times$ compute is prohibitive; recovers most of the
-$K{=}5$ benefit at $2\times$-ERM compute (Figure~\ref{fig:main}).
-(iii)~For triage on top of any deployed model, train one extra ERM
-bootstrap and route the top-$\reviewFraction\%$-churn predictions
-to a reviewer (Figure~\ref{fig:decile}).
-
 \paragraph{Stability is a property of the procedure.}
 What sets a model's cross-sample churn is the training procedure that
 produced its weights --- the optimiser, the schedule, and especially
@@ -42,17 +31,3 @@ consistency weight $\lambda$, takes a different value on a different
 architecture, but the rule that selects it is unchanged
 (Section~\ref{sec:generalisation}).
 
-\paragraph{Cross-sample churn belongs in the benchmark report.}
-AI-for-science benchmarks (MoleculeNet, TDC ADME/Tox,
-materials-science) report columns for accuracy, AUROC, and
-calibration.  None varies the training dataset; cross-sample churn does, and on every benchmark we
-test the per-example flip rate is many times larger than the
-aggregate-accuracy drift it lives behind
-(Section~\ref{sec:churn-magnitudes}, Figure~\ref{fig:overview}).
-Clinical biostatistics already reports per-individual stability
-intervals~\citep{Riley2023}; the case for adding a churn column to
-scientific-ML benchmarks is the same case --- the magnitudes are
-large enough to matter (Section~\ref{sec:churn-magnitudes}).  Once
-the column is in the report, bagging and twin-bootstrap reduce it,
-and a one-bootstrap triage identifies which predictions will flip
-first.
