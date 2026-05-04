@@ -46,17 +46,13 @@ concentrates on the minority class on imbalanced datasets
 Appendix~\ref{app:per_class_churn}) --- the class that drives
 next-step decisions.
 
-\paragraph{Churn correlates with task difficulty, but is not
-explained by it.}
+\paragraph{Difficulty confound.}
 At the dataset level, the mean class-flip rate correlates with mean
 ERM accuracy at Pearson $\churnAccCorrPearson$ (Spearman
 $\churnAccCorrSpearman$) across the \nDatasetsHeadline{} chemistry
-benchmarks --- harder tasks show more churn.  At the
-per-method level, decoupling: deep ensembles raise mean accuracy by
-$\deepEnsAccDelta$\,pp without reducing churn, while twin-bootstrap
-cuts churn a median $\twinMedianReduction\%$ at $\twinAccDelta$\,pp
-mean accuracy cost (Table~\ref{tab:main}).  Churn is not a
-recoding of accuracy.
+benchmarks --- harder tasks show more churn.  This is not a
+confound; the per-method picture is decoupled
+(Section~\ref{sec:experiments}).
 
 \paragraph{Bootstrap estimator.}
 A practitioner has one observed training set $S$, not a population

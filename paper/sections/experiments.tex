@@ -25,7 +25,11 @@ datasets and trails on $\bagFiveWinsTwinHeldout$ (DILI, Pgp, TADF).
 The aggregate Friedman test rejects equal-ranks at
 $\chi^2 = \friedmanChi$, $p = \friedmanP$; twin-bootstrap ranks
 first, indistinguishable from bagging-$K{=}5$ at less than half the
-compute (Appendix~\ref{app:friedman}).
+compute (Appendix~\ref{app:friedman}).  The reduction is decoupled
+from accuracy: deep ensembles raise mean accuracy by
+$\deepEnsAccDelta$\,pp without reducing churn, while twin-bootstrap
+cuts churn a median $\twinMedianReduction\%$ at $\twinAccDelta$\,pp
+mean accuracy cost.  Churn is not a recoding of accuracy.
 
 \begin{figure}[t]
   \centering
