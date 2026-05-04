@@ -1,8 +1,0 @@
-# Perovskite solar cell efficiency — clever-materials-hans dataset.
-# Binary classification: high efficiency (>= 13.3% PCE) vs low.
-# No spurious-correlation injection.
-name: perovskite
-arch: mlp
-parquet_path: data/chemistry/perovskite_processed.parquet
-target_column: data.jv.default_PCE
-data_dir: ./data

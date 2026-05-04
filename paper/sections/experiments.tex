@@ -4,11 +4,11 @@
 \paragraph{Cross-sample reduction across benchmarks.}
 Across the \nDatasetsHeadline{} chemistry benchmarks (BACE plus
 \nDatasetsHeldout{} held-out), bagging-$K{=}5$ and twin-bootstrap both
-beat ERM on cross-sample id-churn with $95\%$ paired-bootstrap CIs
+beat ERM on the cross-sample class-flip rate with $95\%$ paired-bootstrap CIs
 that exclude zero (Table~\ref{tab:main}, Figure~\ref{fig:main}).  The
 three parameter-side techniques --- MC dropout, deep ensembles, and
 stochastic weight averaging (SWA) --- do not reduce churn
-consistently.  Their $\Delta$ id-churn ranges $\paramSideLow\%$ to
+consistently.  Their relative $\Delta$ class-flip rate ranges $\paramSideLow\%$ to
 $\paramSideHigh\%$ relative to ERM, with no consistent direction
 across datasets.  Averaging $T{=}20$ stochastic forward passes
 (MC dropout), averaging $K{=}5$ networks at fixed data
@@ -118,7 +118,7 @@ accuracy by $\waterbirdsAccCollapse$pp on Waterbirds
 (ImageNet-pretrained ResNet-50) and by
 $\chembertaAccDropLow\text{--}\chembertaAccDropHigh$pp on
 ChemBERTa-77M-MTR fine-tuned on six chemistry datasets, failing to
-reduce argmax churn on
+reduce the class-flip rate on
 $\chembertaLamThreeHundredFailCount/\chembertaLamThreeHundredDenom$
 of them.  Re-applying the
 same $\preregTolerance$-tolerance selection rule on each backbone's
@@ -135,14 +135,14 @@ tested.
 
 \paragraph{Graph networks.}
 On a non-fingerprint architecture (a $3$-layer GIN on RDKit graphs of
-BACE), bagging-$K{=}5$ transfers cleanly: it cuts argmax churn by
+BACE), bagging-$K{=}5$ transfers cleanly: it cuts the class-flip rate by
 $\ginBagCutLamThreeHundred\%$ ($\ginBagDeltaPP$pp [$\ginBagDeltaLo$,
 $\ginBagDeltaHi$]) and improves id-accuracy by $\ginBagAccGain$pp.
 Twin-bootstrap at $\lambda{=}300$ drops id-accuracy by
 $\ginAccDropLamThreeHundred$pp and is rejected by the same
 accuracy-tolerance rule that selected $\lambda{=}300$ on the MLP;
 re-running the rule on BACE-GIN selects $\lambda{=}\ginRuleLam$,
-which cuts argmax churn $\ginCutLamTen\%$ at no accuracy cost
+which cuts the class-flip rate $\ginCutLamTen\%$ at no accuracy cost
 (Appendix~\ref{app:gin}).
 
 \paragraph{Regression.}

@@ -1,14 +1,35 @@
 \section{Limitations}
 \label{sec:limitations}
 
-The main experiments use binary classification, Morgan fingerprints,
-and a $256$-unit MLP from scratch; the test-set construction is
-fixed at a single canonical seed and $\lambda$ is selected on BACE
-alone.  We do not vary the test-set seed, the
-development dataset, the twin head count, or the multi-class output
-type.  The numerical value of $\lambda$ does not transfer across
-architectures unmodified, though the selection rule does
-(Section~\ref{sec:generalisation}); a practitioner moving to a new
-architecture re-runs a single sweep on a development dataset.
-Bagging has no $\lambda$ and works on every architecture and
-backbone we tested.
+\paragraph{Domain coverage.}  The headline method comparison is on
+chemistry binary-classification benchmarks (MoleculeNet, TDC ADME and
+Tox, materials-science).  Waterbirds (vision) is the only
+non-chemistry test of the rule's transfer; CivilComments / MultiNLI
+(text) and the broader WILDS suite are out of scope.  We expect the
+mechanism (cross-bootstrap variance is the load-bearing axis at
+small $N$) to apply wherever training-pool size is the binding
+constraint, but we do not demonstrate it.
+
+\paragraph{Classification-centric main comparison.}  Methods are
+compared on cross-sample fragility for binary classification.  Three
+regression benchmarks (ESOL, FreeSolv, Lipophilicity;
+Appendix~\ref{app:regression}) confirm the methods extend to
+continuous targets and rank the same way, but the headline magnitudes
+and the figures are classification-only.  Multi-class classification,
+multi-target regression, and structured outputs (segmentation,
+generation) are unstudied.
+
+\paragraph{Architectural and protocol scope.}  The main experiments
+use a $256$-unit MLP from scratch on Morgan fingerprints; pretrained
+backbones (ChemBERTa, ResNet-50) and the from-scratch GIN are
+single-canonical-seed cross-checks
+(Appendices~\ref{app:gin}--\ref{app:waterbirds_lambda}), not full
+sweeps.  We do not vary the twin head count beyond $K{=}2$ or the
+development dataset for $\lambda$ selection.
+
+\paragraph{Hyperparameter transfer.}  The numerical value of $\lambda$
+does not transfer across architectures unmodified, though the
+selection rule does (Section~\ref{sec:generalisation}); a practitioner
+moving to a new architecture re-runs a single sweep on a development
+dataset.  Bagging has no $\lambda$ and works on every architecture
+and backbone we tested.

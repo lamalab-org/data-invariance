@@ -52,7 +52,12 @@ dropout~\citep{gal2015dropout} capture.  Across our
 \nDatasetsHeadline{} chemistry benchmarks, deep ensembles and MC
 dropout shift the class-flip rate by $\paramSideLow\%$ to
 $\paramSideHigh\%$ relative to empirical risk minimisation (ERM),
-with no consistent sign.  Methods that vary the data do better.
+with no consistent sign.  These methods marginalise over network
+weights at fixed bootstrap (deep ensembles, MC dropout) or smooth
+one optimisation trajectory (SWA); the data-sampling axis is held
+constant, so the variance they reduce is orthogonal to fragility.
+Methods that vary the data --- bagging and twin-bootstrap --- do
+better.
 
 \paragraph{Contributions.}
 \begin{itemize}\itemsep0pt

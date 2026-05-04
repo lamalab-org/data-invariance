@@ -1,5 +1,0 @@
-# Preprocessing-based environment discovery (Path A).
-# Phase 1: train a throw-away ERM model for discovery_epochs.
-# Phase 2: split examples by prediction entropy (low = confident = likely colour=label env;
-#           high = uncertain = likely colour≠label env), then train SplitMLP with V-REx penalty.
-name: discovered_split

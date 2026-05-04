@@ -1,9 +1,0 @@
-# Colored MNIST — synthetic spurious correlation benchmark.
-# Binary classification (digits 0-4 vs 5-9) with colour as spurious feature.
-# Configurable colour-label correlation lets us control the distribution shift.
-name: cmnist
-arch: mlp
-train_correlation: 0.9
-test_correlation: 0.1
-label_noise: 0.25
-data_dir: ./data

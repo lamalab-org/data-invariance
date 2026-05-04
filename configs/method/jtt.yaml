@@ -1,5 +1,0 @@
-# JTT (Just Train Twice) — Liu et al. 2021.
-# Phase 1: train ERM, identify high-loss examples.
-# Phase 2: retrain with upweighted high-loss examples (no V-REx).
-# This is the ablation that isolates what V-REx adds over pure upweighting.
-name: jtt

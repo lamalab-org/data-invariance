@@ -167,7 +167,7 @@ the per-seed values tabulated below.
 \paragraph{What changes across canonical seeds.}
 The largest across-seed range observed for any single
 (dataset, method) cell is $\maxAcrossSeedChurnSpreadPP$\,pp on the
-absolute id-churn rate, attained on \maxAcrossSeedChurnSpreadCell.
+absolute class-flip rate, attained on \maxAcrossSeedChurnSpreadCell.
 Magnitudes are seed-sensitive because the test set composition
 changes between canonical seeds.  Paired comparisons --- the headline
 $\Delta$-churn columns of Table~\ref{tab:main} --- are computed within
@@ -236,7 +236,7 @@ bootstrap-overlap: $\overlapPctLo\%$ (disjoint shards),
 ${\sim}\overlapPctMid\%$ (independent bootstraps with replacement),
 and $\overlapPctHi\%$ (the same bootstrap to
 both networks).  Table~\ref{tab:overlap_spectrum} reports paired
-$\Delta$ id-churn vs.\ ERM at each operating point on every dataset
+$\Delta$ class-flip rate vs.\ ERM at each operating point on every dataset
 where all three methods completed.
 
 \input{sections/tables/overlap_spectrum.tex}
@@ -301,11 +301,11 @@ argmax-churn main result (Table~\ref{tab:main}).  The summary is in
 The pairwise CIs reported in Table~\ref{tab:main} test each
 (method, dataset) cell separately.  As an aggregate cross-dataset
 test, we apply the Friedman non-parametric rank test on mean
-cross-sample id-churn over the nine datasets and seven methods (ERM,
+cross-sample class-flip rate over the nine datasets and seven methods (ERM,
 MC dropout, SWA, Deep Ensemble $K{=}5$, Bagging $K{=}2$, Bagging
 $K{=}5$, Twin-bootstrap $\lambda{=}300$).  The test rejects the null
 of equal ranks at $\chi^2 = \friedmanChi$, $p = \friedmanP$.  Mean
-ranks (lower is better, $1$ = best on cross-sample id-churn) are
+ranks (lower is better, $1$ = best on cross-sample class-flip rate) are
 twin-bootstrap $\friedmanRankTwin$, bagging $K{=}5$
 $\friedmanRankBagFive$, bagging $K{=}2$ $\friedmanRankBagTwo$, SWA
 $\friedmanRankSWA$, deep-ensemble $K{=}5$ $\friedmanRankDeepEns$,
@@ -375,7 +375,7 @@ cross-check, we train a graph isomorphism network
 graphs of BACE: $3$ GINConv layers, hidden dimension $128$, mean-pool
 readout, $50$ epochs.  All ten train-seeds and the canonical-data-seed
 protocol are unchanged.  Table~\ref{tab:gin} reports per-method
-id-accuracy, argmax churn, and sym-KL with $95\%$ paired-bootstrap
+id-accuracy, class-flip rate, and sym-KL with $95\%$ paired-bootstrap
 CIs, plus paired $\Delta$ vs.\ ERM on the same $\nSeedPairs$ seed-pairs.
 
 \input{sections/tables/gin.tex}
@@ -391,7 +391,7 @@ BACE-GIN, sweeping $\lambda \in \{1, 3, 10, 30, 100, 300\}$:
 ERM-GIN id-acc is $\ginErmAcc$, so the $\preregTolerance$-tolerance
 rule admits any $\lambda$ keeping id-acc $\geq \ginErmAccTolerance$.  The largest $\lambda$
 satisfying this is $\lambda{=}\ginRuleLam$ (bold).  At
-$\lambda{=}\ginRuleLam$ twin-bootstrap cuts argmax churn
+$\lambda{=}\ginRuleLam$ twin-bootstrap cuts the class-flip rate
 $-\ginRuleLamCutPct\%$ vs.\ ERM-GIN (paired CI
 $[\ginRuleLamDeltaLo, \ginRuleLamDeltaHi]$\,pp), close to the
 bagging-$K{=}5$ reduction of $-\ginBagCutLamThreeHundred\%$, and
@@ -416,9 +416,9 @@ $\binom{5}{2}=10$ seed-pairs per dataset.
 $\lambda{=}300$ (the value selected on BACE-MLP) twin-bootstrap drops
 ChemBERTa accuracy by
 $\chembertaAccDropLow\text{--}\chembertaAccDropHigh$pp on every
-dataset and fails to reduce argmax churn on
+dataset and fails to reduce the class-flip rate on
 $\chembertaLamThreeHundredFailCount/\chembertaLamThreeHundredDenom$
-datasets: the paired CI of $\Delta$ id-churn vs.\ ERM either
+datasets: the paired CI of $\Delta$ class-flip rate vs.\ ERM either
 excludes zero on the high side (BACE, Pgp, AMES, DILI: strict
 increase) or straddles zero (BBB-Martins).  The one apparent
 decrease (BBBP) is a model collapse to the majority-class predictor,

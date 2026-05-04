@@ -25,10 +25,12 @@ optionally with a distributional analogue
 $\bar\rho_{\mathrm{KL}}(\mathcal{A})
 = \mathbb{E}_x \big[\tfrac{1}{2}(\mathrm{KL}(f_{S_A}(x) \| f_{S_B}(x))
                                 + \mathrm{KL}(f_{S_B}(x) \| f_{S_A}(x)))\big]$.
-Throughout the paper, ``fragility'' refers to $\bar\rho$ unless
-otherwise stated.  ``Class-flip rate'' and ``argmax churn'' name the
-same quantity reported as a percentage.  Figures use ``id-churn'' on
-axes when the expectation is taken over the canonical id-test set.
+Throughout the paper, ``fragility'' is the conceptual name for
+$\bar\rho$; ``class-flip rate'' is its operational expression as a
+percentage and is what figure axes and table cells display.  When we
+need to connect to prior literature on prediction churn we use
+``argmax churn'' (\S\ref{sec:related}); the three names refer to the
+same quantity.
 
 \paragraph{Imbalance, accuracy, and other aggregate metrics.}
 Accuracy on imbalanced data can mask class-specific drift: two
@@ -62,7 +64,7 @@ the disagreement concentrates on the class practitioners care about.
 
 \paragraph{Churn correlates with task difficulty, but is not
 explained by it.}
-At the dataset level, mean argmax churn correlates with mean ERM
+At the dataset level, the mean class-flip rate correlates with mean ERM
 accuracy at Pearson $\churnAccCorrPearson$ (Spearman
 $\churnAccCorrSpearman$) across the \nDatasetsHeadline{} chemistry
 benchmarks: harder datasets show more churn.  This is expected --- a

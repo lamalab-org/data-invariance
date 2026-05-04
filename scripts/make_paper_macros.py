@@ -219,6 +219,27 @@ def emit_main_table() -> None:
         add("twinLow", -max(twin), "pct0")
         add("twinHigh", -min(twin), "pct0")
         add("twinMedianReduction", -median(twin), "pct0")
+
+    # Twin-bootstrap incremental reduction relative to bagging-K=2 (the
+    # matched-compute baseline).  twinMedianReduction is vs ERM; this
+    # macro answers the natural follow-up "how much better than the
+    # matched-compute baseline?": median across datasets of
+    # (twin_churn - bag2_churn) / bag2_churn.  Used in the abstract for
+    # the "further median X% beyond bagging-K=2" claim.
+    bag2_by_ds = {r["dataset"]: _f(r.get("id_churn_mean"))
+                  for r in _by_method("Bagging K=2")}
+    twin_rows = _by_method_substr("Twin")
+    further = []
+    for r in twin_rows:
+        ds = r.get("dataset")
+        twin_c = _f(r.get("id_churn_mean"))
+        bag2_c = bag2_by_ds.get(ds)
+        if twin_c is None or bag2_c is None or bag2_c <= 0:
+            continue
+        further.append(100.0 * (twin_c - bag2_c) / bag2_c)
+    if further:
+        add("twinFurtherMedianReductionVsBagTwo",
+            -median(further), "pct0")
     # Combined param-side: MC dropout + DE-K=5 + SWA (all weight-side
     # techniques that do not vary the training-data sample).
     param_side = mcd + de5 + swa

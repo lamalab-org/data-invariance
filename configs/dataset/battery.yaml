@@ -1,8 +1,0 @@
-# Battery capacity — clever-materials-hans dataset.
-# Binary classification: high capacity (>= 290 mAh/g) vs low.
-# No spurious-correlation injection.
-name: battery
-arch: mlp
-parquet_path: data/chemistry/battery_preprocessed.parquet
-target_column: Value
-data_dir: ./data
