@@ -22,22 +22,32 @@ cd /vast/lo45pic/data-invariance
 METHODS=("erm|0" "twin_indep|300.0" "twin_indep|10.0")
 SEEDS="1,2,3,4,5,6,7,8,9,10"
 
+# Canonical-data seed.  Pass via env: CANON=7 sbatch slurm/full_retraining/05_waterbirds.sh
+CANON=${CANON:-99}
+if [ "$CANON" = "99" ]; then
+  OUT_DIR="outputs/cross_sample"
+  LOG_TAG=""
+else
+  OUT_DIR="outputs/cross_sample_seed${CANON}"
+  LOG_TAG="_seed${CANON}"
+fi
+
 SPEC=${METHODS[$SLURM_ARRAY_TASK_ID]}
 MODE=${SPEC%%|*}
 LAM=${SPEC#*|}
 
-mkdir -p logs/waterbirds
-LOG="logs/waterbirds/${MODE}_lam${LAM}.log"
+mkdir -p "logs/waterbirds${LOG_TAG}"
+LOG="logs/waterbirds${LOG_TAG}/${MODE}_lam${LAM}.log"
 
-echo "=== waterbirds  $MODE  lam=$LAM  $(hostname)  $(date) ===" > "$LOG"
+echo "=== waterbirds  $MODE  lam=$LAM  canon=$CANON  $(hostname)  $(date) ===" > "$LOG"
 if [ "$MODE" = "twin_indep" ]; then
   python scripts/cross_sample_train.py \
-    --dataset waterbirds --canonical_data_seed 99 --train_seeds "$SEEDS" \
-    --mode "$MODE" --lam "$LAM" >> "$LOG" 2>&1
+    --dataset waterbirds --canonical_data_seed "$CANON" --train_seeds "$SEEDS" \
+    --mode "$MODE" --lam "$LAM" --output_dir "$OUT_DIR" >> "$LOG" 2>&1
 else
   python scripts/cross_sample_train.py \
-    --dataset waterbirds --canonical_data_seed 99 --train_seeds "$SEEDS" \
-    --mode "$MODE" >> "$LOG" 2>&1
+    --dataset waterbirds --canonical_data_seed "$CANON" --train_seeds "$SEEDS" \
+    --mode "$MODE" --output_dir "$OUT_DIR" >> "$LOG" 2>&1
 fi
 echo "=== Done: $(date) ===" >> "$LOG"
 tail -5 "$LOG"

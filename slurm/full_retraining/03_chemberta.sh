@@ -22,6 +22,20 @@ DATASETS=(bace_chemberta bbbp_chemberta pgp_broccatelli_chemberta bbb_martins_ch
 METHODS=("erm|0" "twin_indep|300.0" "twin_indep|10.0")
 SEEDS="1,2,3,4,5,6,7,8,9,10"
 
+# Canonical-data seed.  Pass via env to dispatch the seed-sensitivity sweep:
+#   CANON=7 sbatch slurm/full_retraining/03_chemberta.sh
+# When CANON=99, NPZs go to the canonical outputs/cross_sample/ tree;
+# otherwise to outputs/cross_sample_seed${CANON}/ so the seed-99 NPZs
+# are not overwritten.
+CANON=${CANON:-99}
+if [ "$CANON" = "99" ]; then
+  OUT_DIR="outputs/cross_sample"
+  LOG_TAG=""
+else
+  OUT_DIR="outputs/cross_sample_seed${CANON}"
+  LOG_TAG="_seed${CANON}"
+fi
+
 DS_IDX=$(( SLURM_ARRAY_TASK_ID / 3 ))
 M_IDX=$(( SLURM_ARRAY_TASK_ID % 3 ))
 DS=${DATASETS[$DS_IDX]}
@@ -29,18 +43,18 @@ SPEC=${METHODS[$M_IDX]}
 MODE=${SPEC%%|*}
 LAM=${SPEC#*|}
 
-mkdir -p logs/chemberta
-LOG="logs/chemberta/${DS}_${MODE}_lam${LAM}.log"
+mkdir -p "logs/chemberta${LOG_TAG}"
+LOG="logs/chemberta${LOG_TAG}/${DS}_${MODE}_lam${LAM}.log"
 
-echo "=== $DS  $MODE  lam=$LAM  $(hostname)  $(date) ===" > "$LOG"
+echo "=== $DS  $MODE  lam=$LAM  canon=$CANON  $(hostname)  $(date) ===" > "$LOG"
 if [ "$MODE" = "twin_indep" ]; then
   python scripts/cross_sample_train.py \
-    --dataset "$DS" --canonical_data_seed 99 --train_seeds "$SEEDS" \
-    --mode "$MODE" --lam "$LAM" >> "$LOG" 2>&1
+    --dataset "$DS" --canonical_data_seed "$CANON" --train_seeds "$SEEDS" \
+    --mode "$MODE" --lam "$LAM" --output_dir "$OUT_DIR" >> "$LOG" 2>&1
 else
   python scripts/cross_sample_train.py \
-    --dataset "$DS" --canonical_data_seed 99 --train_seeds "$SEEDS" \
-    --mode "$MODE" >> "$LOG" 2>&1
+    --dataset "$DS" --canonical_data_seed "$CANON" --train_seeds "$SEEDS" \
+    --mode "$MODE" --output_dir "$OUT_DIR" >> "$LOG" 2>&1
 fi
 echo "=== Done: $(date) ===" >> "$LOG"
 tail -5 "$LOG"

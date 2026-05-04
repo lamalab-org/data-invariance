@@ -31,7 +31,13 @@ LAMBDAS = [1.0, 3.0, 10.0, 30.0, 100.0, 300.0]
 
 
 def main() -> None:
-    erm = load_runs(ROOT, "erm_train*.npz")
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--root", default="outputs/cross_sample",
+                    help="root directory; bace_chemberta/ subdir contains the NPZs.")
+    args = ap.parse_args()
+    root = Path(args.root) / "bace_chemberta"
+    erm = load_runs(root, "erm_train*.npz")
     erm_accs, _ = per_run_accuracies(erm)
     erm_mean = float(np.mean(erm_accs))
     pm_e, pairs_e = pairwise_metrics(erm)
@@ -45,7 +51,7 @@ def main() -> None:
           f"{'Δ vs ERM':>22}  {'within tol?':>12}")
     print("-" * 80)
     for lam in LAMBDAS:
-        rs = load_runs(ROOT, f"twin_indep_train*_lam{lam}.npz")
+        rs = load_runs(root, f"twin_indep_train*_lam{lam}.npz")
         if len(rs) < 2:
             print(f"{lam:>5.1f}  no runs"); continue
         accs, _ = per_run_accuracies(rs)

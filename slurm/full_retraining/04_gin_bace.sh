@@ -27,28 +27,38 @@ PY="$HOME/.local/bin/uv run --no-sync python"
 METHODS=("erm|0|0" "bagging|5|0" "twin_indep|0|300.0" "twin_indep|0|10.0")
 SEEDS="1,2,3,4,5,6,7,8,9,10"
 
+# Canonical-data seed.  Pass via env: CANON=7 sbatch slurm/full_retraining/04_gin_bace.sh
+CANON=${CANON:-99}
+if [ "$CANON" = "99" ]; then
+  OUT_DIR="outputs/cross_sample"
+  LOG_TAG=""
+else
+  OUT_DIR="outputs/cross_sample_seed${CANON}"
+  LOG_TAG="_seed${CANON}"
+fi
+
 SPEC=${METHODS[$SLURM_ARRAY_TASK_ID]}
 MODE=${SPEC%%|*}
 REST=${SPEC#*|}
 K=${REST%%|*}
 LAM=${REST#*|}
 
-mkdir -p logs/gin
-LOG="logs/gin/bace_gin_${MODE}_K${K}_lam${LAM}.log"
+mkdir -p "logs/gin${LOG_TAG}"
+LOG="logs/gin${LOG_TAG}/bace_gin_${MODE}_K${K}_lam${LAM}.log"
 
-echo "=== bace_gin  $MODE  K=$K  lam=$LAM  $(hostname)  $(date) ===" > "$LOG"
+echo "=== bace_gin  $MODE  K=$K  lam=$LAM  canon=$CANON  $(hostname)  $(date) ===" > "$LOG"
 if [ "$MODE" = "twin_indep" ]; then
   $PY scripts/cross_sample_train.py \
-    --dataset bace_gin --canonical_data_seed 99 --train_seeds "$SEEDS" \
-    --mode "$MODE" --lam "$LAM" >> "$LOG" 2>&1
+    --dataset bace_gin --canonical_data_seed "$CANON" --train_seeds "$SEEDS" \
+    --mode "$MODE" --lam "$LAM" --output_dir "$OUT_DIR" >> "$LOG" 2>&1
 elif [ "$MODE" = "bagging" ]; then
   $PY scripts/cross_sample_train.py \
-    --dataset bace_gin --canonical_data_seed 99 --train_seeds "$SEEDS" \
-    --mode "$MODE" --K "$K" >> "$LOG" 2>&1
+    --dataset bace_gin --canonical_data_seed "$CANON" --train_seeds "$SEEDS" \
+    --mode "$MODE" --K "$K" --output_dir "$OUT_DIR" >> "$LOG" 2>&1
 else
   $PY scripts/cross_sample_train.py \
-    --dataset bace_gin --canonical_data_seed 99 --train_seeds "$SEEDS" \
-    --mode "$MODE" >> "$LOG" 2>&1
+    --dataset bace_gin --canonical_data_seed "$CANON" --train_seeds "$SEEDS" \
+    --mode "$MODE" --output_dir "$OUT_DIR" >> "$LOG" 2>&1
 fi
 echo "=== Done: $(date) ===" >> "$LOG"
 tail -5 "$LOG"

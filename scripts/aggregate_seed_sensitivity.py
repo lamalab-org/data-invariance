@@ -78,6 +78,19 @@ JOBS: list[Job] = [
         "entropy_vs_fragility.csv",  ("dataset",)),
     Job("friedman",              "scripts/make_friedman_test.py",
         "friedman.csv",              ("scope", "key")),
+    # Pretrained-backbone analyses.  Run only when the corresponding
+    # cluster sweep (slurm/full_retraining/03_chemberta.sh,
+    # 04_gin_bace.sh, 05_waterbirds.sh) has dispatched the seed-7 and
+    # seed-42 NPZs.  At single-canonical-seed=99 the per-seed step
+    # degenerates and the aggregator just copies through.
+    Job("chemberta_heldout",     "scripts/analyze_chemberta_heldout.py",
+        "chemberta_heldout.csv",     ("dataset",)),
+    Job("bace_gin",              "scripts/analyze_bace_gin.py",
+        "bace_gin.csv",              ("method",)),
+    Job("gin_lambda",            "scripts/analyze_gin_lambda.py",
+        "gin_lambda.csv",            ("lam",)),
+    Job("waterbirds_lambda",     "scripts/analyze_waterbirds_lambda.py",
+        "waterbirds_lambda.csv",     ("method",)),
 ]
 
 
@@ -88,13 +101,27 @@ def _read(p: Path) -> list[dict]:
         return list(csv.DictReader(f))
 
 
+import math
+
+
 def _f(s: str | None) -> float | None:
+    """Parse a CSV cell to float, treating NaN/inf and empty as None.
+
+    NaN slips through `float("nan")` without raising, so we filter
+    explicitly -- otherwise the aggregator's `stdev(vals)` choke on
+    pretrained-backbone NPZ slots that haven't been populated yet.
+    """
     if s in (None, ""):
         return None
     try:
-        return float(s)
+        v = float(s)
     except ValueError:
         return None
+    if math.isnan(v) or math.isinf(v):
+        return None
+    return v
+
+
 
 
 def _per_seed_csv(name: str, seed: int) -> Path:
@@ -119,41 +146,34 @@ def run_per_seed(job: Job, seed: int, root: Path) -> Path | None:
     latex_path = _per_seed_latex(job.name, seed)
     latex_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if job.name == "friedman":
-        # make_friedman_test.py writes outputs/friedman.csv directly,
-        # has no --csv/--latex.  Run it with --root and then move the
-        # output to the per-seed slot.
-        subprocess.check_call([
-            "uv", "run", "python", job.script, "--root", str(root),
-        ])
-        produced = OUT / "friedman.csv"
-        if produced.exists():
-            produced.replace(csv_path)
+    # If the script exits non-zero for this seed (typically because the
+    # cluster sweep hasn't dispatched the corresponding NPZs yet),
+    # we skip the per-seed slot rather than crash the whole aggregation.
+    # subprocess.run + return-code check, not check_call.
+    try:
+        if job.name == "friedman":
+            # make_friedman_test.py writes outputs/friedman.csv directly,
+            # has no --csv/--latex.  Run with --root and move the result.
+            subprocess.run(["uv", "run", "python", job.script,
+                            "--root", str(root)], check=True)
+            produced = OUT / "friedman.csv"
+            if produced.exists():
+                produced.replace(csv_path)
+            else:
+                return None
+        elif job.name == "convergence_recall":
+            out_pdf = OUT / "_per_seed_latex" / f"convergence_seed{seed}.pdf"
+            subprocess.run(["uv", "run", "python", job.script,
+                            "--root", str(root),
+                            "--out_csv", str(csv_path),
+                            "--out_pdf", str(out_pdf)], check=True)
         else:
-            return None
-    elif job.name == "convergence_recall":
-        # --out_csv / --out_pdf
-        out_pdf = OUT / "_per_seed_latex" / f"convergence_seed{seed}.pdf"
-        subprocess.check_call([
-            "uv", "run", "python", job.script,
-            "--root", str(root),
-            "--out_csv", str(csv_path),
-            "--out_pdf", str(out_pdf),
-        ])
-    elif job.name == "entropy_vs_fragility":
-        subprocess.check_call([
-            "uv", "run", "python", job.script,
-            "--root", str(root),
-            "--csv", str(csv_path),
-            "--latex", str(latex_path),
-        ])
-    else:
-        subprocess.check_call([
-            "uv", "run", "python", job.script,
-            "--root", str(root),
-            "--csv", str(csv_path),
-            "--latex", str(latex_path),
-        ])
+            subprocess.run(["uv", "run", "python", job.script,
+                            "--root", str(root),
+                            "--csv", str(csv_path),
+                            "--latex", str(latex_path)], check=True)
+    except subprocess.CalledProcessError:
+        return None
     return csv_path if csv_path.exists() else None
 
 
@@ -186,8 +206,12 @@ def aggregate_csv(name: str, key_cols: tuple[str, ...],
     agg_rows: list[dict] = []
     per_seed_rows: list[dict] = []
     for key, by_s in sorted(cells.items()):
-        # Drop cells absent from at least one seed.
-        if len(by_s) < len(per_seed_csvs):
+        # Skip cells absent from every seed (shouldn't happen by construction,
+        # but defensive).  Cells present in only some seeds aggregate over
+        # whatever's available -- this lets pretrained-backbone analyses
+        # (chemberta/gin/waterbirds) degenerate to the canonical-seed-99
+        # value until the cluster sweep dispatches the additional seeds.
+        if not by_s:
             continue
         # Use the seed-99 row (or first available) as the template.
         template = by_s[99] if 99 in by_s else next(iter(by_s.values()))

@@ -35,10 +35,10 @@ DATASETS = ["bace_chemberta", "bbbp_chemberta", "pgp_broccatelli_chemberta",
 ROOT = Path("outputs/cross_sample")
 
 
-def summarise(ds: str):
-    erm = load_runs(ROOT / ds, "erm_train*.npz")
-    t300 = load_runs(ROOT / ds, "twin_indep_train*_lam300.0.npz")
-    t10 = load_runs(ROOT / ds, "twin_indep_train*_lam10.0.npz")
+def summarise(ds: str, root: Path = ROOT):
+    erm = load_runs(root / ds, "erm_train*.npz")
+    t300 = load_runs(root / ds, "twin_indep_train*_lam300.0.npz")
+    t10 = load_runs(root / ds, "twin_indep_train*_lam10.0.npz")
     if not erm or not t10:
         return None
 
@@ -135,12 +135,19 @@ def write_latex_table(rows: list[dict], path: Path) -> None:
 
 
 def main():
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--root", default=str(ROOT))
+    ap.add_argument("--csv",  default="outputs/chemberta_heldout.csv")
+    ap.add_argument("--latex", default="paper/sections/tables/chemberta.tex")
+    args = ap.parse_args()
+    root = Path(args.root)
     print(f"{'Dataset':<25} {'ERM':>14} {'twin λ=300':>22} {'twin λ=10 (rule)':>22}")
     print(f"{'':<25} {'(acc, churn%)':>14} {'(acc, churn%, Δrel)':>22} {'(acc, churn%, Δrel)':>22}")
     print("-" * 95)
     rows = []
     for ds in DATASETS:
-        r = summarise(ds)
+        r = summarise(ds, root)
         if r is None:
             print(f"{ds:<25}  no data"); continue
         r["dataset"] = ds
@@ -151,12 +158,12 @@ def main():
         print(f"{ds:<25} {s_erm:>14} {s300:>22} {s10:>22}")
 
     if rows:
-        write_latex_table(rows, Path("paper/sections/tables/chemberta.tex"))
+        write_latex_table(rows, Path(args.latex))
         # CSV dump for paper-macros and audit. One row per dataset, all
         # numbers the prose quotes (per-dataset ERM acc/churn, twin acc /
         # churn / paired Δ churn / relative reduction at both λ values).
         import csv
-        csv_path = Path("outputs/chemberta_heldout.csv")
+        csv_path = Path(args.csv)
         csv_path.parent.mkdir(parents=True, exist_ok=True)
         cols = ["dataset", "erm_acc", "erm_churn",
                 "t300_acc", "t300_churn", "t300_dchurn_mean", "t300_dchurn_lo",

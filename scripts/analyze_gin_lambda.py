@@ -33,7 +33,15 @@ LAMBDAS = [1.0, 3.0, 10.0, 30.0, 100.0, 300.0]
 
 
 def main() -> None:
-    erm_runs = load_runs(ROOT, "erm_train*.npz")
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--root", default="outputs/cross_sample",
+                    help="root directory; bace_gin/ subdir contains the NPZs.")
+    ap.add_argument("--csv", default="outputs/gin_lambda.csv")
+    ap.add_argument("--latex", default="paper/sections/tables/gin_lambda.tex")
+    args = ap.parse_args()
+    root = Path(args.root) / "bace_gin"
+    erm_runs = load_runs(root, "erm_train*.npz")
     erm_accs, _ = per_run_accuracies(erm_runs)
     erm_mean_acc = float(np.mean(erm_accs))
     pm_erm, pairs_erm = pairwise_metrics(erm_runs)
@@ -49,7 +57,7 @@ def main() -> None:
 
     csv_rows = []
     for lam in LAMBDAS:
-        runs = load_runs(ROOT, f"twin_indep_train*_lam{lam}.npz")
+        runs = load_runs(root, f"twin_indep_train*_lam{lam}.npz")
         if not runs:
             print(f"{lam:>5}  no runs")
             continue
@@ -81,7 +89,7 @@ def main() -> None:
         })
 
     import csv as _csv
-    csv_path = Path("outputs/gin_lambda.csv")
+    csv_path = Path(args.csv)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     rule_lam = max((r["lam"] for r in csv_rows if r["within_tolerance"]),
                    default=None)
@@ -107,7 +115,7 @@ def main() -> None:
         r"\midrule",
     ]
     for lam in LAMBDAS:
-        rs = load_runs(ROOT, f"twin_indep_train*_lam{lam}.npz")
+        rs = load_runs(root, f"twin_indep_train*_lam{lam}.npz")
         if not rs:
             continue
         accs, _ = per_run_accuracies(rs)
@@ -125,7 +133,7 @@ def main() -> None:
             cells = [r"\textbf{" + c + "}" for c in cells]
         tex_lines.append(f"{int(lam):3d} & " + " & ".join(cells) + r" \\")
     tex_lines += [r"\bottomrule", r"\end{tabular}", r"\end{center}", ""]
-    tex_path = Path("paper/sections/tables/gin_lambda.tex")
+    tex_path = Path(args.latex)
     tex_path.parent.mkdir(parents=True, exist_ok=True)
     tex_path.write_text("\n".join(tex_lines))
     print(f"Wrote {tex_path}")

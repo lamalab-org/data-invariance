@@ -46,8 +46,16 @@ def _fmt_d_pp_ci(t):
 
 
 def main() -> None:
-    erm = load_runs(ROOT, "erm_train*.npz")
-    bag5 = load_runs(ROOT, "bagging_train*_K5.npz")
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--root", default="outputs/cross_sample",
+                    help="root directory; waterbirds/ subdir contains the NPZs.")
+    ap.add_argument("--csv", default="outputs/waterbirds_lambda.csv")
+    ap.add_argument("--latex", default="paper/sections/tables/waterbirds_lambda.tex")
+    args = ap.parse_args()
+    root = Path(args.root) / "waterbirds"
+    erm = load_runs(root, "erm_train*.npz")
+    bag5 = load_runs(root, "bagging_train*_K5.npz")
     erm_accs, _ = per_run_accuracies(erm)
     erm_mean = float(np.mean(erm_accs))
     erm_acc_ci = bootstrap_ci(erm_accs)
@@ -78,7 +86,7 @@ def main() -> None:
     tol = 0.02
     rule_picked: list[float] = []
     for lam in LAMBDAS:
-        rs = load_runs(ROOT, f"twin_indep_train*_lam{lam}.npz")
+        rs = load_runs(root, f"twin_indep_train*_lam{lam}.npz")
         if len(rs) < 2:
             continue
         accs, _ = per_run_accuracies(rs)
@@ -144,14 +152,14 @@ def main() -> None:
         r"\end{table}",
         "",
     ]
-    out = Path("paper/sections/tables/waterbirds_lambda.tex")
+    out = Path(args.latex)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(lines))
     print(f"Wrote {out}")
 
     # CSV dump for paper-macros and audit. One row per method/λ point.
     import csv
-    csv_path = Path("outputs/waterbirds_lambda.csv")
+    csv_path = Path(args.csv)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     with csv_path.open("w", newline="") as f:
         w = csv.writer(f)

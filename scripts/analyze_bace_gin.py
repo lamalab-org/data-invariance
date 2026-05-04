@@ -39,7 +39,15 @@ METHODS = {
 
 
 def main() -> None:
-    runs = {name: load_runs(DATA_DIR, glob) for name, glob in METHODS.items()}
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--root", default="outputs/cross_sample",
+                    help="root directory; bace_gin/ subdir contains the NPZs.")
+    ap.add_argument("--csv",  default="outputs/bace_gin.csv")
+    ap.add_argument("--latex", default="paper/sections/tables/gin.tex")
+    args = ap.parse_args()
+    data_dir = Path(args.root) / "bace_gin"
+    runs = {name: load_runs(data_dir, glob) for name, glob in METHODS.items()}
     for name, rs in runs.items():
         print(f"  {name:20s}  loaded {len(rs)} runs")
     print()
@@ -108,7 +116,7 @@ def main() -> None:
 
     # CSV dump for paper-macros and audit.
     import csv as _csv
-    csv_path = Path("outputs/bace_gin.csv")
+    csv_path = Path(args.csv)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     with csv_path.open("w", newline="") as f:
         w = _csv.DictWriter(f, fieldnames=list(csv_rows[0].keys()))
@@ -180,7 +188,7 @@ def main() -> None:
         r"\end{table}",
         "",
     ]
-    tex_path = Path("paper/sections/tables/gin.tex")
+    tex_path = Path(args.latex)
     tex_path.parent.mkdir(parents=True, exist_ok=True)
     tex_path.write_text("\n".join(tex_lines))
     print(f"Wrote {tex_path}")
