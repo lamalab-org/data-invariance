@@ -9,24 +9,21 @@ and `outputs/cross_sample_seed42/` next to the original
 `outputs/cross_sample/` (= seed 99).
 
 This script:
-  1. Runs `make_main_table.py` once per canonical-seed root, producing
-     `outputs/main_table_seed{seed}.csv`.
-  2. Same for `make_friedman_test.py` (records each per-seed Friedman
-     test result).
-  3. Combines the per-seed main_tables into:
-       - `outputs/main_table.csv`           - aggregated row per (dataset, method).
-                                              Adds *_seed_{mean,std,lo,hi} columns
-                                              alongside the existing single-seed columns
-                                              (which carry the across-seed mean).
-       - `outputs/main_table_per_seed.csv`  - long-format per-(seed, dataset, method)
-                                              values, used by the appendix sensitivity table.
-       - `outputs/friedman_per_seed.csv`    - per-seed Friedman chi^2/p-values.
+  1. For each analysis script that takes a `--root` and writes a CSV,
+     runs it once per canonical-seed root, producing per-seed CSVs at
+     `outputs/<basename>_seed{seed}.csv`.
+  2. Aggregates each per-seed CSV family into `outputs/<basename>.csv`
+     by averaging numeric columns across seeds (grouped on dataset /
+     method / scope / key, depending on the schema), and adds
+     `_seed_{lo,hi,std}` columns with the across-seed range and
+     standard deviation.
+  3. Writes a long-format `outputs/<basename>_per_seed.csv` for each
+     family for the appendix sensitivity table.
 
-The aggregated `main_table.csv` is a drop-in replacement for the
-single-seed version: downstream scripts (`make_paper_macros.py`,
-`make_fig1_forest.py`, …) keep reading the same column names.  The new
-*_seed_* columns are ignored by old consumers and consumed by the
-sensitivity-aware ones.
+Downstream consumers (`make_paper_macros.py`, `make_fig1_forest.py`)
+keep reading the original CSV paths -- they now contain the cross-seed
+mean rather than a single seed's value, plus optional `_seed_*` columns
+for sensitivity-aware code.
 
 Usage::
     uv run python scripts/aggregate_seed_sensitivity.py
@@ -35,37 +32,64 @@ from __future__ import annotations
 
 import csv
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from statistics import mean, stdev
 
 OUT = Path("outputs")
-SEED_ROOTS = {
+SEED_ROOTS: dict[int, Path] = {
     99: OUT / "cross_sample",
     7:  OUT / "cross_sample_seed7",
     42: OUT / "cross_sample_seed42",
 }
 
 
-def _run_per_seed_main_table(seed: int, root: Path) -> Path:
-    """Invoke make_main_table.py at a per-seed root, write CSV and table."""
-    csv_path = OUT / f"main_table_seed{seed}.csv"
-    latex_path = OUT / f"main_table_seed{seed}.tex"   # discarded
-    subprocess.check_call([
-        "uv", "run", "python", "scripts/make_main_table.py",
-        "--root", str(root),
-        "--csv", str(csv_path),
-        "--latex", str(latex_path),
-    ])
-    return csv_path
+# ---------------------------------------------------------------------------
+# Job table.  One per analysis script that consumes per-seed NPZs and
+# emits a CSV.  `key_cols` are the natural per-row identifiers (string-
+# valued, copied from the seed-99 row); every other column is treated
+# as numeric and averaged across seeds.
+# ---------------------------------------------------------------------------
 
+@dataclass(frozen=True)
+class Job:
+    name: str             # used to name per-seed CSVs (outputs/<name>_seed{seed}.csv)
+    script: str           # path to the analysis script
+    csv_basename: str     # final aggregated CSV under outputs/
+    key_cols: tuple[str, ...]
+
+
+JOBS: list[Job] = [
+    Job("main_table",            "scripts/make_main_table.py",
+        "main_table.csv",            ("dataset", "method", "n_seeds")),
+    Job("fragility_magnitudes",  "scripts/make_fragility_magnitudes_table.py",
+        "fragility_magnitudes.csv",  ("dataset", "group", "n_seeds")),
+    Job("distributional",        "scripts/make_distributional_table.py",
+        "distributional.csv",        ("dataset", "method")),
+    Job("per_class_churn",       "scripts/make_per_class_churn_table.py",
+        "per_class_churn.csv",       ("dataset", "minority")),
+    Job("additional_metrics",    "scripts/make_additional_metrics_table.py",
+        "additional_metrics.csv",    ("dataset",)),
+    Job("regression",            "scripts/make_regression_table.py",
+        "regression.csv",            ("dataset", "method")),
+    Job("convergence_recall",    "scripts/make_fig_convergence.py",
+        "convergence_recall.csv",    ("dataset", "K")),
+    Job("entropy_vs_fragility",  "scripts/make_entropy_vs_fragility.py",
+        "entropy_vs_fragility.csv",  ("dataset",)),
+    Job("friedman",              "scripts/make_friedman_test.py",
+        "friedman.csv",              ("scope", "key")),
+]
+
+
+# ---------------------------------------------------------------------------
 
 def _read(p: Path) -> list[dict]:
     with p.open() as f:
         return list(csv.DictReader(f))
 
 
-def _f(s: str) -> float | None:
-    if s == "" or s is None:
+def _f(s: str | None) -> float | None:
+    if s in (None, ""):
         return None
     try:
         return float(s)
@@ -73,52 +97,108 @@ def _f(s: str) -> float | None:
         return None
 
 
-# Numeric columns we aggregate.  Anything else (dataset, method, n_seeds)
-# is copied from the canonical-seed-99 row.
-_NUM_COLS = (
-    "id_acc_mean", "id_acc_lo", "id_acc_hi",
-    "ood_acc_mean", "ood_acc_lo", "ood_acc_hi",
-    "id_churn_mean", "id_churn_lo", "id_churn_hi",
-    "ood_churn_mean", "ood_churn_lo", "ood_churn_hi",
-    "id_sym_kl_mean", "id_sym_kl_lo", "id_sym_kl_hi",
-    "ood_sym_kl_mean", "ood_sym_kl_lo", "ood_sym_kl_hi",
-    "delta_id_churn_mean", "delta_id_churn_lo", "delta_id_churn_hi",
-)
+def _per_seed_csv(name: str, seed: int) -> Path:
+    return OUT / f"{name}_seed{seed}.csv"
 
 
-def aggregate(per_seed_csvs: dict[int, Path]) -> tuple[list[dict], list[dict]]:
-    """Combine the per-seed CSVs into (aggregate, per_seed) row lists.
+def _per_seed_latex(name: str, seed: int) -> Path:
+    """A discardable per-seed latex output path (so the script's --latex
+    arg has somewhere to write; downstream we only use the canonical
+    paper/sections/tables/<>.tex regenerated from the aggregated CSV)."""
+    return OUT / "_per_seed_latex" / f"{name}_seed{seed}.tex"
 
-    aggregate: one row per (dataset, method).  All numeric columns are
-    the across-seed *mean*; *_seed_lo/_seed_hi/_seed_std are the across-
-    seed range and standard deviation; the original columns stay
-    populated so downstream code that doesn't know about seed-aggregation
-    keeps working (and now reflects the across-seed mean rather than a
-    single seed's value).
 
-    per_seed: long-format, one row per (seed, dataset, method) for the
+def run_per_seed(job: Job, seed: int, root: Path) -> Path | None:
+    """Invoke the analysis script for a single canonical seed.
+
+    Args common to most scripts: --root, --csv, --latex.  A few scripts
+    (make_friedman_test.py, make_fig_convergence.py) use different flag
+    names; we pass the right form per script.
+    """
+    csv_path = _per_seed_csv(job.name, seed)
+    latex_path = _per_seed_latex(job.name, seed)
+    latex_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if job.name == "friedman":
+        # make_friedman_test.py writes outputs/friedman.csv directly,
+        # has no --csv/--latex.  Run it with --root and then move the
+        # output to the per-seed slot.
+        subprocess.check_call([
+            "uv", "run", "python", job.script, "--root", str(root),
+        ])
+        produced = OUT / "friedman.csv"
+        if produced.exists():
+            produced.replace(csv_path)
+        else:
+            return None
+    elif job.name == "convergence_recall":
+        # --out_csv / --out_pdf
+        out_pdf = OUT / "_per_seed_latex" / f"convergence_seed{seed}.pdf"
+        subprocess.check_call([
+            "uv", "run", "python", job.script,
+            "--root", str(root),
+            "--out_csv", str(csv_path),
+            "--out_pdf", str(out_pdf),
+        ])
+    elif job.name == "entropy_vs_fragility":
+        subprocess.check_call([
+            "uv", "run", "python", job.script,
+            "--root", str(root),
+            "--csv", str(csv_path),
+            "--latex", str(latex_path),
+        ])
+    else:
+        subprocess.check_call([
+            "uv", "run", "python", job.script,
+            "--root", str(root),
+            "--csv", str(csv_path),
+            "--latex", str(latex_path),
+        ])
+    return csv_path if csv_path.exists() else None
+
+
+def aggregate_csv(name: str, key_cols: tuple[str, ...],
+                  per_seed_csvs: dict[int, Path]) -> tuple[list[dict], list[dict]]:
+    """Combine per-seed CSVs into (aggregated, long-form-per-seed) row lists.
+
+    aggregated: one row per unique (key_cols ...) tuple.  Numeric columns
+    carry the across-seed mean; new `<col>_seed_{mean,std,lo,hi}` columns
+    record the across-seed range.
+
+    long-form-per-seed: one row per (canonical_seed, key_cols ...) for the
     appendix sensitivity table.
     """
+    # Read all rows, keyed by canonical seed.
     by_seed = {s: _read(p) for s, p in per_seed_csvs.items()}
-    cells: dict[tuple[str, str], dict[int, dict]] = {}
-    for seed, rows in by_seed.items():
+
+    # Collect all key tuples.
+    cells: dict[tuple, dict[int, dict]] = {}
+    all_cols: set[str] = set()
+    for s, rows in by_seed.items():
         for r in rows:
-            key = (r["dataset"], r["method"])
-            cells.setdefault(key, {})[seed] = r
+            key = tuple(r.get(k, "") for k in key_cols)
+            cells.setdefault(key, {})[s] = r
+            all_cols.update(r.keys())
+
+    # Numeric columns are everything not in key_cols.
+    num_cols = sorted(c for c in all_cols if c not in key_cols)
 
     agg_rows: list[dict] = []
     per_seed_rows: list[dict] = []
-    for (ds, method), per_seed in sorted(cells.items()):
-        # Skip cells that aren't present in all seeds.
-        if len(per_seed) < len(per_seed_csvs):
+    for key, by_s in sorted(cells.items()):
+        # Drop cells absent from at least one seed.
+        if len(by_s) < len(per_seed_csvs):
             continue
-        # Use the seed-99 row as the template (so dataset, method,
-        # n_seeds, etc. carry through unchanged).
-        out = dict(per_seed[99])
-        for col in _NUM_COLS:
-            vals = [_f(per_seed[s].get(col, "")) for s in per_seed_csvs]
+        # Use the seed-99 row (or first available) as the template.
+        template = by_s[99] if 99 in by_s else next(iter(by_s.values()))
+        out = {k: template.get(k, "") for k in key_cols}
+        for col in num_cols:
+            vals = [_f(by_s[s].get(col)) for s in by_s]
             vals = [v for v in vals if v is not None]
             if not vals:
+                # Try to copy a string value from the template.
+                if template.get(col, "") != "":
+                    out[col] = template[col]
                 continue
             out[col] = mean(vals)
             out[f"{col}_seed_mean"] = mean(vals)
@@ -126,22 +206,21 @@ def aggregate(per_seed_csvs: dict[int, Path]) -> tuple[list[dict], list[dict]]:
             out[f"{col}_seed_hi"] = max(vals)
             out[f"{col}_seed_std"] = stdev(vals) if len(vals) > 1 else 0.0
         agg_rows.append(out)
-
-        # Per-seed long-format dump.
-        for s, r in sorted(per_seed.items()):
-            row = {"canonical_seed": s, "dataset": ds, "method": method}
-            for col in _NUM_COLS:
-                v = _f(r.get(col, ""))
+        for s, r in sorted(by_s.items()):
+            row = {"canonical_seed": s, **{k: r.get(k, "") for k in key_cols}}
+            for col in num_cols:
+                v = _f(r.get(col))
                 if v is not None:
                     row[col] = v
+                elif r.get(col, "") != "":
+                    row[col] = r[col]
             per_seed_rows.append(row)
-
     return agg_rows, per_seed_rows
 
 
 def write_csv(rows: list[dict], path: Path) -> None:
     if not rows:
-        print(f"[skip] no rows for {path}")
+        print(f"  [skip] no rows for {path}")
         return
     keys = sorted({k for r in rows for k in r.keys()})
     with path.open("w", newline="") as f:
@@ -149,33 +228,34 @@ def write_csv(rows: list[dict], path: Path) -> None:
         w.writeheader()
         for r in rows:
             w.writerow({k: r.get(k, "") for k in keys})
-    print(f"Wrote {path}  ({len(rows)} rows)")
+    print(f"  wrote {path}  ({len(rows)} rows)")
 
 
 def main() -> None:
-    # 1. Run per-seed main_table.py.
     available = {s: r for s, r in SEED_ROOTS.items() if r.exists()}
     if 99 not in available:
-        raise SystemExit("outputs/cross_sample/ (seed 99) is required.")
+        raise SystemExit("outputs/cross_sample/ (canonical seed 99) is required.")
+    print(f"Aggregating across canonical seeds: {sorted(available)}")
     if len(available) < 2:
-        print(f"[warn] only canonical_seed=99 results found; aggregation will "
-              f"degenerate to the single-seed case.  Re-run "
-              f"scripts/run_seed_sweep.sh for the missing seeds.")
+        print("[warn] only canonical_seed=99 found; aggregation degenerates "
+              "to single-seed.")
 
-    per_seed_csvs: dict[int, Path] = {}
-    for seed, root in sorted(available.items()):
-        print(f"\n=== make_main_table on canonical_seed={seed}  root={root} ===")
-        per_seed_csvs[seed] = _run_per_seed_main_table(seed, root)
-
-    # 2. Aggregate.
-    agg_rows, per_seed_rows = aggregate(per_seed_csvs)
-    write_csv(agg_rows, OUT / "main_table.csv")
-    write_csv(per_seed_rows, OUT / "main_table_per_seed.csv")
-
-    print(f"\nAggregated {len(per_seed_csvs)} canonical seeds: "
-          f"{sorted(per_seed_csvs)}")
-    print("Downstream (make_paper_macros.py, make_fig1_forest.py, "
-          "make_friedman_test.py) can now read outputs/main_table.csv as before.")
+    for job in JOBS:
+        print(f"\n--- {job.name} ---")
+        per_seed_csvs: dict[int, Path] = {}
+        for seed, root in sorted(available.items()):
+            p = run_per_seed(job, seed, root)
+            if p is None:
+                print(f"  [warn] seed={seed}: no CSV produced for {job.name}")
+                continue
+            per_seed_csvs[seed] = p
+        if not per_seed_csvs:
+            print(f"  [skip] no per-seed CSVs for {job.name}")
+            continue
+        agg, per_seed = aggregate_csv(job.name, job.key_cols, per_seed_csvs)
+        write_csv(agg, OUT / job.csv_basename)
+        write_csv(per_seed,
+                  OUT / job.csv_basename.replace(".csv", "_per_seed.csv"))
 
 
 if __name__ == "__main__":

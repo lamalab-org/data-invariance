@@ -92,9 +92,16 @@ def _fmt_d_ci(ci: tuple[float, float, float]) -> str:
 
 
 def main():
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--root", default=str(ROOT))
+    ap.add_argument("--csv",  default="outputs/regression.csv")
+    ap.add_argument("--latex", default="paper/sections/tables/regression.tex")
+    args = ap.parse_args()
+    root = Path(args.root)
     data = {}
     for short, _, _ in DATASETS:
-        d = _summarise(ROOT / short)
+        d = _summarise(root / short)
         if d is None:
             print(f"missing {short}")
             continue
@@ -173,14 +180,14 @@ def main():
         lines.append(f"{name} & " + " & ".join(cols) + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}", r"\end{table}", ""]
 
-    out_path = Path("paper/sections/tables/regression.tex")
+    out_path = Path(args.latex)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text("\n".join(lines))
     print(f"Wrote {out_path}")
 
     # CSV dump for paper-macros + audit. One row per (dataset, method).
     import csv as _csv
-    csv_path = Path("outputs/regression.csv")
+    csv_path = Path(args.csv)
     with csv_path.open("w", newline="") as f:
         w = _csv.writer(f)
         w.writerow(["dataset", "method", "id_mae", "id_frag",

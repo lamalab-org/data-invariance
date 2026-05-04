@@ -91,7 +91,13 @@ def _fmt(t):
 
 
 def main() -> None:
-    root = Path("outputs/cross_sample")
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--root", default="outputs/cross_sample")
+    ap.add_argument("--csv",  default="outputs/additional_metrics.csv")
+    ap.add_argument("--latex", default="paper/sections/tables/additional_metrics.tex")
+    args = ap.parse_args()
+    root = Path(args.root)
     datasets = [DEV_DATASET] + HEADLINE_DATASETS
     rows = [r for r in (_row(d, root) for d in datasets) if r is not None]
     if not rows:
@@ -141,12 +147,12 @@ def main() -> None:
     lines += [r"    \bottomrule", r"  \end{tabular}", r"  }",
               r"\end{table}", ""]
 
-    out_path = Path("paper/sections/tables/additional_metrics.tex")
+    out_path = Path(args.latex)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text("\n".join(lines))
     print(f"Wrote {out_path}")
 
-    csv_path = Path("outputs/additional_metrics.csv")
+    csv_path = Path(args.csv)
     with csv_path.open("w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["dataset", "n_train",

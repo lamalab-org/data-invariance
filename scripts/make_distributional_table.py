@@ -58,7 +58,13 @@ def _fmt(d: tuple[float, float, float], baseline: float) -> str:
 
 
 def main():
-    root = Path("outputs/cross_sample")
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--root", default="outputs/cross_sample")
+    ap.add_argument("--csv",  default="outputs/distributional.csv")
+    ap.add_argument("--latex", default="paper/sections/tables/distributional.tex")
+    args = ap.parse_args()
+    root = Path(args.root)
     datasets = [DEV_DATASET] + HEADLINE_DATASETS
     sorted_ds = sorted(datasets, key=lambda d: N_TRAIN.get(d, 10**9))
 
@@ -109,7 +115,7 @@ def main():
         )
     lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
 
-    out = Path("paper/sections/tables/distributional.tex")
+    out = Path(args.latex)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(lines))
     print(f"Wrote {out}")
@@ -117,7 +123,7 @@ def main():
     # CSV dump for paper-macros and audit. One row per (dataset, method)
     # with the ERM baseline sym-KL and the Δ vs ERM CI.
     import csv as _csv
-    csv_path = Path("outputs/distributional.csv")
+    csv_path = Path(args.csv)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     with csv_path.open("w", newline="") as f:
         w = _csv.writer(f)

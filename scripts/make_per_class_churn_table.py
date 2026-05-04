@@ -80,7 +80,13 @@ def _fmt(t):
 
 
 def main() -> None:
-    root = Path("outputs/cross_sample")
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--root", default="outputs/cross_sample")
+    ap.add_argument("--csv",  default="outputs/per_class_churn.csv")
+    ap.add_argument("--latex", default="paper/sections/tables/per_class_churn.tex")
+    args = ap.parse_args()
+    root = Path(args.root)
     datasets = [DEV_DATASET] + HEADLINE_DATASETS
     rows = [r for r in (_row(d, root) for d in datasets) if r is not None]
     if not rows:
@@ -131,12 +137,12 @@ def main() -> None:
         )
     lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
 
-    out_path = Path("paper/sections/tables/per_class_churn.tex")
+    out_path = Path(args.latex)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text("\n".join(lines))
     print(f"Wrote {out_path}")
 
-    csv_path = Path("outputs/per_class_churn.csv")
+    csv_path = Path(args.csv)
     with csv_path.open("w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["dataset", "n_train", "n_id_test", "pos_frac", "minority",

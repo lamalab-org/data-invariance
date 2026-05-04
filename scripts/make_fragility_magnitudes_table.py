@@ -99,15 +99,21 @@ def _fmt_ci(t: tuple[float, float, float]) -> str:
 
 
 def main() -> None:
-    root = Path("outputs/cross_sample")
-    out_path = Path("paper/sections/tables/fragility_magnitudes.tex")
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--root", default="outputs/cross_sample")
+    ap.add_argument("--csv",  default="outputs/fragility_magnitudes.csv")
+    ap.add_argument("--latex", default="paper/sections/tables/fragility_magnitudes.tex")
+    args = ap.parse_args()
+    root = Path(args.root)
+    out_path = Path(args.latex)
     headline = [DEV_DATASET] + HEADLINE_DATASETS + MAGNITUDES_EXTRA
     headline_rows = [r for r in (_row(ds, root) for ds in headline) if r is not None]
     borderline_rows = [
         r for r in (_row(ds, root) for ds in BORDERLINE_DATASETS) if r is not None
     ]
     if not headline_rows:
-        print("No ERM runs found under outputs/cross_sample/.")
+        print(f"No ERM runs found under {root}/.")
         return
 
     headline_rows.sort(key=lambda r: r["n_train"])
@@ -188,7 +194,7 @@ def main() -> None:
     # CSV dump for paper-macros and audit (single row per dataset, one
     # ``group`` column to distinguish headline / borderline).
     import csv as _csv
-    csv_path = Path("outputs/fragility_magnitudes.csv")
+    csv_path = Path(args.csv)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     with csv_path.open("w", newline="") as f:
         w = _csv.writer(f)
