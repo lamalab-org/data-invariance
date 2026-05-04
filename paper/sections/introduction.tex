@@ -10,7 +10,14 @@ prediction churn} --- the fraction of test predictions that change
 class between two models trained on independent samples of the same
 training population --- and a per-prediction stability gap that
 aggregate-accuracy reporting in scientific-ML benchmarks systematically
-hides.
+hides.  In closed-loop laboratories, Bayesian-optimisation campaigns,
+and virtual-screening pipelines, model predictions feed directly into
+experimental decisions: each prediction is the unit of action --- the
+molecule selected for synthesis, the candidate prioritised in a
+screening campaign, the hit returned by a virtual screen.  Churn is
+the rate at which retraining changes which units the model selects,
+and is therefore the operational stability the practitioner cares
+about.
 
 \begin{figure}[t]
   \centering
