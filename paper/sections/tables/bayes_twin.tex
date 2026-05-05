@@ -1,0 +1,60 @@
+\begin{table}[t]
+  \centering
+  \caption{\textbf{Bayesian-optimised twin-bootstrap versus fixed-$\lambda$ baselines.} Cells report the first method named in each block minus the second with paired bootstrap $95\%$ confidence intervals. Positive accuracy deltas are better; negative churn deltas are better; favourable signs are bolded. The $\lambda$ column reports the mean $\lambda$ for the first method in the block.}
+  \label{tab:bayes_twin}
+  \scriptsize
+  \setlength{\tabcolsep}{3pt}
+  \noindent\makebox[\textwidth][c]{\textbf{BO vs.\ $\lambda{=}0$}}
+  \vspace{-0.35em}
+  \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lrllll@{}}
+    \toprule
+    Dataset & $N$ & Mean $\lambda$ & $\Delta$ ID acc & $\Delta$ OOD acc & $\Delta$ ID churn \\
+    \midrule
+    BACE\,(dev) & 968 & 4.35 & \textbf{+1.8 [+0.8,+2.7]} & \textbf{+0.2 [-1.0,+1.6]} & \textbf{-1.7 [-2.2,-1.1]} \\
+    DILI & 304 & 45.5 & \textbf{+5.4 [+3.7,+7.1]} & -2.3 [-4.2,-0.6] & +1.4 [-0.1,+2.8] \\
+    CYP2D6-Sub & 427 & 48.23 & \textbf{+2.1 [+0.7,+3.3]} & \textbf{+0.7 [-0.2,+1.6]} & +0.5 [-0.4,+1.4] \\
+    Pgp & 780 & 1.309 & \textbf{+2.6 [+2.0,+3.2]} & \textbf{+1.2 [+0.4,+2.0]} & \textbf{-2.0 [-2.6,-1.4]} \\
+    BBB-Martins & 1300 & 15.01 & \textbf{+1.1 [+0.8,+1.5]} & \textbf{+0.1 [-1.1,+1.4]} & \textbf{-0.6 [-0.9,-0.2]} \\
+    MOF-thermal & 1251 & 0.2711 & \textbf{+1.1 [+0.8,+1.4]} & \textbf{+1.1 [+0.8,+1.4]} & \textbf{-0.6 [-0.9,-0.2]} \\
+    BBBP & 1305 & 72.43 & \textbf{+2.5 [+1.8,+3.3]} & \textbf{+1.8 [+1.3,+2.3]} & \textbf{-1.8 [-2.4,-1.2]} \\
+    TADF & 1007 & 2.235 & \textbf{+0.9 [+0.6,+1.1]} & \textbf{+0.9 [+0.6,+1.1]} & \textbf{-1.4 [-1.6,-1.1]} \\
+    AMES & 4658 & 4.504 & \textbf{+1.4 [+1.0,+1.8]} & \textbf{+0.8 [+0.2,+1.5]} & \textbf{-1.4 [-1.7,-1.0]} \\
+    \bottomrule
+  \end{tabular*}
+  \par\vspace{0.75em}
+  \noindent\makebox[\textwidth][c]{\textbf{BO vs.\ $\lambda{=}300$}}
+  \vspace{-0.35em}
+  \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lrllll@{}}
+    \toprule
+    Dataset & $N$ & Mean $\lambda$ & $\Delta$ ID acc & $\Delta$ OOD acc & $\Delta$ ID churn \\
+    \midrule
+    BACE\,(dev) & 968 & 4.35 & \textbf{+3.3 [+2.3,+4.3]} & -1.2 [-2.8,+0.2] & +4.6 [+3.9,+5.3] \\
+    DILI & 304 & 45.5 & \textbf{+3.0 [+1.8,+4.5]} & \textbf{+4.1 [+2.1,+6.0]} & \textbf{-0.4 [-2.0,+1.2]} \\
+    CYP2D6-Sub & 427 & 48.23 & \textbf{+1.9 [+0.9,+2.9]} & \textbf{+0.3 [-0.5,+1.1]} & +7.1 [+6.1,+8.1] \\
+    Pgp & 780 & 1.309 & \textbf{+6.3 [+5.3,+7.6]} & \textbf{+8.8 [+7.2,+10.5]} & \textbf{-0.3 [-1.0,+0.4]} \\
+    BBB-Martins & 1300 & 15.01 & \textbf{+1.7 [+1.1,+2.2]} & -1.8 [-2.9,-0.7] & +3.7 [+3.4,+4.1] \\
+    MOF-thermal & 1251 & 0.2711 & \textbf{+10.3 [+9.6,+10.8]} & \textbf{+10.3 [+9.6,+10.8]} & +8.4 [+7.8,+9.1] \\
+    BBBP & 1305 & 72.43 & \textbf{+0.8 [+0.4,+1.2]} & \textbf{+0.1 [-0.8,+0.9]} & +2.7 [+2.3,+3.1] \\
+    TADF & 1007 & 2.235 & \textbf{+2.9 [+2.3,+3.5]} & \textbf{+2.9 [+2.3,+3.5]} & +0.6 [-0.0,+1.1] \\
+    AMES & 4658 & 4.504 & \textbf{+4.9 [+4.5,+5.4]} & \textbf{+1.1 [+0.3,+1.7]} & +2.7 [+2.3,+3.1] \\
+    \bottomrule
+  \end{tabular*}
+  \par\vspace{0.75em}
+  \noindent\makebox[\textwidth][c]{\textbf{$\lambda{=}0$ vs.\ $\lambda{=}300$}}
+  \vspace{-0.35em}
+  \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lrllll@{}}
+    \toprule
+    Dataset & $N$ & Mean $\lambda$ & $\Delta$ ID acc & $\Delta$ OOD acc & $\Delta$ ID churn \\
+    \midrule
+    BACE\,(dev) & 968 & 0 & \textbf{+1.4 [+0.2,+2.8]} & -1.4 [-2.3,-0.5] & +6.3 [+5.8,+6.8] \\
+    DILI & 304 & 0 & -2.4 [-4.5,-0.7] & \textbf{+6.4 [+4.7,+7.9]} & \textbf{-1.8 [-3.3,-0.2]} \\
+    CYP2D6-Sub & 427 & 0 & -0.2 [-2.1,+1.8] & -0.4 [-1.1,+0.4] & +6.6 [+5.9,+7.4] \\
+    Pgp & 780 & 0 & \textbf{+3.7 [+2.5,+5.1]} & \textbf{+7.6 [+5.9,+9.7]} & +1.7 [+1.1,+2.3] \\
+    BBB-Martins & 1300 & 0 & \textbf{+0.5 [+0.1,+1.0]} & -2.0 [-2.8,-1.1] & +4.3 [+3.9,+4.7] \\
+    MOF-thermal & 1251 & 0 & \textbf{+9.2 [+8.7,+9.7]} & \textbf{+9.2 [+8.7,+9.7]} & +9.0 [+8.4,+9.7] \\
+    BBBP & 1305 & 0 & -1.7 [-2.6,-0.9] & -1.7 [-2.8,-0.7] & +4.5 [+4.1,+4.9] \\
+    TADF & 1007 & 0 & \textbf{+2.0 [+1.4,+2.6]} & \textbf{+2.0 [+1.4,+2.6]} & +1.9 [+1.4,+2.5] \\
+    AMES & 4658 & 0 & \textbf{+3.5 [+3.0,+4.2]} & \textbf{+0.2 [-0.5,+0.9]} & +4.0 [+3.7,+4.3] \\
+    \bottomrule
+  \end{tabular*}
+\end{table}
