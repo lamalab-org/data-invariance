@@ -21,6 +21,7 @@ from torch.utils.data import Dataset
 from data_molnet import (
     _scaffold_split,
     _scaffold_split_with_id_holdout,
+    _smiles_to_graph,
     _smiles_to_morgan,
     _tokenize_smiles_chemberta,
     _validate_smiles,
@@ -131,6 +132,79 @@ class TDCDataset(Dataset):
             "image":    self.images[idx],
             "label":    self.labels[idx].item(),
             "spurious": self._spurious[idx].item(),
+            "index":    idx,
+        }
+
+    def __len__(self) -> int:
+        return len(self.labels)
+
+
+class TDCGraphDataset(Dataset):
+    """TDC dataset with on-the-fly RDKit graphs, mirroring TDCDataset.
+
+    Same scaffold split + 20% random in-distribution holdout as Morgan
+    TDCDataset, so a GIN backbone can run the cross-sample protocol on
+    held-out chemistry datasets and the partition matches the
+    fingerprint baseline.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        split: str = "train",
+        seed: int = 42,
+        data_dir: str = "./data/tdc",
+    ) -> None:
+        from torch_geometric.data import Data
+        if name not in _TDC_DATASETS:
+            raise ValueError(f"unknown TDC dataset {name}; "
+                             f"available: {sorted(_TDC_DATASETS)}")
+        cache = Path(data_dir)
+        cache.mkdir(parents=True, exist_ok=True)
+        smiles_list, labels = _load_tdc(name, cache)
+        train_idx, id_test_idx, scaffold_test_idx = _scaffold_split_with_id_holdout(
+            smiles_list, seed
+        )
+        if split == "train":
+            idx = train_idx
+        elif split == "test":
+            idx = id_test_idx
+        elif split == "test_scaffold":
+            idx = scaffold_test_idx
+        else:
+            raise ValueError(f"unknown split {split}")
+
+        self._graphs: list = []
+        self.labels: list[int] = []
+        for i in idx:
+            g = _smiles_to_graph(smiles_list[i])
+            if g is None:
+                continue
+            x, edge_index, edge_attr = g
+            self._graphs.append(
+                Data(x=x, edge_index=edge_index, edge_attr=edge_attr,
+                     y=torch.tensor(int(labels[i]), dtype=torch.long))
+            )
+            self.labels.append(int(labels[i]))
+        self.labels = torch.tensor(self.labels, dtype=torch.long)
+        self._spurious = torch.full(
+            (len(self.labels),), int(split == "test_scaffold"), dtype=torch.long
+        )
+
+    @property
+    def spurious(self) -> torch.Tensor:
+        return self._spurious
+
+    @property
+    def atom_feature_dim(self) -> int:
+        return self._graphs[0].x.shape[1] if self._graphs else 0
+
+    def __getitem__(self, idx: int) -> dict:
+        g = self._graphs[idx]
+        return {
+            "image":    g,
+            "label":    int(self.labels[idx]),
+            "spurious": int(self._spurious[idx]),
             "index":    idx,
         }
 

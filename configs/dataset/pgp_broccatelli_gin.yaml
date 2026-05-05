@@ -1,0 +1,3 @@
+name: pgp_broccatelli_gin
+arch: gin
+data_dir: ./data/tdc

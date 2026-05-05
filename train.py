@@ -128,6 +128,20 @@ def make_dataloaders(cfg: DictConfig) -> dict[str, DataLoader]:
         ood_test_ds = MolNetGraphDataset(name=molnet_name, split="test_scaffold",
                                          seed=seed, data_dir=data_dir)
 
+    elif name.endswith("_gin") and name.replace("_gin", "") in (
+            "hia_hou", "bioavailability_ma", "pgp_broccatelli",
+            "bbb_martins", "herg", "dili", "ames", "skin_reaction",
+            "cyp2c9_substrate", "cyp2d6_substrate", "cyp3a4_substrate"):
+        from data_tdc import TDCGraphDataset
+        data_dir = getattr(cfg.dataset, "data_dir", "./data/tdc")
+        tdc_name = name.replace("_gin", "")
+        train_ds = TDCGraphDataset(name=tdc_name, split="train",
+                                   seed=seed, data_dir=data_dir)
+        id_test_ds = TDCGraphDataset(name=tdc_name, split="test",
+                                     seed=seed, data_dir=data_dir)
+        ood_test_ds = TDCGraphDataset(name=tdc_name, split="test_scaffold",
+                                      seed=seed, data_dir=data_dir)
+
     elif name in ("hia_hou", "bioavailability_ma", "pgp_broccatelli",
                   "bbb_martins", "herg", "dili", "ames", "skin_reaction",
                   "cyp2c9_substrate", "cyp2d6_substrate", "cyp3a4_substrate"):
