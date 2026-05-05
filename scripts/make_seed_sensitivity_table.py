@@ -138,9 +138,11 @@ def main() -> None:
                 )
                 + r" \\"
             )
-        # Horizontal rule between datasets so the long table stays
-        # easy to scan when it breaks across pages.
-        lines.append(r"    \midrule")
+        # Horizontal rule between datasets (but not after the last one;
+        # the longtable's \endlastfoot adds a \bottomrule which would
+        # double-print otherwise).
+        if ds is not datasets[-1]:
+            lines.append(r"    \midrule")
     lines += [r"\end{longtable}", r"}", ""]
 
     OUT.parent.mkdir(parents=True, exist_ok=True)

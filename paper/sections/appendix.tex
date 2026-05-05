@@ -1,6 +1,4 @@
 \noindent\textbf{Appendix roadmap.}
-Appendix~\ref{app:related_table} compares this paper to prior churn /
-reproducibility work in tabular form.
 Appendices~\ref{app:nscaling}--\ref{app:borderline} support the
 measurement framework ($N$-scaling, borderline datasets).
 Appendix~\ref{app:seed_sensitivity} reports the canonical-seed
@@ -16,41 +14,7 @@ Appendix~\ref{app:compute} reports the per-method compute footprint;
 Appendix~\ref{app:filter_outcomes} lists the datasets excluded by
 the ERM-vs-majority filter.
 
-\section{Comparison to prior churn and reproducibility work}
-\label{app:related_table}
-
-\begin{table}[h]
-\centering
-\caption{\textbf{This paper anchors two groups simultaneously: the
-  population-level retraining axis (with \citealt{Riley2023}) and
-  the codistillation operating-point spectrum (with
-  \citealt{anil2018large} and \citealt{bhojanapalli2021reproducibility}).}
-  Prior churn / reproducibility work compared with this paper.}
-\label{tab:related_work}
-\footnotesize
-\begin{tabular}{p{0.22\linewidth}p{0.32\linewidth}p{0.36\linewidth}}
-\toprule
-Reference & What varies between two runs & Mechanism \\
-\midrule
-\multicolumn{3}{l}{\emph{Population-level retraining --- same axis}} \\
-\citet{Riley2023} & $1000$ bootstraps of development data & Measurement only: instability plots, MAPE \\
-\textbf{This paper} & \textbf{Independent bootstraps of the training population} & \textbf{Sym-KL codistillation, $\sim$$\overlapPctMid\%$ data overlap (twin-bootstrap)} + measurement protocol + one-bootstrap triage \\
-\midrule
-\multicolumn{3}{l}{\emph{Codistillation operating points --- same loss form, different overlap}} \\
-\citet{anil2018large} & Init.\ + disjoint data shards & KL codistillation, $\overlapPctLo\%$ data overlap (throughput goal) \\
-\citet{bhojanapalli2021reproducibility} & Init., batch order, hardware (data fixed) & Sym-KL codistillation, $\overlapPctHi\%$ data overlap (training-instability churn) \\
-\textbf{This paper} & \textbf{Independent bootstraps of the training population} & \textbf{Sym-KL codistillation, $\sim$$\overlapPctMid\%$ data overlap (twin-bootstrap)} \\
-\midrule
-\multicolumn{3}{l}{\emph{Different axis}} \\
-\citet{launch_and_iterate}; \citet{jiang2022} & Candidate model trained from scratch; deployed (incumbent) model fixed & MCMC stabiliser / distillation from base (deployment loop) \\
-\citet{marx2020}; \citet{damour2022} & Loss-equivalent models on fixed data & Predictive multiplicity / underspecification (measurement) \\
-\citet{black2022} & Init.-randomised ensemble (fixed data) & Selective ensembles: abstain when consistency not certified \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-
-\section{$N$-scaling on BACE}
+\section{\boldmath$N$-scaling on BACE}
 \label{app:nscaling}
 
 The cross-dataset variation in Table~\ref{tab:fragility-magnitudes}
@@ -103,7 +67,7 @@ permeable, substrate) calls that drive next-step decisions.
 
 \input{sections/tables/per_class_churn.tex}
 
-\section{Aggregate-metric drift under precision, recall, $F_1$, AP}
+\section{\boldmath Aggregate-metric drift under precision, recall, $F_1$, AP}
 \label{app:additional_metrics}
 
 Table~\ref{tab:fragility-magnitudes} reports
@@ -207,7 +171,7 @@ which suggests the rule is not knife-edge: relaxing the tolerance to
 $0.01$ would still pick the same $\lambda$, while tightening to
 $0.005$ would pick $\lambda{=}100$ (still on the knee).
 
-\section{Overlap spectrum: $\sim$\overlapPctMid\% balances churn reduction and accuracy preservation}
+\section{\boldmath Overlap spectrum: $\sim$\overlapPctMid\% balances churn reduction and accuracy preservation}
 \label{app:overlap_spectrum}
 
 The codistillation~\citep{anil2018large},
@@ -275,7 +239,7 @@ argmax-churn main result (Table~\ref{tab:main}).  The summary is in
 
 \input{sections/tables/distributional.tex}
 
-\section{Friedman test: twin-bootstrap matches bagging-$K{=}5$ in mean rank}
+\section{\boldmath Friedman test: twin-bootstrap matches bagging-$K{=}5$ in mean rank}
 \label{app:friedman}
 
 The pairwise CIs reported in Table~\ref{tab:main} test each
@@ -345,7 +309,7 @@ training run, which the speedup over training a full
 $K$-bootstrap-bagging ensemble may amortise; entropy is free at
 deployment time but is a meaningfully weaker signal.
 
-\section{GIN: bagging transfers; rule selects $\lambda{=}10$}
+\section{\boldmath GIN: bagging transfers; rule selects $\lambda{=}10$}
 \label{app:gin}
 
 The main comparison uses a $256$-unit MLP on Morgan fingerprints
@@ -381,7 +345,7 @@ value does not.  For practitioners changing the architecture, the
 practical recipe is a single $\lambda$ sweep on the development
 dataset before transferring to held-out data.
 
-\section{ChemBERTa: rule-selected $\lambda{=}10$ preserves accuracy and cuts churn $\chembertaCutLow$--$\chembertaCutHigh\%$}
+\section{\boldmath ChemBERTa: rule-selected $\lambda{=}10$ preserves accuracy and cuts churn $\chembertaCutLow$--$\chembertaCutHigh\%$}
 \label{app:chemberta_scope}
 
 We fine-tuned
@@ -426,7 +390,7 @@ value $\lambda$ takes does not.
 Appendix~\ref{app:waterbirds_lambda} reports the matching result on
 the vision pretrained backbone.
 
-\section{Waterbirds (ResNet-50): rule-selected $\lambda{=}10$ cuts churn $\waterbirdsLamTenCut\%$}
+\section{\boldmath Waterbirds (ResNet-50): rule-selected $\lambda{=}10$ cuts churn $\waterbirdsLamTenCut\%$}
 \label{app:waterbirds_lambda}
 
 The same protocol is applied to Waterbirds (ImageNet-pretrained
