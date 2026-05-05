@@ -1,7 +1,7 @@
 \section{Discussion}
 \label{sec:discussion}
 
-\paragraph{Cross-sample churn is a column scientific-ML benchmarks have been missing.}
+\paragraph{Cross-sample churn is a metric scientific-ML benchmarks have been missing.}
 Parameter-side uncertainty methods that the field treats as adequate
 --- deep ensembles, MC dropout, stochastic weight averaging ---
 do not reduce cross-sample churn on these benchmarks, and on several
@@ -34,8 +34,7 @@ deployment-driven domains route substantial wet-lab effort to the
 molecules a model ranks highest at any given retraining; reducing
 the rate at which that ranking flips between dataset updates cuts
 wasted experimental work and makes computational triage decisions
-reproducible.  Two cautions are warranted.  Low churn is not
-correctness: a stably wrong model looks identical to a stably right
+reproducible. However,  low churn is not correctness: a stably wrong model looks identical to a stably right
 one under this metric, and the churn-ranked triage workflow only
 flags predictions that disagree across retrainings, not those that
 agree but are jointly miscalibrated.  Cross-sample churn is also a

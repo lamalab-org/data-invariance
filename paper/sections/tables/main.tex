@@ -1,6 +1,6 @@
 \begin{table}[t]
   \centering
-  \caption{\textbf{Bagging and twin-bootstrap reduce the class-flip rate on every chemistry benchmark; MC dropout and deep ensembles do not.}  Paired $\Delta$ id-churn vs.\ ERM in percentage points (negative is better).  Each cell is the mean across $\nCanonicalSeeds$ canonical-seed replicates of a per-replicate paired-bootstrap estimate (mean over $\binom{10}{2}=45$ seed pairs with paired-bootstrap $95\%$ CIs from $10{,}000$ resamples); per-replicate values in App.~\ref{app:seed_sensitivity}.  \textbf{Best} per dataset in bold; entries whose CI excludes zero are significant at $\alpha{=}0.05$.  Twin-bootstrap $\lambda{=}300$ is selected on BACE only and applied unchanged to every held-out benchmark.}
+  \caption{\textbf{Bagging and twin-bootstrap reduce the class-flip rate on every chemistry benchmark; MC dropout and deep ensembles do not.}  Paired $\Delta$ id-churn vs.\ ERM in percentage points (negative is better).  Each cell is the mean across $\nCanonicalSeeds$ canonical-seed replicates; each replicate-mean averages over the $45$ pairs that $10$ retrainings produce, with paired-bootstrap $95\%$ CIs from $10{,}000$ resamples.  Per-replicate values in Appendix~\ref{app:seed_sensitivity}.  \textbf{Best} per dataset in bold; entries whose CI excludes zero are significant at $\alpha{=}0.05$.  Twin-bootstrap $\lambda{=}300$ is selected on BACE only and applied unchanged to every held-out benchmark.}
   \label{tab:main}
   \scriptsize
   \begin{tabular}{lrll@{\hspace{1.2em}}lll}

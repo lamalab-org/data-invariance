@@ -121,8 +121,9 @@ def main():
         r"id-MAE and cross-sample churn (mean $|f_A - f_B|$ between "
         r"bootstrap retrainings) on three MoleculeNet regression "
         r"benchmarks.  All reported quantities are mean $[\,95\%\ "
-        r"\text{CI}\,]$ over $\binom{10}{2}{=}45$ seed pairs (or $10$ "
-        r"retrainings for id-MAE).  Paired $\Delta$ churn vs.\ ERM "
+        r"\text{CI}\,]$ over the $45$ pairs of $10$ retrainings (or "
+        r"over the $10$ retrainings themselves for id-MAE).  Paired "
+        r"$\Delta$ churn vs.\ ERM "
         r"in the bottom rows; bold marks the best matched-compute method "
         r"per dataset.  Bagging-$K{=}5$ ($5\times$-ERM compute) included "
         r"as a stronger no-cost reference.}",
@@ -150,7 +151,7 @@ def main():
     lines += [
         r"\midrule",
         r"\multicolumn{7}{l}{\emph{Paired $\Delta$ churn vs.\ ERM "
-        r"(45 seed-pairs, mean $[\,95\%\ \text{CI}\,]$):}} \\",
+        r"($45$ pairs of $10$ retrainings, mean $[\,95\%\ \text{CI}\,]$):}} \\",
     ]
     # Identify the best matched-compute method per dataset: between
     # bagging-K=2 and twin-bootstrap (both are 2x-ERM compute).
