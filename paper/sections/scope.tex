@@ -12,3 +12,11 @@ BACE-ChemBERTa, Waterbirds) are reported on canonical seed
 $\canonicalSeed$ alone; the pretrained-backbone results
 (ERM, $\lambda{=}300$, $\lambda{=}10$) are replicated across all
 $\nCanonicalSeeds$ canonical seeds.
+
+We measure cross-sample churn at the prediction layer.  Whether
+reducing it translates to better end-to-end outcomes in
+Bayesian-optimisation campaigns or active-learning loops --- where
+more stable per-prediction probabilities should yield more
+reproducible acquisition decisions across data refreshes --- is a
+plausible but untested consequence of our results, and an obvious
+follow-up.

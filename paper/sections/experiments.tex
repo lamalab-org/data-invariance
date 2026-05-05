@@ -14,8 +14,8 @@ across datasets.  Averaging $T{=}20$ stochastic forward passes
 (MC dropout), averaging $K{=}5$ networks at fixed data
 (deep ensembles), or averaging weight snapshots from a single
 training trajectory (SWA) all keep the data-resampling axis
-constant; bagging and twin-bootstrap operate on that axis directly.  At
-matched compute against bagging-$K{=}2$, twin-bootstrap wins on
+constant.  
+At matched compute against bagging-$K{=}2$, twin-bootstrap wins on
 $\twinWinsBagTwoMain/\twinWinsBagTwoMainDenom$ datasets (CI excludes
 zero; the difference is not significant on DILI, where ERM accuracy
 is $\diliErmAcc$ on a $\diliNTest$-example test set).  Against the
@@ -62,9 +62,9 @@ $\symKLBagFoldLow\text{--}\symKLBagFoldHigh\times$ vs.\ ERM, and
 twin-bootstrap reduces it by another factor of
 ${\sim}\symKLTwinAdditionalFoldMedian$ (per-dataset paired CIs in
 Table~\ref{tab:distributional}, Appendix~\ref{app:distributional}).
-Pipelines that consume the softmax (uncertainty-weighted ranking,
-candidate scoring) see a larger gap between the two than the
-argmax-churn column reflects.
+Pipelines that consume the softmax --- active-learning acquisition,
+Bayesian-optimisation, virtual-screening top-$K$ ranking --- see a
+larger gap between methods than the argmax-churn column reflects.
 
 \paragraph{Churn-ranked triage.}
 \label{sec:churn-decile}
