@@ -381,10 +381,11 @@ underlying cause matches the GIN architecture cross-check
 is too strong for pretrained representations.
 
 \paragraph{\boldmath Rule-selected $\lambda$ on BACE-ChemBERTa is $\lambda{=}10$.}
-Sweeping $\lambda \in \{1, 3, 10, 30, 100, 300\}$ on BACE-ChemBERTa
-and applying the same $\preregTolerance$ id-acc tolerance rule used on BACE-MLP:
-$\lambda \in \{1, 3, 10\}$ stay within tolerance, $\lambda{=}30$ and
-above fall below.  The rule picks $\lambda{=}10$.
+On BACE-ChemBERTa we sweep $\lambda \in \{1, 3, 10, 30, 100, 300\}$
+and apply the same $\preregTolerance$ id-acc tolerance rule used on
+BACE-MLP.  The first three values keep id-acc within tolerance;
+$\lambda \geq 30$ fall below.  The rule picks the largest admissible,
+$\lambda{=}10$.
 
 \paragraph{\boldmath At rule-selected $\lambda{=}10$, twin-bootstrap works on every
 ChemBERTa dataset.}
