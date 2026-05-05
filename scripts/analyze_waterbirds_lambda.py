@@ -111,7 +111,7 @@ def main() -> None:
     lines = [
         r"\begin{table}[h]",
         r"\centering",
-        r"\caption{\textbf{Waterbirds (ImageNet-ResNet50): the "
+        r"\caption{\textbf{\boldmath Waterbirds (ImageNet-ResNet50): the "
         r"$0.02$-tolerance rule picks $\lambda{=}10$, recovering the "
         r"closed-loop result on a vision pretrained backbone.}  "
         r"ERM id-acc $0.875$ (rule threshold $\geq 0.855$).  "

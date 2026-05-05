@@ -87,7 +87,7 @@ def write_latex_table(rows: list[dict], path: Path) -> None:
     lines = [
         r"\begin{table}[h]",
         r"\centering",
-        r"\caption{\textbf{The rule transfers; the value $\lambda$ takes "
+        r"\caption{\textbf{\boldmath The rule transfers; the value $\lambda$ takes "
         r"does not.}  At the $\lambda{=}300$ chosen on the BACE MLP, "
         r"twin-bootstrap over-regularises ChemBERTa (accuracy drops "
         r"$9\text{--}17$\,pp; churn rises on $5/6$ datasets, BBBP "

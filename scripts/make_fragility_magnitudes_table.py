@@ -123,7 +123,7 @@ def main() -> None:
     lines = [
         r"\begin{table}[t]",
         r"  \centering",
-        r"  \caption{\textbf{Two retrainings on independent bootstraps "
+        r"  \caption{\textbf{\boldmath Two retrainings on independent bootstraps "
         r"differ in aggregate accuracy by "
         + f"{min_acc_diff:.1f}" + r"\,--\," + f"{max_acc_diff:.1f}"
         + r"\,pp on average, but disagree on $8\text{--}22\%$ of "
@@ -189,7 +189,7 @@ def main() -> None:
         bl_lines = [
             r"\begin{table}[h]",
             r"  \centering",
-            r"  \caption{\textbf{Cross-sample magnitudes for the three "
+            r"  \caption{\textbf{\boldmath Cross-sample magnitudes for the three "
             r"borderline datasets.}  These pass the ERM-vs-majority filter "
             r"only marginally (+3 to +4\,pp on test sets of 57--104 examples) "
             r"and are reported here for transparency; method comparisons are "

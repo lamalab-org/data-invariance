@@ -64,13 +64,20 @@ def _imports():
 
     DEVICE = torch.device("cpu")
     return (
-        DEVICE, DataLoader, F, MolNetDataset, REPO_ROOT, combinations,
-        nn, np, plt, torch,
+        DEVICE,
+        F,
+        MolNetDataset,
+        REPO_ROOT,
+        combinations,
+        nn,
+        np,
+        plt,
+        torch,
     )
 
 
 @app.cell
-def _data(MolNetDataset, REPO_ROOT, mo, np, torch):
+def _data(MolNetDataset, REPO_ROOT, mo, torch):
     DATA_DIR = str(REPO_ROOT / "data" / "molnet")
     CANONICAL_SEED = 99
     train_ds = MolNetDataset(name="bace", split="train",
@@ -104,7 +111,13 @@ def _data(MolNetDataset, REPO_ROOT, mo, np, torch):
         the same training pool.
         """
     )
-    return X_test, X_train, base_rate, n_classes, n_features, n_test, y_test, y_train
+    return X_test, X_train, n_classes, n_features, y_test, y_train
+
+
+@app.cell
+def _(X_test):
+    X_test
+    return
 
 
 @app.cell
@@ -144,19 +157,35 @@ def _model_def(F, nn, torch):
 
 
 @app.cell
-def _train_erm(DEVICE, F, MLP, bootstrap_indices, n_classes, n_features,
-               set_seed, torch):
+def _train_erm(
+    DEVICE,
+    F,
+    MLP,
+    bootstrap_indices,
+    n_classes,
+    n_features,
+    set_seed,
+    torch,
+):
     EPOCHS = 30
     BATCH = 64
     LR = 1e-3
     WD = 1e-4
 
-    def train_erm(X_train, y_train, seed: int) -> MLP:
-        """Train one MLP on a bootstrap of (X_train, y_train)."""
-        set_seed(seed)
+    def train_erm_on_bootstrap(X_train, y_train, *, bootstrap_seed: int,
+                               model_seed: int) -> MLP:
+        """Train one MLP on a specific bootstrap.
+
+        The two seeds are independent: ``bootstrap_seed`` decides which
+        N draws-with-replacement go into the training set, ``model_seed``
+        decides the random initialisation of the MLP weights.  Splitting
+        them lets bagging ask for K different bootstraps explicitly
+        (see ``train_bagging`` below).
+        """
+        set_seed(model_seed)
         model = MLP(n_features, n_classes).to(DEVICE)
         opt = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WD)
-        idx = bootstrap_indices(X_train.shape[0], seed)
+        idx = bootstrap_indices(X_train.shape[0], bootstrap_seed)
         Xb, yb = X_train[idx].to(DEVICE), y_train[idx].to(DEVICE)
         n = Xb.shape[0]
         for _ in range(EPOCHS):
@@ -171,11 +200,16 @@ def _train_erm(DEVICE, F, MLP, bootstrap_indices, n_classes, n_features,
                 opt.step()
         return model
 
+    def train_erm(X_train, y_train, seed: int) -> MLP:
+        """ERM: one bootstrap, one model, both keyed by the same seed."""
+        return train_erm_on_bootstrap(X_train, y_train,
+                                      bootstrap_seed=seed, model_seed=seed)
+
     @torch.no_grad()
     def predict_probs(model: MLP, X) -> torch.Tensor:
         model.eval()
         return F.softmax(model(X.to(DEVICE)), dim=1).cpu()
-    return EPOCHS, predict_probs, train_erm
+    return predict_probs, train_erm, train_erm_on_bootstrap
 
 
 @app.cell
@@ -184,11 +218,11 @@ def _run_erm(X_test, X_train, mo, predict_probs, train_erm, y_train):
     erm_models = [train_erm(X_train, y_train, seed=s) for s in range(1, N_ERM + 1)]
     erm_probs = [predict_probs(m, X_test) for m in erm_models]
     mo.md(f"Trained {N_ERM} ERM models on independent bootstraps.")
-    return N_ERM, erm_models, erm_probs
+    return N_ERM, erm_probs
 
 
 @app.cell
-def _erm_churn(N_ERM, X_test, combinations, erm_probs, mo, np, y_test):
+def _erm_churn(N_ERM, combinations, erm_probs, mo, np, y_test):
     def class_flip_rate(probs_a, probs_b) -> float:
         return float((probs_a.argmax(1) != probs_b.argmax(1)).float().mean())
 
@@ -216,18 +250,27 @@ def _erm_churn(N_ERM, X_test, combinations, erm_probs, mo, np, y_test):
         but should land in the same neighbourhood.
         """
     )
-    return acc, accs, class_flip_rate, pair_flips
+    return class_flip_rate, pair_flips
 
 
 @app.cell
-def _bagging_def(F, MLP, bootstrap_indices, predict_probs, set_seed,
-                 train_erm):
+def _bagging_def(predict_probs, train_erm_on_bootstrap):
     K_BAG = 5
 
     def train_bagging(X_train, y_train, seed: int, K: int = K_BAG) -> list:
-        """K independent ERM models on K independent bootstraps."""
-        return [train_erm(X_train, y_train, seed=seed * 100 + j)
-                for j in range(K)]
+        """K ERM models on K *visibly* independent bootstraps.
+
+        Each of the K sub-models gets its own bootstrap_seed (seed*100+j),
+        so bootstrap_indices(N, seed*100+j) draws K different N-with-
+        replacement samples from the training pool.  This is the cross-
+        sample bagging protocol: parameter-side AND data-side variance.
+        """
+        return [
+            train_erm_on_bootstrap(X_train, y_train,
+                                   bootstrap_seed=seed * 100 + j,
+                                   model_seed=seed * 100 + j)
+            for j in range(K)
+        ]
 
     def bagging_predict(models: list, X):
         """Average softmax probabilities across the K models."""
@@ -237,8 +280,16 @@ def _bagging_def(F, MLP, bootstrap_indices, predict_probs, set_seed,
 
 
 @app.cell
-def _run_bagging(K_BAG, X_test, X_train, bagging_predict, class_flip_rate,
-                 mo, train_bagging, y_train):
+def _run_bagging(
+    K_BAG,
+    X_test,
+    X_train,
+    bagging_predict,
+    class_flip_rate,
+    mo,
+    train_bagging,
+    y_train,
+):
     bag_a = train_bagging(X_train, y_train, seed=1)
     bag_b = train_bagging(X_train, y_train, seed=2)
     p_bag_a = bagging_predict(bag_a, X_test)
@@ -260,12 +311,22 @@ def _run_bagging(K_BAG, X_test, X_train, bagging_predict, class_flip_rate,
         average; the qualitative reduction is what matters here.
         """
     )
-    return bag_churn, p_bag_a, p_bag_b
+    return (bag_churn,)
 
 
 @app.cell
-def _twin_def(DEVICE, F, MLP, bootstrap_indices, n_classes, n_features,
-              predict_probs, set_seed, sym_kl, torch):
+def _twin_def(
+    DEVICE,
+    F,
+    MLP,
+    bootstrap_indices,
+    n_classes,
+    n_features,
+    predict_probs,
+    set_seed,
+    sym_kl,
+    torch,
+):
     LAMBDA = 300.0
     EPOCHS_TWIN = 30
     BATCH_TWIN = 64
@@ -311,8 +372,16 @@ def _twin_def(DEVICE, F, MLP, bootstrap_indices, n_classes, n_features,
 
 
 @app.cell
-def _run_twin(LAMBDA, X_test, X_train, class_flip_rate, mo, train_twin,
-              twin_predict, y_train):
+def _run_twin(
+    LAMBDA,
+    X_test,
+    X_train,
+    class_flip_rate,
+    mo,
+    train_twin,
+    twin_predict,
+    y_train,
+):
     twin_a = train_twin(X_train, y_train, seed=1)
     twin_b = train_twin(X_train, y_train, seed=10)
     p_twin_a = twin_predict(twin_a, X_test)
@@ -333,25 +402,23 @@ def _run_twin(LAMBDA, X_test, X_train, class_flip_rate, mo, train_twin,
         bagging-$K{{=}}5$ at less than half the compute.
         """
     )
-    return p_twin_a, p_twin_b, twin_churn
+    return (twin_churn,)
 
 
 @app.cell
 def _summary(bag_churn, mo, np, pair_flips, twin_churn):
-    mo.md(
-        f"""
-        ## Side-by-side
+    mo.md(f"""
+    ## Side-by-side
 
-        | Method | Compute | Cross-sample churn |
-        |---|---|---|
-        | ERM ($\\binom{{4}}{{2}}=6$ pairs) | $1\\times$ | **{np.mean(pair_flips)*100:.2f}%** |
-        | Bagging $K{{=}}5$ (1 pair) | $5\\times$ | **{bag_churn*100:.2f}%** |
-        | Twin-bootstrap $\\lambda{{=}}300$ (1 pair) | $2\\times$ | **{twin_churn*100:.2f}%** |
+    | Method | Compute | Cross-sample churn |
+    |---|---|---|
+    | ERM ($\\binom{{4}}{{2}}=6$ pairs) | $1\\times$ | **{np.mean(pair_flips)*100:.2f}%** |
+    | Bagging $K{{=}}5$ (1 pair) | $5\\times$ | **{bag_churn*100:.2f}%** |
+    | Twin-bootstrap $\\lambda{{=}}300$ (1 pair) | $2\\times$ | **{twin_churn*100:.2f}%** |
 
-        Paper magnitudes on BACE: ERM $\\sim 16\\%$,
-        Bagging-$K{{=}}5$ $\\sim 9\\%$, twin-bootstrap $\\sim 5\\text{{--}}6\\%$.
-        """
-    )
+    Paper magnitudes on BACE: ERM $\\sim 16\\%$,
+    Bagging-$K{{=}}5$ $\\sim 9\\%$, twin-bootstrap $\\sim 5\\text{{--}}6\\%$.
+    """)
     return
 
 
@@ -388,7 +455,7 @@ def _per_example(combinations, erm_probs, mo, np):
         of the recall.
         """
     )
-    return per_example_churn, top_30, triage_recall
+    return (per_example_churn,)
 
 
 @app.cell
@@ -414,22 +481,20 @@ def _show_fig(fig):
 
 @app.cell
 def _conclusion(mo):
-    mo.md(
-        r"""
-        ## Sanity-check summary
+    mo.md(r"""
+    ## Sanity-check summary
 
-        Every number above came from a fresh training run inside
-        this notebook; nothing is loaded from cached predictions.
-        The qualitative ranking (ERM > Bagging > Twin-bootstrap on
-        cross-sample churn) reproduces, and the absolute magnitudes
-        sit close to the paper's BACE values modulo the smaller
-        seed sample.  Larger `N_ERM` (and additional bagging /
-        twin pairs) tighten the estimate at the cost of runtime.
+    Every number above came from a fresh training run inside
+    this notebook; nothing is loaded from cached predictions.
+    The qualitative ranking (ERM > Bagging > Twin-bootstrap on
+    cross-sample churn) reproduces, and the absolute magnitudes
+    sit close to the paper's BACE values modulo the smaller
+    seed sample.  Larger `N_ERM` (and additional bagging /
+    twin pairs) tighten the estimate at the cost of runtime.
 
-        For the full headline numbers across the nine chemistry
-        benchmarks, run `make analysis` from the repo root.
-        """
-    )
+    For the full headline numbers across the nine chemistry
+    benchmarks, run `make analysis` from the repo root.
+    """)
     return
 
 

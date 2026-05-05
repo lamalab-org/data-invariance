@@ -148,7 +148,7 @@ def main() -> None:
     tex_lines = [
         r"\begin{table}[h]",
         r"\centering",
-        r"\caption{\textbf{GIN on BACE: bagging transfers cleanly at "
+        r"\caption{\textbf{\boldmath GIN on BACE: bagging transfers cleanly at "
         r"the same $K{=}5$; twin-bootstrap requires re-running the "
         r"$\lambda$-selection rule on the GIN backbone.}  ERM-GIN is more fragile "
         f"than ERM-MLP ({erm_d['id_churn'][0]*100:.1f}\\% "

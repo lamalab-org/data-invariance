@@ -181,7 +181,7 @@ def main() -> None:
     lines = [
         r"\begin{table}[h]",
         r"  \centering",
-        r"  \caption{\textbf{Twin-bootstrap ($\sim$40\% overlap)"
+        r"  \caption{\textbf{\boldmath Twin-bootstrap ($\sim$40\% overlap)"
         r" reduces churn on every dataset without an accuracy collapse;"
         r" codistillation (0\%) collapses accuracy on two datasets;"
         r" twin-shared (100\%) increases churn on DILI.}  Cells: paired"

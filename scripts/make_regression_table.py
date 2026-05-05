@@ -114,7 +114,7 @@ def main():
     lines = [
         r"\begin{table}[h]",
         r"\centering",
-        r"\caption{\textbf{At matched $2\times$-ERM compute, twin-bootstrap "
+        r"\caption{\textbf{\boldmath At matched $2\times$-ERM compute, twin-bootstrap "
         r"beats bagging-$K{=}2$ on every regression dataset; the methods "
         r"rank identically to the classification main-table result.}  "
         r"Per-method "
