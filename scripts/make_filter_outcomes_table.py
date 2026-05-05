@@ -101,7 +101,7 @@ def main() -> None:
         r"  \caption{\textbf{Five datasets fail the +$5$pp ERM-vs-majority "
         r"filter and are excluded from the main analysis.}  ERM id-acc "
         r"is the mean across $10$ retrainings; majority is the largest "
-        r"class proportion on the canonical id-test set.  The pre-registered "
+        r"class proportion on the canonical id-test set.  The "
         r"filter requires ERM to exceed majority by at least $5$pp; on "
         r"each of the five rows below it does not, so cross-sample churn "
         r"would conflate ``method shifts the decision boundary'' with "
