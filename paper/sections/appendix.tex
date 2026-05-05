@@ -375,10 +375,10 @@ datasets: the across-seed-mean paired $\Delta$ vs.\ ERM is positive
 on BACE, Pgp, and DILI (strict increase, all three canonical seeds
 agree), and the one apparent decrease (BBBP) is a model collapse to
 the majority-class predictor, not a real cut.  AMES and BBB-Martins
-are within paired CI of zero on average across seeds.  Same diagnosis
-as the GIN architecture cross-check (Appendix~\ref{app:gin}): the
-$\lambda$ tuned on a from-scratch MLP is too strong for pretrained
-representations.
+are within paired CI of zero on average across seeds.  The
+underlying cause matches the GIN architecture cross-check
+(Appendix~\ref{app:gin}): the $\lambda$ tuned on a from-scratch MLP
+is too strong for pretrained representations.
 
 \paragraph{\boldmath Rule-selected $\lambda$ on BACE-ChemBERTa is $\lambda{=}10$.}
 Sweeping $\lambda \in \{1, 3, 10, 30, 100, 300\}$ on BACE-ChemBERTa
