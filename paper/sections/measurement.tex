@@ -1,5 +1,4 @@
 \section{Cross-sample prediction churn}
-\label{sec:preliminaries}
 \label{sec:measurement}
 
 \paragraph{Setting.}
@@ -36,11 +35,11 @@ bootstraps from $S$ (size $N$, with replacement); each bootstrap is
 a draw from the empirical distribution $\hat{\mathcal{D}}_S$, which
 converges to $\mathcal{D}$ as $N \to \infty$.  All
 numerical magnitudes we report are with respect to this bootstrap
-proxy --- the quantity computable from a single observed training
+proxy, which is computable from a single observed training
 set.
 
 \paragraph{Measurement protocol.}
-A \emph{canonical} seed determines a single train/test split; within
+We use the term \emph{canonical seed} to refer to a specific train/test split defined by one seed; within
 that split, the training pool and test set are reused across every
 method and every train seed, so test-side variance is zero by
 construction.  For each train seed $s \in \{1, \dots, \nSeeds\}$ we
@@ -52,8 +51,7 @@ Confidence intervals come from $10{,}000$-sample bootstrap on the
 seed-pair distribution; cross-method deltas are paired.
 
 For the chemistry-MLP comparison we run $\nCanonicalSeeds$
-replicates at canonical seeds $\canonicalSeed$, $7$, and $42$;
-quoted magnitudes are across-replicate means and the $\lambda$-selection
+replicates; quoted magnitudes are across-replicate means and the $\lambda$-selection
 rule picks the same value on every replicate
 (Appendix~\ref{app:seed_sensitivity}).
 
