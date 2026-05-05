@@ -75,5 +75,13 @@ Featurisation follows standard chemistry conventions for each dataset: $2048$-bi
 fingerprints for MoleculeNet/TDC; $+217$ RDKit descriptors for
 TADF; $174$ RAC descriptors plus geometric solvent-accessibility
 features for MOFs~\citep{Moosavi2020}.  The default architecture is
-a $256$-unit MLP trained from scratch on these features.
+a $256$-unit MLP trained from scratch on these features.  For each
+MoleculeNet/TDC dataset we group molecules by Bemis--Murcko
+scaffold and partition the within-scaffold-group pool $80/20$ into
+the canonical train and id-test under a single canonical seed; the
+remaining $20\%$ of scaffolds form an OOD scaffold-test that we
+record but do not use in the main analysis, because cross-sample
+churn is a within-distribution question that should not be
+confounded with distribution shift.  TADF and the MOF benchmarks
+have no scaffold and use a random $80/20$ split.
 

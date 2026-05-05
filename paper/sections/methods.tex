@@ -1,7 +1,7 @@
 \section{Methods}
 \label{sec:methods}
 
-We compare six approaches under the strict protocol of
+We compare six approaches under the protocol of
 Section~\ref{sec:measurement}.  All methods share the same
 architecture and optimiser unless stated otherwise: a $256$-unit,
 two-hidden-layer MLP with ReLU activations on the dataset-specific
@@ -67,8 +67,7 @@ Bootstrap-with-replacement at size $N$ covers ${\sim}63\%$ of unique
 indices in expectation, so two independent bootstraps share
 ${\sim}0.63^2 \approx 40\%$ of indices.  The consistency loss
 therefore acts on the overlap while the cross-entropy losses
-specialise on the non-shared remainder; this is the operating point
-we use.  Algorithm~\ref{alg:twin-bootstrap} gives the per-epoch
+specialise on the non-shared remainder.  Algorithm~\ref{alg:twin-bootstrap} gives the per-epoch
 procedure.
 
 \begin{algorithm}[H]
