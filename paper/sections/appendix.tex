@@ -42,7 +42,7 @@ Reference & What varies between two runs & Mechanism \\
 \textbf{This paper} & \textbf{Independent bootstraps of the training population} & \textbf{Sym-KL codistillation, $\sim$$\overlapPctMid\%$ data overlap (twin-bootstrap)} \\
 \midrule
 \multicolumn{3}{l}{\emph{Different axis}} \\
-\citet{launch_and_iterate}; \citet{jiang2022} & Candidate trained from scratch; incumbent fixed & MCMC stabiliser / distillation from base (deployment loop) \\
+\citet{launch_and_iterate}; \citet{jiang2022} & Candidate model trained from scratch; deployed (incumbent) model fixed & MCMC stabiliser / distillation from base (deployment loop) \\
 \citet{marx2020}; \citet{damour2022} & Loss-equivalent models on fixed data & Predictive multiplicity / underspecification (measurement) \\
 \citet{black2022} & Init.-randomised ensemble (fixed data) & Selective ensembles: abstain when consistency not certified \\
 \bottomrule
