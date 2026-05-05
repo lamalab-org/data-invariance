@@ -1,7 +1,7 @@
 \begin{abstract}
-Scientific machine learning reports accuracy.  It does not report
-whether the same prediction would survive a different draw of
-training data.  Across $\nDatasetsHeadline$ chemistry benchmarks,
+Scientific machine learning reports predictive performance ---
+accuracy, AUROC, MAE.  It does not report whether the same
+prediction would survive a different draw of training data.  Across $\nDatasetsHeadline$ chemistry benchmarks,
 two classifiers trained on independent bootstraps of the same
 training set agree on aggregate accuracy to within
 $\accDiffMin\text{--}\accDiffMax$ percentage points but disagree on
@@ -15,8 +15,8 @@ networks trained on independent bootstraps with a sym-KL consistency
 loss between their predictions --- which cuts a further median
 $\twinFurtherMedianReductionVsBagTwo\%$ beyond bagging-$K{=}2$ at
 matched $2\times$-ERM compute.
-Cross-sample prediction churn deserves a column alongside accuracy
-in scientific-ML benchmark reports, because without it the
-parameter-side and data-side methods are indistinguishable on the
-metric they actually differ on.
+Cross-sample prediction churn deserves a column alongside
+predictive performance in scientific-ML benchmark reports, because
+without it the parameter-side and data-side methods are
+indistinguishable on the metric they actually differ on.
 \end{abstract}
