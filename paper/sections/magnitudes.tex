@@ -15,6 +15,11 @@ Sym-KL varies by ${\sim}\symKLDatasetSpread\times$ across datasets,
 and the variation is task-dependent rather than a function of
 training-set size alone (e.g.\ TADF and BACE both have
 $N \approx 1000$ but differ by ${\sim}2\times$ in sym-KL).
+At these magnitudes, $\churnMin\text{--}\churnMax\%$ of the
+per-molecule decisions a downstream pipeline would route to
+synthesis or screening change between two retrainings on the same
+training population --- a reshuffling that is invisible in the
+accuracy column the field actually reports.
 
 \input{sections/tables/fragility_magnitudes.tex}
 

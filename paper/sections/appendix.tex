@@ -392,7 +392,7 @@ twin-bootstrap at the rule-selected $\lambda$ on the five held-out
 datasets.  All runs use five train-seeds, giving
 $\binom{5}{2}=10$ seed-pairs per dataset.
 
-\paragraph{The $\lambda$ chosen on the BACE MLP does not transfer.}  At
+\paragraph{\boldmath The $\lambda$ chosen on the BACE MLP does not transfer.}  At
 $\lambda{=}300$ (the value selected on BACE-MLP) twin-bootstrap drops
 ChemBERTa accuracy by
 $\chembertaAccDropLow\text{--}\chembertaAccDropHigh$pp on every
@@ -407,13 +407,13 @@ as the GIN architecture cross-check (Appendix~\ref{app:gin}): the
 $\lambda$ tuned on a from-scratch MLP is too strong for pretrained
 representations.
 
-\paragraph{Rule-selected $\lambda$ on BACE-ChemBERTa is $\lambda{=}10$.}
+\paragraph{\boldmath Rule-selected $\lambda$ on BACE-ChemBERTa is $\lambda{=}10$.}
 Sweeping $\lambda \in \{1, 3, 10, 30, 100, 300\}$ on BACE-ChemBERTa
 and applying the same $\preregTolerance$ id-acc tolerance rule used on BACE-MLP:
 $\lambda \in \{1, 3, 10\}$ stay within tolerance, $\lambda{=}30$ and
 above fall below.  The rule picks $\lambda{=}10$.
 
-\paragraph{At rule-selected $\lambda{=}10$, twin-bootstrap works on every
+\paragraph{\boldmath At rule-selected $\lambda{=}10$, twin-bootstrap works on every
 ChemBERTa dataset.}
 
 \input{sections/tables/chemberta.tex}
