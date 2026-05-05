@@ -6,8 +6,9 @@ Section~\ref{sec:measurement}.  All methods share the same
 architecture and optimiser unless stated otherwise: a $256$-unit,
 two-hidden-layer MLP with ReLU activations on the dataset-specific
 input features (Section~\ref{sec:measurement}), trained from
-scratch with AdamW (weight decay $10^{-4}$, gradient clipping at
-$1.0$), learning rate $10^{-3}$, batch size $64$, and $30$ epochs.
+scratch with AdamW~\citep{loshchilov2019decoupled} (weight decay
+$10^{-4}$, gradient clipping at $1.0$), learning rate $10^{-3}$,
+batch size $64$, and $30$ epochs.
 
 \paragraph{ERM.}
 A single model trained with AdamW on one bootstrap of the canonical
