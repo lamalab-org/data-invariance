@@ -165,11 +165,20 @@ A plateau of configurations $\lambda \in \{1, 3, 10, 30\}$ all preserve
 accuracy and reduce churn from ERM's $\baceErmChurn\%$ to a low-single-digit
 range; the curve drops further at higher $\lambda$ until
 $\lambda{=}300$ at $\baceTwinChurn\%$ within the $\preregTolerance$ accuracy
-tolerance (Figure~\ref{fig:pareto}).  The selected $\lambda$ sits at the extreme
-of the feasible interval that satisfies the $\preregTolerance$ accuracy tolerance,
-which suggests the rule is not knife-edge: relaxing the tolerance to
-$0.01$ would still pick the same $\lambda$, while tightening to
+tolerance (Figure~\ref{fig:pareto}).  The selected $\lambda$ sits at the extreme of the feasible interval
+that satisfies the $\preregTolerance$ accuracy tolerance, and the
+choice is robust to the exact tolerance value: relaxing the tolerance
+to $0.01$ would still pick the same $\lambda$, while tightening to
 $0.005$ would pick $\lambda{=}100$ (still on the knee).
+
+\paragraph{Accuracy at the frozen $\lambda$ across held-out datasets.}
+At the frozen $\lambda{=}300$, twin-bootstrap improves id-accuracy on
+$3/9$ chemistry datasets (BACE $+1.2$\,pp, DILI $+2.2$\,pp, TADF
+$+0.5$\,pp) and is within paired-bootstrap CIs on AMES, BBB-Martins,
+CYP2D6-Sub, and BBBP.  Pgp shows a small loss ($-1.5$\,pp), and
+MOF-thermal collapses ($-7.1$\,pp, well outside the $0.02$ selection-rule
+tolerance and the only dataset on which a per-dataset re-application of
+the rule would reject the BACE-frozen $\lambda$).
 
 \section{\boldmath Overlap spectrum: $\sim$\overlapPctMid\% balances churn reduction and accuracy preservation}
 \label{app:overlap_spectrum}

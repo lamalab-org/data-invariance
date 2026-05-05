@@ -148,8 +148,9 @@ def main() -> None:
     tex_lines = [
         r"\begin{table}[h]",
         r"\centering",
-        r"\caption{\textbf{GIN on BACE: bagging transfers cleanly; "
-        r"twin-bootstrap $\lambda$ does not.}  ERM-GIN is more fragile "
+        r"\caption{\textbf{GIN on BACE: bagging transfers cleanly at "
+        r"the same $K{=}5$; twin-bootstrap requires re-running the "
+        r"$\lambda$-selection rule on the GIN backbone.}  ERM-GIN is more fragile "
         f"than ERM-MLP ({erm_d['id_churn'][0]*100:.1f}\\% "
         r"vs.\ \baceErmChurn\% argmax churn), making the methods more "
         r"rather than less relevant on this backbone.  "

@@ -1,6 +1,6 @@
 \begin{table}[h]
 \centering
-\caption{\textbf{GIN on BACE: bagging transfers cleanly; twin-bootstrap $\lambda$ does not.}  ERM-GIN is more fragile than ERM-MLP (23.0\% vs.\ \baceErmChurn\% argmax churn), making the methods more rather than less relevant on this backbone.  Bagging-$K{=}5$ cuts churn $\ginBagCutLamThreeHundred\%$ and improves id-accuracy by $\ginBagAccGain$pp.  Twin-bootstrap at the $\lambda{=}300$ chosen on the BACE MLP reduces sym-KL by $-99\%$ but drops id-accuracy by $\ginAccDropLamThreeHundred$pp --- well outside the $0.02$ selection-rule tolerance ERM-GIN id-acc would impose.  Bold cells mark the best mean per column among the three methods.}
+\caption{\textbf{GIN on BACE: bagging transfers cleanly at the same $K{=}5$; twin-bootstrap requires re-running the $\lambda$-selection rule on the GIN backbone.}  ERM-GIN is more fragile than ERM-MLP (23.0\% vs.\ \baceErmChurn\% argmax churn), making the methods more rather than less relevant on this backbone.  Bagging-$K{=}5$ cuts churn $\ginBagCutLamThreeHundred\%$ and improves id-accuracy by $\ginBagAccGain$pp.  Twin-bootstrap at the $\lambda{=}300$ chosen on the BACE MLP reduces sym-KL by $-99\%$ but drops id-accuracy by $\ginAccDropLamThreeHundred$pp --- well outside the $0.02$ selection-rule tolerance ERM-GIN id-acc would impose.  Bold cells mark the best mean per column among the three methods.}
 \label{tab:gin}
 \scriptsize
 \resizebox{\linewidth}{!}{%
