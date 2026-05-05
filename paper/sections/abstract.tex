@@ -7,19 +7,16 @@ training set agree on aggregate accuracy to within
 $\accDiffMin\text{--}\accDiffMax$ percentage points but disagree on
 the class label of $\churnMin\text{--}\churnMax\%$ of test
 molecules.  We call this gap \emph{cross-sample prediction churn}.
-Prior churn work measures disagreement between a deployed model and
-its challenger at web scale; we measure disagreement between models
-retrained from scratch on different bootstraps of the same small
-training set --- the regime that drug discovery, materials, and
-biostatistics actually inhabit.  The standard parameter-side
-techniques (deep ensembles, MC dropout, stochastic weight averaging)
-do not reduce this gap; they sample over weights at fixed data, the
-orthogonal axis.  Two data-side methods do.  Bagging cuts the rate
-$\bagFiveLow\text{--}\bagFiveHigh\%$ on every dataset at no accuracy
+The standard parameter-side techniques (deep ensembles, MC dropout, stochastic weight averaging)
+do not reduce this gap.  Two data-side methods, however,  do.  
+Bagging cuts the rate $\bagFiveLow\text{--}\bagFiveHigh\%$ on every dataset at no accuracy
 cost ($K\times$-ERM compute).  We propose \emph{twin-bootstrap} --- two
 networks trained on independent bootstraps with a sym-KL consistency
 loss between their predictions --- which cuts a further median
 $\twinFurtherMedianReductionVsBagTwo\%$ beyond bagging-$K{=}2$ at
-matched $2\times$-ERM compute.  Churn deserves a column alongside
-accuracy in scientific-ML benchmark reports.
+matched $2\times$-ERM compute.
+Cross-sample prediction churn deserves a column alongside accuracy
+in scientific-ML benchmark reports, because without it the
+parameter-side and data-side methods are indistinguishable on the
+metric they actually differ on.
 \end{abstract}
