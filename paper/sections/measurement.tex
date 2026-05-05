@@ -57,13 +57,14 @@ rule picks the same value on every replicate
 
 \paragraph{Datasets.}
 \label{sec:datasets}
-Seventeen chemistry benchmarks ($N \in [\,304, 4658\,]$):
-MoleculeNet~\citep{Wu2018} (BACE, BBBP, ClinTox),
-the TDC~\citep{huang2021therapeutics} ADME and Tox suites
-(HIA\_Hou, Bioavailability\_Ma, Pgp\_Broccatelli, BBB\_Martins,
-CYP\{2C9,2D6,3A4\}-Sub, hERG, DILI, AMES, Skin\_Reaction), and
-materials-science benchmarks (TADF~\citep{jablonka2026clever, Huang2024},
-MOF-thermal-stability, MOF-solvent-removal~\citep{jablonka2026clever, Nandy2022}).
+We evaluate on seventeen chemistry benchmarks
+($N \in [\,304, 4658\,]$): MoleculeNet~\citep{Wu2018}
+(BACE, BBBP, ClinTox); the TDC~\citep{huang2021therapeutics} ADME
+and Tox suites (HIA\_Hou, Bioavailability\_Ma, Pgp\_Broccatelli,
+BBB\_Martins, CYP\{2C9,2D6,3A4\}-Sub, hERG, DILI, AMES,
+Skin\_Reaction); and three materials-science
+benchmarks (TADF~\citep{jablonka2026clever, Huang2024},
+MOF-thermal-stability, and MOF-solvent-removal~\citep{jablonka2026clever, Nandy2022}).
 A pre-registered health filter
 (ERM accuracy $\geq$ majority $+ \preregFilterPP$pp on a canonical
 test set $\geq \preregMinTestSize$ examples) keeps nine datasets for
