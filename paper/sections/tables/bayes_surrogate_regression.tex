@@ -1,0 +1,23 @@
+\begin{table}[t]
+  \centering
+  \caption{\textbf{Stabilized Bayesian-optimization surrogate on regression benchmarks.} Metrics are computed from final twin-bootstrap model predictions saved by \texttt{cross\_sample\_train\_bayes\_surrogate.py}. MAE and fragility are reported on ID and OOD test splits; bold marks the better value between default and stabilized GPR.}
+  \label{tab:bayes-surrogate-regression}
+  \scriptsize
+  \setlength{\tabcolsep}{3pt}
+  \begin{tabular}{llrrrr}
+    \toprule
+    & & \multicolumn{2}{c}{ID} & \multicolumn{2}{c}{OOD} \\
+    \cmidrule(lr){3-4} \cmidrule(lr){5-6}
+    Dataset & Metric & Default & Stabilized & Default & Stabilized \\
+    \midrule
+    ESOL & MAE & 2.01 [1.86,2.16] & \textbf{1.92 [1.79,2.07]} & 1.44 [1.29,1.60] & \textbf{1.36 [1.21,1.53]} \\
+     & Frag. & 0.64 [0.54,0.74] & \textbf{0.57 [0.50,0.65]} & 0.67 [0.56,0.79] & \textbf{0.67 [0.56,0.77]} \\
+    \addlinespace
+    FreeSolv & MAE & 2.79 [2.71,2.89] & \textbf{2.78 [2.71,2.86]} & \textbf{2.61 [2.52,2.70]} & 2.62 [2.54,2.70] \\
+     & Frag. & 1.04 [0.88,1.20] & \textbf{0.98 [0.83,1.14]} & 1.47 [1.23,1.72] & \textbf{1.37 [1.13,1.62]} \\
+    \addlinespace
+    Lipo & MAE & \textbf{1.30 [1.21,1.38]} & 1.42 [1.32,1.53] & \textbf{1.30 [1.19,1.40]} & 1.43 [1.32,1.57] \\
+     & Frag. & 0.38 [0.31,0.45] & \textbf{0.34 [0.27,0.41]} & 0.37 [0.30,0.45] & \textbf{0.33 [0.26,0.40]} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
