@@ -263,11 +263,11 @@ def write_latex(rows: list[dict], path: Path) -> None:
     lines = [
         r"\begin{table}[t]",
         r"  \centering",
-        r"  \caption{\textbf{Stabilized Bayesian-optimization surrogate on regression benchmarks.} "
-        r"Metrics are computed from final twin-bootstrap model predictions saved by "
-        r"\texttt{cross\_sample\_train\_bayes\_surrogate.py}. "
-        r"MAE and fragility are reported on ID and OOD test splits; "
-        r"bold marks the better value between default and stabilized GPR.}",
+        r"  \caption{\textbf{Effect of GPR stabilization on regression benchmark "
+        r"performance.} Metrics are computed from final twin-bootstrap model "
+        r"predictions. MAE and fragility are reported on in-distribution (ID) "
+        r"and out-of-distribution (OOD) test splits. Bold highlights the better "
+        r"value between the default and stabilized GPR surrogate.} ",
         r"  \label{tab:bayes-surrogate-regression}",
         r"  \scriptsize",
         r"  \setlength{\tabcolsep}{3pt}",
