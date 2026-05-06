@@ -381,12 +381,6 @@ their surrogates to different candidate pools downstream.
 ERM top-$\boTopkK$ Jaccard is low across the
 \nDatasetsHeadline{} chemistry datasets, ranging from
 $\boTopkErmJaccardLow$ (AMES) to $\boTopkErmJaccardHigh$ (DILI).
-This is not because the surrogate is uninformed: ERM top-$\boTopkK$
-hit rates ($\boTopkErmHitRateLow$--$\boTopkErmHitRateHigh\%$) sit
-$\boTopkHitGapMin$--$\boTopkHitGapMax$\,pp above each dataset's
-positive-class prior on every dataset (Table~\ref{tab:bo_topk}).
-The surrogates are confidently ranking the right tail of the
-distribution; they just disagree on \emph{which} molecules belong
 in the top-$\boTopkK$ between two bootstrap retrainings.  On AMES, BBB-Martins, and BBBP two retrainings
 on independent bootstraps overlap on a single-digit fraction of
 their top-$\boTopkK$ picks: a BO loop on these datasets would
