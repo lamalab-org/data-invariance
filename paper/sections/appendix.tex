@@ -6,7 +6,8 @@ measurement framework ($N$-scaling, borderline datasets).
 Appendix~\ref{app:seed_sensitivity} reports the canonical-seed
 sensitivity of every magnitude in the main table.
 Appendices~\ref{app:pareto}--\ref{app:ablations} support the methods
-(Pareto curve, overlap spectrum, ablations).
+(Pareto curve, Bayesian $\lambda$ optimization, overlap spectrum,
+ablations).
 Appendices~\ref{app:case_study}--\ref{app:entropy} support the
 empirical results (per-molecule case study, distributional
 disagreement, Friedman test, triage convergence, entropy baseline).
@@ -225,6 +226,19 @@ of the feasible interval that satisfies the $\preregTolerance$ accuracy toleranc
 which suggests the rule is not knife-edge: relaxing the tolerance to
 $0.01$ would still pick the same $\lambda$, while tightening to
 $0.005$ would pick $\lambda{=}100$ (still on the knee).
+
+\section{Bayesian optimization of the twin-bootstrap consistency weight}
+\label{app:bayes_twin}
+
+As a post-hoc check on the pre-registered Pareto rule, we also selected the
+twin-bootstrap consistency weight $\lambda$ with a Gaussian-process Bayesian
+optimizer using validation performance as the objective.  Table~\ref{tab:bayes_twin}
+shows that this procedure usually improves accuracy relative to
+$\lambda{=}0$, confirming that nonzero consistency regularization is useful.
+However, it does not consistently reduce cross-sample churn relative to the
+fixed strong-regularization baseline $\lambda{=}300$.
+
+\input{sections/tables/bayes_twin.tex}
 
 \section{Overlap spectrum: $\sim$\overlapPctMid\% balances churn reduction and accuracy preservation}
 \label{app:overlap_spectrum}

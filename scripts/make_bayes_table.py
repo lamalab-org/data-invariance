@@ -354,11 +354,12 @@ def write_comparison_latex(rows: list[dict], path: Path, compare_run: str) -> No
     lines = [
         r"\begin{table}[t]",
         r"  \centering",
-        rf"  \caption{{\textbf{{Bayesian-optimised twin-bootstrap versus fixed-$\lambda$ baselines.}} "
+        rf"  \caption{{\textbf{{Bayesian optimization of $\lambda$ improves validation accuracy but does not consistently minimize cross-sample churn.}} "
         r"Cells report the first method named in each block minus the second "
         r"with paired bootstrap "
         r"$95\%$ confidence intervals. Positive accuracy deltas are better; "
-        r"negative churn deltas are better; favourable signs are bolded. "
+        r"negative churn deltas are better; instances where first method "
+        r"outperforms second method are \textbf{bolded}. "
         r"The $\lambda$ column reports the mean $\lambda$ for the first "
         r"method in the block.}",
         r"  \label{tab:bayes_twin}",
