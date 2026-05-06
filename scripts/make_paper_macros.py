@@ -429,6 +429,58 @@ def emit_entropy() -> None:
     add("entropyGapMax", round(max(gaps_pp)), "pct0")
 
 
+def emit_bo_topk() -> None:
+    """Top-K Jaccard stability summary across the nine chemistry datasets.
+
+    Three macro families:
+      \\boTopkErmJaccardLow / High        ERM Jaccard range
+      \\boTopkTwinJaccardLow / High       Twin-bootstrap Jaccard range
+      \\boTopkTwinDeltaMin / Max          paired Δ vs ERM range (twin)
+      \\boTopkErmHitRateLow / High        ERM hit-rate range (sanity)
+      \\boTopkTwinDeltaPosCount           number of datasets with positive Δ
+    """
+    rows = _read_csv(OUTPUTS / "bo_topk.csv")
+    keys = ["boTopkK",
+            "boTopkErmJaccardLow", "boTopkErmJaccardHigh",
+            "boTopkTwinJaccardLow", "boTopkTwinJaccardHigh",
+            "boTopkTwinDeltaMin", "boTopkTwinDeltaMax",
+            "boTopkErmHitRateLow", "boTopkErmHitRateHigh",
+            "boTopkHitGapMin", "boTopkHitGapMax"]
+    if not rows:
+        for k in keys:
+            add(k, "??")
+        return
+    erm_jac = [_f(r["jaccard_mean"]) for r in rows if r["method"] == "ERM"]
+    twin_rows = [r for r in rows if r["method"].startswith("Twin")]
+    twin_jac = [_f(r["jaccard_mean"]) for r in twin_rows]
+    twin_deltas = [_f(r["delta_mean"]) for r in twin_rows
+                   if r["delta_mean"] not in ("", "nan")]
+    erm_hits = [_f(r["hit_rate_mean"]) * 100 for r in rows if r["method"] == "ERM"]
+    # Hit rate vs class prior gap, per dataset (in percentage points).
+    # Range across datasets characterises "above-chance" surrogate performance.
+    hit_gaps = []
+    for r in rows:
+        if r["method"] != "ERM":
+            continue
+        hr = _f(r["hit_rate_mean"]) * 100
+        cp = _f(r["class_prior"]) * 100
+        hit_gaps.append(hr - cp)
+    K_val = rows[0].get("K", "10")
+    add("boTopkK", K_val)
+    # Two decimal places suit Jaccard; helpers below expect a numeric format key.
+    add("boTopkErmJaccardLow",  f"{min(erm_jac):.2f}")
+    add("boTopkErmJaccardHigh", f"{max(erm_jac):.2f}")
+    add("boTopkTwinJaccardLow",  f"{min(twin_jac):.2f}")
+    add("boTopkTwinJaccardHigh", f"{max(twin_jac):.2f}")
+    add("boTopkTwinDeltaMin", f"{min(twin_deltas):+.2f}")
+    add("boTopkTwinDeltaMax", f"{max(twin_deltas):+.2f}")
+    add("boTopkErmHitRateLow",  f"{min(erm_hits):.0f}")
+    add("boTopkErmHitRateHigh", f"{max(erm_hits):.0f}")
+    if hit_gaps:
+        add("boTopkHitGapMin", f"{min(hit_gaps):.0f}")
+        add("boTopkHitGapMax", f"{max(hit_gaps):.0f}")
+
+
 def emit_regression() -> None:
     rows = _read_csv(OUTPUTS / "regression.csv")
     if not rows:
@@ -918,6 +970,7 @@ def main() -> None:
     emit_friedman()
     emit_triage()
     emit_entropy()
+    emit_bo_topk()
     emit_regression()
     emit_chemberta()
     emit_waterbirds()

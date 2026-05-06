@@ -9,10 +9,14 @@ cross-check; multi-class classification and structured outputs are
 not tested.  We use $K{=}2$ throughout twin-bootstrap and do not study larger head
 counts.  
 
-We measure cross-sample churn at the prediction layer.  Whether
-reducing it translates to better end-to-end outcomes in
-Bayesian-optimisation campaigns or active-learning loops --- where
-more stable per-prediction probabilities should yield more
-reproducible acquisition decisions across data refreshes --- is a
-plausible but untested consequence of our results, and an obvious
-follow-up.
+We measure cross-sample churn at the prediction layer, and at the
+top-$\boTopkK$ ranking layer that gates a single
+Bayesian-optimisation acquisition step (Appendix~\ref{app:bo_topk}:
+under a fixed candidate library, twin-bootstrap raises top-$\boTopkK$
+Jaccard between two bootstrap retrainings on every chemistry
+dataset).  Whether
+this static input-stability translates to better end-to-end
+outcomes in a full BO or active-learning loop --- where two
+divergent trajectories acquire different molecules in early rounds
+and from then on see different candidate pools --- is plausible but
+untested.

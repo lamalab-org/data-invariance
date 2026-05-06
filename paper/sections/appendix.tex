@@ -5,9 +5,10 @@ Appendix~\ref{app:seed_sensitivity} reports the canonical-seed
 sensitivity of every magnitude in the main table.
 Appendices~\ref{app:pareto}--\ref{app:ablations} support the methods
 (Pareto curve, overlap spectrum, ablations).
-Appendices~\ref{app:case_study}--\ref{app:entropy} support the
+Appendices~\ref{app:case_study}--\ref{app:bo_topk} support the
 empirical results (per-molecule case study, distributional
-disagreement, Friedman test, triage convergence, entropy baseline).
+disagreement, Friedman test, triage convergence, entropy baseline,
+top-$K$ ranking stability as a Bayesian-optimisation analogue).
 Appendices~\ref{app:gin}--\ref{app:regression} document the
 cross-architecture and cross-task generalisation evidence.
 Appendix~\ref{app:compute} reports the per-method compute footprint;
@@ -317,6 +318,101 @@ practitioner cost of computing churn is one additional ERM
 training run, which the speedup over training a full
 $K$-bootstrap-bagging ensemble may amortise; entropy is free at
 deployment time but is a meaningfully weaker signal.
+
+\section{Bayesian-optimisation analogue: top-$K$ ranking stability}
+\label{app:bo_topk}
+
+A virtual-screening or Bayesian-optimisation pipeline ranks the
+candidate pool by predicted $P(\text{active})$ and acquires the
+top-$K$ for the next round of evaluation.  The BO-relevant question
+is then how often the top-$K$ \emph{set} would change between two
+retrainings on independent bootstraps of the same training pool ---
+the fraction of candidates that would be re-routed to different
+downstream evaluations depending on which bootstrap the surrogate
+happened to land on.
+
+\paragraph{Measurement.}
+For each chemistry dataset and each method (ERM, bagging-$K{=}5$,
+twin-bootstrap $\lambda{=}300$), we use the same $\nSeeds$
+retrainings as the main argmax-churn protocol
+(Section~\ref{sec:measurement}).  The canonical seed pins the
+train/test split once: every retraining is trained on its own
+bootstrap of the canonical training pool and is then evaluated on
+the same canonical id-test pool, which the surrogate has never seen
+during training.  The candidate library is therefore fixed across
+retrainings; only the surrogate varies (its training-data bootstrap
+and initialisation).
+
+For every retraining we rank the candidate library by the
+deployment-time prediction $P(\text{class}{=}1)$ --- a single
+forward pass for ERM, the $K{=}5$-model averaged softmax for
+bagging, and the $2$-network averaged softmax for twin-bootstrap
+--- and take the top-$K$ molecules ($K{=}10$).  $K$ is an absolute
+batch size, mirroring a typical single-round wet-lab acquisition;
+the corresponding fraction of the canonical test pool ranges from
+$\sim$1\% (AMES, $N_\text{test}{=}1164$) to $\sim$13\% (DILI,
+$N_\text{test}{=}76$).  Between each pair of retrainings $(s, s')$
+of a given method we compute the Jaccard overlap
+\[
+  J_K^{(s, s')} = \frac{|\,T_K^{(s)} \cap T_K^{(s')}\,|}
+                       {|\,T_K^{(s)} \cup T_K^{(s')}\,|},
+\]
+where $T_K^{(s)}$ is the method's top-$K$ set under retraining $s$.
+We report the mean $J_K$ over the $\binom{\nSeeds}{2}{=}\nSeedPairs$
+pairs with paired-bootstrap $95\%$ CIs over the seed-pair
+distribution and the paired $\Delta J_K$ vs.\ ERM (positive =
+stabler ranking).  We additionally report the ERM top-$K$ \emph{hit
+rate} --- the fraction of the surrogate's top-$K$ predicted-active
+molecules that are actually $y{=}1$ in the held-out test set ---
+alongside the dataset's positive-class prior.  The class prior is
+the chance baseline for hit rate (a random ranker scores its
+positive fraction); ERM hit rate substantially above the prior
+confirms the surrogate has non-trivial signal and the Jaccard
+comparison is over informative top-$K$ sets.
+
+This measures the static input-stability of a single BO acquisition
+step under the same candidate library, not the dynamics of an
+iterative BO loop where two divergent trajectories would expose
+their surrogates to different candidate pools downstream.
+
+\input{sections/tables/bo_topk.tex}
+
+\paragraph{Findings.}
+ERM top-$\boTopkK$ Jaccard is low across the
+\nDatasetsHeadline{} chemistry datasets, ranging from
+$\boTopkErmJaccardLow$ (AMES) to $\boTopkErmJaccardHigh$ (DILI).
+This is not because the surrogate is uninformed: ERM top-$\boTopkK$
+hit rates ($\boTopkErmHitRateLow$--$\boTopkErmHitRateHigh\%$) sit
+$\boTopkHitGapMin$--$\boTopkHitGapMax$\,pp above each dataset's
+positive-class prior on every dataset (Table~\ref{tab:bo_topk}).
+The surrogates are confidently ranking the right tail of the
+distribution; they just disagree on \emph{which} molecules belong
+in the top-$\boTopkK$ between two bootstrap retrainings.  On AMES, BBB-Martins, and BBBP two retrainings
+on independent bootstraps overlap on a single-digit fraction of
+their top-$\boTopkK$ picks: a BO loop on these datasets would
+route nearly every wet-lab evaluation to a different molecule
+depending on the bootstrap.  Twin-bootstrap raises Jaccard on every
+dataset (paired $\Delta J_{\boTopkK} \in [\boTopkTwinDeltaMin,
+\boTopkTwinDeltaMax]$, lifting the lower end of the range to
+$\boTopkTwinJaccardLow$ and the upper end to
+$\boTopkTwinJaccardHigh$), with the largest absolute gains where
+ERM is most unstable.  The Jaccard improvement tracks but exceeds
+what argmax churn alone would predict --- the rank order in the
+upper tail integrates over the full softmax distribution, which is
+the quantity sym-KL stabilises (Section~\ref{sec:experiments},
+``Distributional disagreement'').
+
+\paragraph{Scope.}
+The Jaccard quantity above measures input-stability of a single BO
+acquisition step under the identical candidate library; it does not
+simulate the full BO loop, where two trajectories that acquire
+different molecules at step $1$ subsequently see different candidate
+pools and may diverge further.  What the Jaccard does establish is
+the necessary condition for any BO loop on these datasets to make a
+reproducible first-batch decision: with ERM, two equally plausible
+bootstrap surrogates would route the next wet-lab batch to almost
+disjoint molecule sets on AMES, BBB-Martins, and BBBP; with
+twin-bootstrap, the routing is largely bootstrap-invariant.
 
 \section{\boldmath GIN: bagging transfers; rule selects $\lambda{=}10$}
 \label{app:gin}

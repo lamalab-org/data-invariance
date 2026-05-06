@@ -65,6 +65,11 @@ Table~\ref{tab:distributional}, Appendix~\ref{app:distributional}).
 Pipelines that consume the softmax --- active-learning acquisition,
 Bayesian-optimisation, virtual-screening top-$K$ ranking --- see a
 larger gap between methods than argmax churn reflects.
+Appendix~\ref{app:bo_topk} quantifies this directly: twin-bootstrap
+raises the Jaccard overlap of the top-$\boTopkK$ predicted-active
+sets between two retrainings on every chemistry dataset (paired
+$\Delta J_{\boTopkK} \geq \boTopkTwinDeltaMin$ on every cell), with
+the largest gains where ERM is most unstable.
 
 \paragraph{Churn-ranked triage.}
 \label{sec:churn-decile}
