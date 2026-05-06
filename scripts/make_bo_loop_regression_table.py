@@ -181,8 +181,8 @@ def main() -> None:
         r"training-data bootstraps.  At each step the surrogate is "
         r"retrained from scratch, predicts $\hat{y}$ on the unlabelled "
         r"remainder, and acquires the $\arg\max\hat{y}$.  \emph{Final best} "
-        r"reports cross-trajectory mean and std with $95\%$ paired-bootstrap "
-        r"CIs ($10{,}000$ resamples).  \emph{std/range} is the std as a "
+        r"reports cross-trajectory mean and std with $95\%$ bootstrap CIs "
+        r"over the $K$ trajectories ($10{,}000$ resamples).  \emph{std/range} is the std as a "
         r"percentage of each dataset's $y$ range, anchoring its absolute "
         r"scale.  \emph{Acquired Jaccard} is the mean overlap of "
         r"per-trajectory acquired-molecule sets across all "
@@ -200,19 +200,49 @@ def main() -> None:
         cells = by_ds.get(ds, {})
         if not cells:
             continue
+        # Identify best method(s) per metric within this dataset row group:
+        # mean is "best when highest" (we maximise y); std and std/range
+        # are "best when lowest"; Jaccard is "best when highest".  Ties
+        # bold every method at the best value, treating values within
+        # 1e-9 as equal.
+        present_methods = [m for m in methods if cells.get(m)]
+        def _bests(key, *, maximise):
+            vals = [(cells[m][key], m) for m in present_methods]
+            target = max(v for v, _ in vals) if maximise else min(v for v, _ in vals)
+            return {m for v, m in vals if abs(v - target) < 1e-9}
+        best = {
+            "final_best_mean":   _bests("final_best_mean",   maximise=True),
+            "final_best_std":    _bests("final_best_std",    maximise=False),
+            "std_pct_of_range":  _bests("std_pct_of_range",  maximise=False),
+            "jaccard_mean":      _bests("jaccard_mean",      maximise=True),
+        }
+        def _bold(cell, condition):
+            return r"\textbf{" + cell + r"}" if condition else cell
+
         for i, method in enumerate(methods):
             r = cells.get(method)
             if not r:
                 continue
             ds_label = DATASET_LABELS.get(ds, ds) if i == 0 else ""
-            mean_str = (f"{r['final_best_mean']:.2f} "
-                        f"[{r['final_best_mean_lo']:.2f}, {r['final_best_mean_hi']:.2f}]")
-            std_str = (f"{r['final_best_std']:.3f} "
-                       f"[{r['final_best_std_lo']:.3f}, {r['final_best_std_hi']:.3f}]")
-            range_pct = (f"{r['std_pct_of_range']:.1f}"
-                         if np.isfinite(r['std_pct_of_range']) else "---")
-            jac_str = (f"{r['jaccard_mean']:.2f} "
-                       f"[{r['jaccard_mean_lo']:.2f}, {r['jaccard_mean_hi']:.2f}]")
+            mean_str = _bold(
+                f"{r['final_best_mean']:.2f} "
+                f"[{r['final_best_mean_lo']:.2f}, {r['final_best_mean_hi']:.2f}]",
+                method in best["final_best_mean"],
+            )
+            std_str = _bold(
+                f"{r['final_best_std']:.3f} "
+                f"[{r['final_best_std_lo']:.3f}, {r['final_best_std_hi']:.3f}]",
+                method in best["final_best_std"],
+            )
+            range_pct_raw = (f"{r['std_pct_of_range']:.1f}"
+                             if np.isfinite(r['std_pct_of_range']) else "---")
+            range_pct = _bold(range_pct_raw,
+                              method in best["std_pct_of_range"])
+            jac_str = _bold(
+                f"{r['jaccard_mean']:.2f} "
+                f"[{r['jaccard_mean_lo']:.2f}, {r['jaccard_mean_hi']:.2f}]",
+                method in best["jaccard_mean"],
+            )
             lines.append(
                 f"    {ds_label} & {METHOD_LABELS[method]} & "
                 f"{mean_str} & {std_str} & {range_pct} & {jac_str} \\\\"

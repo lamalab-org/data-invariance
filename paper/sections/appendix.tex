@@ -482,9 +482,9 @@ Greedy top-$1$ acquisition isolates surrogate stability but is
 narrower than the UCB / EI / Thompson policies that real BO
 campaigns typically run; whether the reproducibility gain transfers
 to those acquisition functions is untested.  Cells in the table
-report paired-bootstrap $95\%$ CIs over $K{=}\boLoopRegK$
-trajectories ($10{,}000$ resamples), but $K$ is small for tight
-std-of-std estimates --- the std CIs widen accordingly.  We treat
+report $95\%$ bootstrap CIs over the $K{=}\boLoopRegK$ trajectories
+($10{,}000$ resamples), but $K$ is small for tight std-of-std
+estimates --- the std CIs widen accordingly.  We treat
 this experiment as a focused check that the cross-sample-churn
 reduction translates to BO-loop reproducibility on small-$N$
 regression, not a full benchmark of BO algorithms.
