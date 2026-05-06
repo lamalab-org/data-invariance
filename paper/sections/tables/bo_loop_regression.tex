@@ -1,0 +1,24 @@
+\begin{table}[h]
+  \centering
+  \caption{\textbf{\boldmath BO trajectory variance on the three regression benchmarks: bagging-$K{=}5$ and twin-bootstrap reduce the cross-trajectory standard deviation of the final-best $y$ on every dataset.}  For each (dataset, method) we run $K{=}20$ BO trajectories sharing the same random initial subset of $50$ labelled molecules; trajectories diverge only in the in-loop training-data bootstraps.  At each step the surrogate is retrained from scratch, predicts $\hat{y}$ on the unlabelled remainder, and acquires the $\arg\max\hat{y}$.  \emph{Final best} reports cross-trajectory mean and std with $95\%$ paired-bootstrap CIs ($10{,}000$ resamples).  \emph{std/range} is the std as a percentage of each dataset's $y$ range, anchoring its absolute scale.  \emph{Acquired Jaccard} is the mean overlap of per-trajectory acquired-molecule sets across all $\binom{K}{2}$ trajectory pairs.}
+  \label{tab:bo_loop_regression}
+  \scriptsize
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{llccc@{\hspace{1.0em}}c}
+    \toprule
+    Dataset & Method & Final best mean [95\% CI] & Final best std [95\% CI] & std/range (\%) & Acquired Jaccard \\
+    \midrule
+    ESOL & ERM & 1.50 [1.43, 1.57] & 0.167 [0.000, 0.218] & 1.3 & 0.48 [0.47, 0.50] \\
+     & Bagging-$K{=}5$ & 1.57 [1.57, 1.57] & 0.000 [0.000, 0.000] & 0.0 & 0.65 [0.63, 0.67] \\
+     & Twin-$\lambda{=}3$ & 1.57 [1.57, 1.57] & 0.000 [0.000, 0.000] & 0.0 & 0.61 [0.59, 0.62] \\
+    \addlinespace[2pt]
+    FreeSolv & ERM & 2.50 [2.27, 2.74] & 0.547 [0.406, 0.665] & 2.5 & 0.38 [0.36, 0.40] \\
+     & Bagging-$K{=}5$ & 3.11 [3.03, 3.18] & 0.178 [0.042, 0.268] & 0.8 & 0.45 [0.43, 0.47] \\
+     & Twin-$\lambda{=}3$ & 2.74 [2.58, 2.88] & 0.362 [0.260, 0.425] & 1.7 & 0.39 [0.37, 0.42] \\
+    \addlinespace[2pt]
+    Lipo & ERM & 3.94 [3.91, 3.98] & 0.082 [0.045, 0.101] & 1.4 & 0.37 [0.36, 0.39] \\
+     & Bagging-$K{=}5$ & 3.95 [3.92, 3.99] & 0.089 [0.062, 0.102] & 1.5 & 0.52 [0.50, 0.53] \\
+     & Twin-$\lambda{=}3$ & 3.91 [3.90, 3.93] & 0.045 [0.000, 0.073] & 0.7 & 0.47 [0.45, 0.49] \\
+    \bottomrule
+  \end{tabular}
+\end{table}

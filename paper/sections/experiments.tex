@@ -69,7 +69,14 @@ Appendix~\ref{app:bo_topk} quantifies this directly: twin-bootstrap
 raises the Jaccard overlap of the top-$\boTopkK$ predicted-active
 sets between two retrainings on every chemistry dataset (paired
 $\Delta J_{\boTopkK} \geq \boTopkTwinDeltaMin$ on every cell), with
-the largest gains where ERM is most unstable.
+the largest gains where ERM is most unstable.  In a full BO-loop
+simulation on the three regression benchmarks, twin-bootstrap
+reduces the cross-trajectory standard deviation of the final-best
+acquired $y$ by
+$\boLoopRegTwinStdRedLow\%$--$\boLoopRegTwinStdRedHigh\%$ on every
+dataset; bagging-$K{=}5$ helps on
+$\boLoopRegBagStdRedWins/\boLoopRegNumDatasets$ but is comparable
+to ERM on the third (Appendix~\ref{app:bo_loop_reg}).
 
 \paragraph{Churn-ranked triage.}
 \label{sec:churn-decile}

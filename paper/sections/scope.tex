@@ -9,14 +9,19 @@ cross-check; multi-class classification and structured outputs are
 not tested.  We use $K{=}2$ throughout twin-bootstrap and do not study larger head
 counts.  
 
-We measure cross-sample churn at the prediction layer, and at the
+We measure cross-sample churn at the prediction layer, at the
 top-$\boTopkK$ ranking layer that gates a single
-Bayesian-optimisation acquisition step (Appendix~\ref{app:bo_topk}:
-under a fixed candidate library, twin-bootstrap raises top-$\boTopkK$
-Jaccard between two bootstrap retrainings on every chemistry
-dataset).  Whether
-this static input-stability translates to better end-to-end
-outcomes in a full BO or active-learning loop --- where two
-divergent trajectories acquire different molecules in early rounds
-and from then on see different candidate pools --- is plausible but
-untested.
+Bayesian-optimisation acquisition step
+(Appendix~\ref{app:bo_topk}), and at the trajectory level on the
+three regression benchmarks (Appendix~\ref{app:bo_loop_reg}:
+twin-bootstrap reduces the cross-trajectory std of the final-best
+$y$ by $\boLoopRegTwinStdRedLow\%$--$\boLoopRegTwinStdRedHigh\%$ in
+a $\boLoopRegBudget$-step greedy BO loop on every dataset; bagging
+on $2/3$).  We do not benchmark
+larger acquisition policies that mix exploration via the
+surrogate's predictive variance (UCB, Thompson sampling, expected
+improvement); for our setting only twin-bootstrap exposes a
+predictive-variance estimate (the two heads' disagreement), so a
+fair single-policy comparison forces greedy top-$1$.  Whether the
+reproducibility gain we observe at greedy top-$1$ holds under
+explore-exploit policies is untested.

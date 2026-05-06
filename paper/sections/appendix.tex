@@ -5,10 +5,11 @@ Appendix~\ref{app:seed_sensitivity} reports the canonical-seed
 sensitivity of every magnitude in the main table.
 Appendices~\ref{app:pareto}--\ref{app:ablations} support the methods
 (Pareto curve, overlap spectrum, ablations).
-Appendices~\ref{app:case_study}--\ref{app:bo_topk} support the
+Appendices~\ref{app:case_study}--\ref{app:bo_loop_reg} support the
 empirical results (per-molecule case study, distributional
 disagreement, Friedman test, triage convergence, entropy baseline,
-top-$K$ ranking stability as a Bayesian-optimisation analogue).
+top-$K$ ranking stability and a full BO-loop simulation on
+regression as Bayesian-optimisation analogues).
 Appendices~\ref{app:gin}--\ref{app:regression} document the
 cross-architecture and cross-task generalisation evidence.
 Appendix~\ref{app:compute} reports the per-method compute footprint;
@@ -407,6 +408,86 @@ reproducible first-batch decision: with ERM, two equally plausible
 bootstrap surrogates would route the next wet-lab batch to almost
 disjoint molecule sets on AMES, BBB-Martins, and BBBP; with
 twin-bootstrap, the routing is largely bootstrap-invariant.
+Appendix~\ref{app:bo_loop_reg} extends the test to a full BO loop on
+the regression benchmarks.
+
+\section{\boldmath BO trajectory variance on regression: cross-sample churn drives outcome and identity spread}
+\label{app:bo_loop_reg}
+
+Section~\ref{app:bo_topk} measures the input-stability of a single
+BO acquisition step on classification.  This appendix complements
+that result with a full BO-loop simulation on the three regression
+benchmarks (ESOL, FreeSolv, Lipo): are independent BO trajectories
+of the same method more reproducible at the trajectory level under
+bagging-$K{=}5$ and twin-bootstrap than under ERM?
+
+\paragraph{Protocol.}
+For each regression dataset and each of \{ERM, bagging-$K{=}5$,
+twin-bootstrap $\lambda{=}\boLoopRegLam$\} we run
+$K{=}\boLoopRegK$ independent BO trajectories.  All $K$ trajectories
+of a given method share the same random initial labelled subset of
+$\boLoopRegInitN$ molecules; trajectories diverge only in the
+in-loop training-data bootstraps, the same source of variance the
+paper measures elsewhere.  At each step the surrogate is retrained
+from scratch on the currently labelled subset (with a step- and
+trajectory-keyed bootstrap seed), predicts $\hat{y}$ on the
+unlabelled remainder, and acquires the $\arg\max\hat{y}$.  The
+oracle reveals the molecule's actual $y$, and it joins the labelled
+subset.  Acquisition is greedy top-$1$ maximisation: only
+twin-bootstrap exposes a per-prediction variance estimate (the two
+heads' disagreement), so to keep the ERM-vs-bagging-vs-twin
+comparison single-policy we deliberately exclude UCB / EI / Thompson
+acquisition.  The budget is $\boLoopRegBudget$ acquisitions on top
+of the initial subset; the candidate library is the canonical
+training pool with the oracle $y$ values held back until
+acquisition.
+
+\input{sections/tables/bo_loop_regression.tex}
+
+\paragraph{Findings.}
+Twin-bootstrap reduces the cross-trajectory standard deviation of
+the final-best $y$ on every regression dataset
+(Table~\ref{tab:bo_loop_regression}): the per-dataset std drops
+from $\boLoopRegErmStdLow$--$\boLoopRegErmStdHigh$ under ERM to
+$\boLoopRegTwinStdLow$--$\boLoopRegTwinStdHigh$ under
+twin-bootstrap, a relative reduction of
+$\boLoopRegTwinStdRedLow\%$--$\boLoopRegTwinStdRedHigh\%$.
+Bagging-$K{=}5$ reduces std on
+$\boLoopRegBagStdRedWins/\boLoopRegNumDatasets$ datasets (down to
+$\boLoopRegBagStdLow$--$\boLoopRegBagStdHigh$ across the three) but
+does not improve on ERM on the third (Lipo), where ERM's std is
+already small ($\boLoopRegErmStdLow$).  In absolute terms the std
+is small relative to each dataset's $y$ range
+($\boLoopRegErmStdRangePctLow\%$--$\boLoopRegErmStdRangePctHigh\%$
+of the range under ERM); but it is large relative to the gap
+between the top molecules a BO loop is choosing between, which is
+what determines how reproducible the loop's next-batch decision is.
+On ESOL every bagging and twin-bootstrap trajectory converges to
+the same final molecule (std $= 0$) --- both methods consistently
+locate the dominant high-$y$ molecule in the unlabelled pool, while
+ERM trajectories scatter across $y$ values from
+$\boLoopRegEsolErmFinalLo$ to $\boLoopRegEsolErmFinalHi$.
+
+The identity-level Jaccard of acquired-molecule sequences also
+rises under both methods: mean
+$\boLoopRegErmJaccardLow$--$\boLoopRegErmJaccardHigh$ under ERM,
+$\boLoopRegBagJaccardLow$--$\boLoopRegBagJaccardHigh$ under bagging,
+$\boLoopRegTwinJaccardLow$--$\boLoopRegTwinJaccardHigh$ under
+twin-bootstrap.  The spread reduction therefore reflects more
+consistent molecule \emph{selection}, not just lucky convergence to
+molecules with similar $y$ values.
+
+\paragraph{Caveats.}
+Greedy top-$1$ acquisition isolates surrogate stability but is
+narrower than the UCB / EI / Thompson policies that real BO
+campaigns typically run; whether the reproducibility gain transfers
+to those acquisition functions is untested.  Cells in the table
+report paired-bootstrap $95\%$ CIs over $K{=}\boLoopRegK$
+trajectories ($10{,}000$ resamples), but $K$ is small for tight
+std-of-std estimates --- the std CIs widen accordingly.  We treat
+this experiment as a focused check that the cross-sample-churn
+reduction translates to BO-loop reproducibility on small-$N$
+regression, not a full benchmark of BO algorithms.
 
 \section{\boldmath GIN: bagging transfers; rule selects $\lambda{=}10$}
 \label{app:gin}
