@@ -62,6 +62,7 @@ def main() -> None:
     erm_runs = load_runs(root / args.dataset, "erm_train*.npz")
     twin_runs = load_runs(root / args.dataset,
                           f"twin_indep_train*_lam{FROZEN_LAM}.npz")
+    
     assert erm_runs and twin_runs, "Need ERM and twin_indep runs."
 
     erm_preds = _stack_predictions(erm_runs)         # (S, N)
@@ -83,11 +84,37 @@ def main() -> None:
     # stabilisation at the top.  This makes the visual gap between the
     # left and right panels maximal — the rows at the top are flippy
     # under ERM and uniform under twin-bootstrap, which is the message.
+    
+    # Cluster rows once, using ERM predictions, then show the same 
+    # rows/order in both panels.
+    # Pick examples with ERM fragility first.
+    # Keep rows exactly as already selected
     contrast = erm_churn - twin_churn
-    order = np.argsort(-contrast)
-    keep = order[:args.n_examples]
-    erm_panel = erm_preds[:, keep].T   # (N_examples, S)
-    twin_panel = twin_preds[:, keep].T
+    candidate = np.where(erm_churn > 0)[0]
+    candidate = candidate[np.argsort(-contrast[candidate])]
+    keep = candidate[:args.n_examples]
+
+    erm0 = erm_preds[:, keep].T      # (examples, seeds)
+    twin0 = twin_preds[:, keep].T
+
+    # --- order rows from mostly class 0 to mostly class 1 ---
+    row_mean = erm0.mean(axis=1)
+
+    # Tie-break using the binary pattern itself.
+    row_code = erm0 @ (2 ** np.arange(erm0.shape[1] - 1, -1, -1))
+    row_order = np.lexsort((row_code, row_mean))
+
+    # --- order columns from mostly class 0 to mostly class 1 ---
+    col_mean = erm0.mean(axis=0)
+
+    # Tie-break using each column's pattern after row ordering.
+    erm_row_sorted = erm0[row_order]
+    col_code = erm_row_sorted.T @ (2 ** np.arange(erm_row_sorted.shape[0] - 1, -1, -1))
+    col_order = np.lexsort((col_code, col_mean))
+
+    # Apply ERM-derived ordering to both panels.
+    erm_panel = erm0[row_order][:, col_order]
+    twin_panel = twin0[row_order][:, col_order]
 
     # Visual.  Wider-than-tall panels: 30 most-fragile rows × 10 retrainings,
     # rendered with a small horizontal stretch so each cell is rectangular and
