@@ -111,15 +111,15 @@ def main() -> None:
     lines = [
         r"\begin{table}[h]",
         r"\centering",
-        r"\caption{\textbf{Waterbirds (ImageNet-ResNet50): the "
+        r"\caption{\textbf{\boldmath Waterbirds (ImageNet-ResNet50): the "
         r"$0.02$-tolerance rule picks $\lambda{=}10$, recovering the "
         r"closed-loop result on a vision pretrained backbone.}  "
         r"ERM id-acc $0.875$ (rule threshold $\geq 0.855$).  "
-        r"Twin-bootstrap at the BACE-frozen $\lambda{=}300$ collapses "
+        r"Twin-bootstrap at the $\lambda{=}300$ chosen on BACE collapses "
         r"accuracy by $27$\,pp; at the rule-selected $\lambda{=}10$, "
         r"twin-bootstrap preserves accuracy and cuts argmax churn "
         r"$52\%$.  All cells report mean $[\,95\%\ \text{CI}\,]$ over "
-        r"five train-seeds (\\$\\binom{5}{2}{=}10$ pairs for paired "
+        r"five train-seeds ($\binom{5}{2}{=}10$ pairs for paired "
         r"quantities).}",
         r"\label{tab:waterbirds_lambda}",
         r"\small",

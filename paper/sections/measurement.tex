@@ -1,5 +1,4 @@
 \section{Cross-sample prediction churn}
-\label{sec:preliminaries}
 \label{sec:measurement}
 
 \paragraph{Setting.}
@@ -18,8 +17,8 @@ $x$ is
   \rho(\mathcal{A}, x) =
   \mathbb{P}_{S_A, S_B}\!\big[\arg\max f_{S_A}(x) \neq \arg\max f_{S_B}(x)\big].
 \end{equation}
-A churn-aware report supplements the standard accuracy with the
-expected per-example argmax disagreement
+A churn-aware report supplements the standard predictive-performance
+columns with the expected per-example argmax disagreement
 $\bar\rho(\mathcal{A}) = \mathbb{E}_x [\rho(\mathcal{A}, x)]$, and
 optionally with a distributional analogue
 $\bar\rho_{\mathrm{KL}}(\mathcal{A})
@@ -36,48 +35,49 @@ bootstraps from $S$ (size $N$, with replacement); each bootstrap is
 a draw from the empirical distribution $\hat{\mathcal{D}}_S$, which
 converges to $\mathcal{D}$ as $N \to \infty$.  All
 numerical magnitudes we report are with respect to this bootstrap
-proxy --- the quantity computable from a single observed training
+proxy, which is computable from a single observed training
 set.
 
 \paragraph{Measurement protocol.}
-A \emph{canonical} seed determines a single train/test split; within
-that split, the training pool and test set are reused across every
-method and every train seed, so test-side variance is zero by
+A \emph{canonical seed} fixes one train/test split.  Within a
+canonical seed, the training pool and test set are reused across
+every method and train seed, so test-side variance is zero by
 construction.  For each train seed $s \in \{1, \dots, \nSeeds\}$ we
-draw a bootstrap $S^{(s)}$ from the canonical training pool and train
-$f^{(s)} = \mathcal{A}(S^{(s)})$ on it.  Cross-sample churn is the average of
+draw a bootstrap $S^{(s)}$ from the canonical training pool and
+train $f^{(s)} = \mathcal{A}(S^{(s)})$ on it.  Cross-sample churn is the average of
 $\mathbf{1}[\arg\max f^{(s)}(x) \neq \arg\max f^{(s')}(x)]$ over all
 $\binom{\nSeeds}{2}{=}\nSeedPairs$ pairs $(s, s')$ and over the canonical test set.
 Confidence intervals come from $10{,}000$-sample bootstrap on the
 seed-pair distribution; cross-method deltas are paired.
 
-We run $\nCanonicalSeeds$ independent replicates of the protocol at
-canonical seeds $\canonicalSeed$, $7$, and $42$ (each replicate is a
-different train/test split with its own ten train seeds), for both
-the chemistry-MLP comparison and the pretrained-backbone scope
-checks (GIN, ChemBERTa, Waterbirds).  Magnitudes quoted in prose are
-across-replicate means; the development hyperparameter-selection
-rule (Section~\ref{sec:methods}) picks the same value on every
-replicate independently (Appendix~\ref{app:seed_sensitivity}).
+For the chemistry-MLP comparison we run $\nCanonicalSeeds$
+replicates; quoted magnitudes are across-replicate means and the $\lambda$-selection
+rule picks the same value on every replicate
+(Appendix~\ref{app:seed_sensitivity}).
 
 \paragraph{Datasets.}
 \label{sec:datasets}
-Seventeen chemistry benchmarks ($N \in [\,304, 4658\,]$):
-MoleculeNet~\citep{Wu2018} (BACE, BBBP, ClinTox),
-the TDC~\citep{huang2021therapeutics} ADME and Tox suites
-(HIA\_Hou, Bioavailability\_Ma, Pgp\_Broccatelli, BBB\_Martins,
-CYP\{2C9,2D6,3A4\}-Sub, hERG, DILI, AMES, Skin\_Reaction), and
-materials-science benchmarks (TADF~\citep{jablonka2026clever, Huang2024},
-MOF-thermal-stability, MOF-solvent-removal~\citep{jablonka2026clever, Nandy2022}).
-A pre-registered health filter
-(ERM accuracy $\geq$ majority $+ \preregFilterPP$pp on a canonical
-test set $\geq \preregMinTestSize$ examples) keeps nine datasets for
-the method comparison, flags three borderline datasets, and excludes
-five; per-dataset filter outcomes are in Appendix~\ref{app:repro}.  Featurisation is
-the standard chemistry choice per dataset family ($2048$-bit Morgan
-radius-2 fingerprints for MoleculeNet/TDC; $+217$ RDKit descriptors
-for TADF; $174$ RAC descriptors plus GSA for
-MOFs~\citep{Moosavi2020}; full details in
-Appendix~\ref{app:repro}).  The default architecture is a
-$256$-unit MLP trained from scratch on these features.
+We evaluate on seventeen chemistry benchmarks
+($N \in [\,304, 4658\,]$): MoleculeNet~\citep{Wu2018}
+(BACE, BBBP, ClinTox); the TDC~\citep{huang2021therapeutics} ADME
+and Tox suites (HIA\_Hou, Bioavailability\_Ma, Pgp\_Broccatelli,
+BBB\_Martins, CYP\{2C9,2D6,3A4\}-Sub, hERG, DILI, AMES,
+Skin\_Reaction); and three materials-science
+benchmarks (TADF~\citep{jablonka2026clever, Huang2024},
+MOF-thermal-stability, and MOF-solvent-removal~\citep{jablonka2026clever, Nandy2022}).
+We require ERM accuracy to exceed the majority-class baseline by at
+least $\preregFilterPP$\,pp on a canonical test set of at least
+$\preregMinTestSize$ examples (threshold fixed before any
+cross-sample analysis); this keeps nine datasets for the method
+comparison, flags three borderline datasets, and excludes five
+(per-dataset outcomes in Appendix~\ref{app:filter_outcomes}).  
+Featurisation follows standard chemistry conventions for each dataset: $2048$-bit Morgan radius-2
+fingerprints for MoleculeNet/TDC; $+217$ RDKit descriptors for
+TADF; $174$ RAC descriptors plus geometric solvent-accessibility
+features for MOFs~\citep{Moosavi2020}.  The default architecture is
+a $256$-unit MLP trained from scratch on these features.  For each
+MoleculeNet/TDC dataset we group molecules by Bemis--Murcko scaffold
+and partition the within-scaffold-group pool $80/20$ into train and
+id-test under the canonical seed; TADF and the MOF benchmarks use a
+random $80/20$ split.
 

@@ -1,6 +1,6 @@
 \begin{table}[h]
 \centering
-\caption{\textbf{The rule transfers; the value $\lambda$ takes does not.}  At the BACE-MLP-frozen $\lambda{=}300$ twin-bootstrap over-regularises ChemBERTa (accuracy drops $9\text{--}17$\,pp; churn rises on $5/6$ datasets, BBBP collapses to majority).  Re-applying the same $0.02$-tolerance rule on BACE-ChemBERTa picks $\lambda{=}10$, at which twin-bootstrap preserves accuracy (within $2$\,pp of ERM) and cuts churn $15\text{--}82\%$ on every dataset.  Paired $\Delta$ churn columns report mean $[\,95\%\ \text{CI}\,]$ in percentage points over $\binom{5}{2}{=}10$ seed pairs.}
+\caption{\textbf{\boldmath The rule transfers; the value $\lambda$ takes does not.}  At the $\lambda{=}300$ chosen on the BACE MLP, twin-bootstrap over-regularises ChemBERTa (accuracy drops $9\text{--}17$\,pp; churn rises on $5/6$ datasets, BBBP collapses to majority).  Re-applying the same $0.02$-tolerance rule on BACE-ChemBERTa picks $\lambda{=}10$, at which twin-bootstrap preserves accuracy (within $2$\,pp of ERM) and cuts churn $15\text{--}82\%$ on every dataset.  Paired $\Delta$ churn columns report mean $[\,95\%\ \text{CI}\,]$ in percentage points over $\binom{5}{2}{=}10$ seed pairs.}
 \label{tab:chemberta}
 \small
 \begin{tabular}{lc@{\hspace{0.8em}}cc@{\hspace{0.8em}}cc}

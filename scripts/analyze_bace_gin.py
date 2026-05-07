@@ -148,14 +148,15 @@ def main() -> None:
     tex_lines = [
         r"\begin{table}[h]",
         r"\centering",
-        r"\caption{\textbf{GIN on BACE: bagging transfers cleanly; "
-        r"twin-bootstrap $\lambda$ does not.}  ERM-GIN is more fragile "
+        r"\caption{\textbf{\boldmath GIN on BACE: bagging transfers cleanly at "
+        r"the same $K{=}5$; twin-bootstrap requires re-running the "
+        r"$\lambda$-selection rule on the GIN backbone.}  ERM-GIN is more fragile "
         f"than ERM-MLP ({erm_d['id_churn'][0]*100:.1f}\\% "
         r"vs.\ \baceErmChurn\% argmax churn), making the methods more "
         r"rather than less relevant on this backbone.  "
         f"Bagging-$K{{=}}5$ cuts churn $\\ginBagCutLamThreeHundred\\%$ and "
         f"improves id-accuracy by $\\ginBagAccGain$pp.  "
-        r"Twin-bootstrap at the BACE-MLP-frozen $\lambda{=}300$ reduces "
+        r"Twin-bootstrap at the $\lambda{=}300$ chosen on the BACE MLP reduces "
         f"sym-KL by ${twin_kl_rel:+.0f}\\%$ but drops id-accuracy by "
         r"$\ginAccDropLamThreeHundred$pp --- well outside the $0.02$ "
         r"selection-rule tolerance ERM-GIN id-acc would impose.  Bold "

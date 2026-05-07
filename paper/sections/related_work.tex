@@ -19,7 +19,7 @@ points on the inter-network data-overlap axis:
 a KL agreement loss for distributed-training throughput;
 \citet{bhojanapalli2021reproducibility} share the entire training
 set ($100\%$ overlap) for parameter-side reproducibility.
-Twin-bootstrap inherits the sym-KL loss form and applies it at a
+Our twin-bootstrap inherits the sym-KL loss form and applies it at a
 third operating point: independent bootstraps of the canonical
 training pool, sharing ${\sim}40\%$ of indices in expectation
 (Appendix~\ref{app:overlap_spectrum}).
@@ -32,14 +32,14 @@ under-specified pipelines, and \citet{black2022} build selective
 ensembles that abstain when ensemble consistency cannot be certified
 by a hypothesis test.  These works hold the dataset fixed and vary
 models within the loss-equivalent class --- orthogonal to
-cross-sample churn, where the dataset varies and each retraining
+cross-sample churn we discuss here, where the dataset varies and each retraining
 is one point in the resulting Rashomon set.
 
 \paragraph{Parameter-side uncertainty and bagging.}
 Deep ensembles~\citep{lakshminarayanan2017simple} and Monte Carlo
 dropout~\citep{gal2015dropout} sample over model parameters at fixed
 data.  Bagging~\citep{Breiman1996} samples over the data --- an axis
-that has been studied for accuracy in deep learning but not for
+that has been studied for accuracy in deep learning but, to our knowledge, not for
 cross-sample stability.
 
 \paragraph{Clinical-biostatistics precedent.}

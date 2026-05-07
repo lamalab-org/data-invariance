@@ -1,6 +1,7 @@
 .PHONY: install lint format test check figures tables analysis macros \
         sweep-erm sweep-bagging sweep-deep-ensemble sweep-twin-indep \
-        sweep-pareto-bace sweep-borderline sweep-excluded help
+        sweep-pareto-bace sweep-borderline sweep-excluded \
+        bo-loop-regression bo-topk help
 
 # === Development ===
 
@@ -72,6 +73,9 @@ tables: paper/sections/tables/main.tex paper/sections/tables/fragility_magnitude
         paper/sections/tables/entropy_vs_fragility.tex \
         paper/sections/tables/overlap_spectrum.tex \
         paper/sections/tables/nscaling_bace.tex \
+        paper/sections/tables/seed_sensitivity.tex \
+        paper/sections/tables/bo_topk.tex \
+        paper/sections/tables/bo_loop_regression.tex \
         macros
 
 paper/sections/tables/main.tex:
@@ -116,6 +120,22 @@ paper/sections/tables/overlap_spectrum.tex:
 paper/sections/tables/nscaling_bace.tex:
 	uv run python scripts/make_nscaling_bace.py
 
+paper/sections/tables/seed_sensitivity.tex:
+	uv run python scripts/make_seed_sensitivity_table.py
+
+# Bayesian-optimisation analogue (App. M): top-K Jaccard stability.
+# Reads the existing cross-sample NPZs only (no new training).
+paper/sections/tables/bo_topk.tex:
+	uv run python scripts/make_bo_topk_table.py
+
+# Bayesian-optimisation analogue (App. N): full BO-loop trajectory
+# variance on regression.  Depends on outputs/bo_loop_regression.json,
+# which the expensive `bo-loop-regression` target produces (~2 hours
+# CPU).  If the JSON is missing, the rule will fail; run
+# `make bo-loop-regression` first.
+paper/sections/tables/bo_loop_regression.tex: outputs/bo_loop_regression.json
+	uv run python scripts/make_bo_loop_regression_table.py
+
 # Auto-generated \newcommand-per-quoted-number macros so paper prose
 # never drifts from source.  Always rebuilt after any analysis script.
 .PHONY: macros
@@ -125,7 +145,9 @@ paper/sections/macros.tex: outputs/main_table.csv outputs/convergence_recall.csv
                           outputs/fragility_magnitudes.csv outputs/regression.csv \
                           outputs/friedman.csv outputs/chemberta_heldout.csv \
                           outputs/waterbirds_lambda.csv outputs/bace_gin.csv \
-                          outputs/gin_lambda.csv outputs/filter_outcomes.csv
+                          outputs/gin_lambda.csv outputs/filter_outcomes.csv \
+                          outputs/bo_topk.csv \
+                          outputs/bo_loop_regression_summary.csv
 	uv run python scripts/make_paper_macros.py
 
 # Plain-text and LaTeX-with-numbers renders of the abstract for
@@ -151,6 +173,25 @@ analysis:
 	uv run python scripts/analyze_gin_lambda.py
 	uv run python scripts/make_entropy_vs_fragility.py
 	uv run python scripts/make_fig_convergence.py
+	uv run python scripts/make_seed_sensitivity_table.py
+	uv run python scripts/make_bo_topk_table.py
+	@if [ -f outputs/bo_loop_regression.json ]; then \
+	  uv run python scripts/make_bo_loop_regression_table.py; \
+	else \
+	  echo "[skip] bo_loop_regression: outputs/bo_loop_regression.json missing; run 'make bo-loop-regression' first"; \
+	fi
+	uv run python scripts/make_paper_macros.py
+
+
+# Bayesian-optimisation trajectory variance on the three regression
+# datasets (App. N).  Expensive: ~2 hours on a single laptop CPU
+# (180 BO trajectories × 10 retrainings each, 3 datasets × 3 methods).
+# Produces outputs/bo_loop_regression.json which feeds the table-emitter.
+# Pass --K, --budget, --initial_n via BO_LOOP_ARGS to override.
+BO_LOOP_ARGS ?= --K 20 --budget 10 --initial_n 50
+bo-loop-regression:
+	uv run python scripts/bo_loop_regression.py $(BO_LOOP_ARGS)
+	uv run python scripts/make_bo_loop_regression_table.py
 	uv run python scripts/make_paper_macros.py
 
 
@@ -233,4 +274,8 @@ help:
 	@echo ""
 	@echo "Training sweeps (long, GPU recommended; produce NPZs):"
 	@echo "  sweep-erm sweep-bagging sweep-deep-ensemble sweep-twin-indep"
-	@echo "  sweep-pareto-bace  development λ sweep on BACE only"
+	@echo "  sweep-pareto-bace     development λ sweep on BACE only"
+	@echo ""
+	@echo "Standalone BO trajectory simulation (~2 h CPU; produces"
+	@echo "outputs/bo_loop_regression.json):"
+	@echo "  bo-loop-regression"

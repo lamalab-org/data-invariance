@@ -7,8 +7,15 @@ Regression is covered for three MoleculeNet benchmarks
 (Appendix~\ref{app:regression}); Waterbirds is a single vision
 cross-check; multi-class classification and structured outputs are
 not tested.  We use $K{=}2$ throughout twin-bootstrap and do not study larger head
-counts.  The development $\lambda$-Pareto sweeps (BACE, BACE-GIN,
-BACE-ChemBERTa, Waterbirds) are reported on canonical seed
-$\canonicalSeed$ alone; the pretrained-backbone results
-(ERM, $\lambda{=}300$, $\lambda{=}10$) are replicated across all
-$\nCanonicalSeeds$ canonical seeds.
+counts.  
+
+We measure cross-sample churn at the prediction layer, at the
+top-$\boTopkK$ ranking layer that gates a single
+Bayesian-optimisation acquisition step
+(Appendix~\ref{app:bo_topk}), and at the trajectory level on the
+three regression benchmarks (Appendix~\ref{app:bo_loop_reg}:
+twin-bootstrap reduces the cross-trajectory std of the final-best
+$y$ by $\boLoopRegTwinStdRedLow\%$--$\boLoopRegTwinStdRedHigh\%$ in
+a $\boLoopRegBudget$-step greedy BO loop on every dataset; bagging
+on $2/3$).  We use greedy top-$1$ acquisition only; UCB, expected
+improvement, and Thompson sampling are not tested.

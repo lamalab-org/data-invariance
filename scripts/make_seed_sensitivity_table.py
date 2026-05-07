@@ -67,26 +67,42 @@ def main() -> None:
 
     datasets = [DEV_DATASET] + list(HEADLINE_DATASETS)
 
-    # ----- Build LaTeX -----
+    # ----- Build LaTeX (longtable so the 60+ rows can break across pages) -----
+    seed_header = (
+        r"    & & \multicolumn{3}{c}{Canonical seed} \\"
+        + "\n"
+        + r"    \cmidrule(lr){3-5}"
+        + "\n"
+        + r"    Dataset & Method & "
+        + " & ".join(str(s) for s in seeds)
+        + r" \\"
+    )
     lines = [
-        r"\begin{table}[h]",
-        r"  \centering",
+        r"{\scriptsize",
+        r"\setlength{\tabcolsep}{4pt}",
+        r"\begin{longtable}{ll" + "rrr" * 1 + "}",
         r"  \caption{\textbf{Per-canonical-seed values for the main "
         r"table.}  Each method-dataset cell is reported on three "
         r"independent canonical splits ($99$, $7$, $42$).  Top number "
         r"per cell: id-churn rate (\%); bottom: paired $\Delta$ "
         r"id-churn vs.\ ERM (pp).  Both columns are aggregated over "
         r"the $\nSeedPairs$ paired-bootstrap seed pairs at fixed "
-        r"canonical seed.  ERM rows have no paired-$\Delta$ entry.}",
-        r"  \label{tab:seed_sensitivity}",
-        r"  \scriptsize",
-        r"  \setlength{\tabcolsep}{4pt}",
-        r"  \begin{tabular}{ll" + "rrr" * 1 + "}",
+        r"canonical seed.  ERM rows have no paired-$\Delta$ entry.}"
+        r"  \label{tab:seed_sensitivity} \\",
         r"    \toprule",
-        r"    & & \multicolumn{3}{c}{Canonical seed} \\",
-        r"    \cmidrule(lr){3-5}",
-        r"    Dataset & Method & " + " & ".join(str(s) for s in seeds) + r" \\",
+        seed_header,
         r"    \midrule",
+        r"    \endfirsthead",
+        r"    \multicolumn{5}{l}{\emph{Table~\ref{tab:seed_sensitivity} continued from previous page}} \\",
+        r"    \toprule",
+        seed_header,
+        r"    \midrule",
+        r"    \endhead",
+        r"    \midrule",
+        r"    \multicolumn{5}{r}{\emph{continued on next page}} \\",
+        r"    \endfoot",
+        r"    \bottomrule",
+        r"    \endlastfoot",
     ]
 
     for ds in datasets:
@@ -107,7 +123,10 @@ def main() -> None:
                 dl = v.get("delta")
                 churn_cells.append(f"{ch*100:.1f}" if ch is not None else "---")
                 if method == "ERM":
-                    delta_cells.append("---")
+                    # ERM is the reference: no paired-Δ entry.  Empty
+                    # second-line keeps row height consistent without
+                    # rendering three em-dashes as a visible rule.
+                    delta_cells.append(r"\strut")
                 else:
                     delta_cells.append(f"{dl*100:+.1f}" if dl is not None else "---")
             # Use \makecell for two-line stacked rows in a single \\.
@@ -119,9 +138,12 @@ def main() -> None:
                 )
                 + r" \\"
             )
-        # Visual separator between datasets.
-        lines.append(r"    \addlinespace[2pt]")
-    lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
+        # Horizontal rule between datasets (but not after the last one;
+        # the longtable's \endlastfoot adds a \bottomrule which would
+        # double-print otherwise).
+        if ds is not datasets[-1]:
+            lines.append(r"    \midrule")
+    lines += [r"\end{longtable}", r"}", ""]
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join(lines))

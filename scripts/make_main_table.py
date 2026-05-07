@@ -140,12 +140,14 @@ def write_latex_table(rows, path, frozen_lam):
         r"class-flip rate on every chemistry benchmark; MC dropout and "
         r"deep ensembles do not.}  Paired $\Delta$ id-churn vs.\ ERM "
         r"in percentage points (negative is better).  Each cell is the "
-        r"mean over $\binom{10}{2}=45$ seed pairs with paired-bootstrap "
-        r"$95\%$ confidence intervals from $10{,}000$ resamples.  "
-        r"\textbf{Best} per dataset in bold; entries whose CI excludes "
-        r"zero are significant at $\alpha{=}0.05$.  Twin-bootstrap "
-        r"$\lambda{=}300$ is selected on BACE only and applied unchanged "
-        r"to every held-out benchmark.}",
+        r"mean across $\nCanonicalSeeds$ canonical-seed replicates; each "
+        r"replicate-mean averages over the $45$ pairs that $10$ "
+        r"retrainings produce, with paired-bootstrap $95\%$ CIs from "
+        r"$10{,}000$ resamples.  Per-replicate values in "
+        r"Appendix~\ref{app:seed_sensitivity}.  \textbf{Best} per dataset "
+        r"in bold; entries whose CI excludes zero are significant at "
+        r"$\alpha{=}0.05$.  Twin-bootstrap $\lambda{=}300$ is selected on "
+        r"BACE only and applied unchanged to every held-out benchmark.}",
         r"  \label{tab:main}",
         r"  \scriptsize",
         r"  \begin{tabular}{lrll@{\hspace{1.2em}}lll}",

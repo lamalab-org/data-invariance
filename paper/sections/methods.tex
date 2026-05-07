@@ -1,19 +1,20 @@
 \section{Methods}
 \label{sec:methods}
 
-We compare six approaches under the strict protocol of
-Section~\ref{sec:preliminaries}.  All methods share the same
+We compare six approaches under the protocol of
+Section~\ref{sec:measurement}.  All methods share the same
 architecture and optimiser unless stated otherwise: a $256$-unit,
 two-hidden-layer MLP with ReLU activations on the dataset-specific
-input features (Section~\ref{sec:preliminaries}), trained from
-scratch with AdamW (weight decay $10^{-4}$, gradient clipping at
-$1.0$), learning rate $10^{-3}$, batch size $64$, and $30$ epochs.
+input features (Section~\ref{sec:measurement}), trained from
+scratch with AdamW~\citep{loshchilov2019decoupled} (weight decay
+$10^{-4}$, gradient clipping at $1.0$), learning rate $10^{-3}$,
+batch size $64$, and $30$ epochs.
 
 \paragraph{ERM.}
 A single model trained with AdamW on one bootstrap of the canonical
 training set.
 
-\paragraph{Stochastic Weight Averaging (SWA)~\citep{izmailov2018averaging}.}
+\paragraph{Stochastic weight averaging (SWA)~\citep{izmailov2018averaging}.}
 Trained as ERM, but at the end of every epoch in the second half of
 training we snapshot model weights and accumulate a running average.
 The averaged weights replace the final-epoch weights at deployment;
@@ -37,7 +38,7 @@ $K$ models trained on the \emph{same} bootstrap with different
 initialisation seeds; predictions are averaged at deployment.  This
 captures parameter-distribution variance only.
 
-\paragraph{$K$-bootstrap bagging.}
+\paragraph{\boldmath$K$-bootstrap bagging.}
 The classical estimator of \citet{Breiman1996}: $K$ models
 trained on $K$ independent bootstraps of the canonical training set,
 predictions averaged at deployment.  No auxiliary loss; the data
@@ -58,9 +59,19 @@ network's own bootstrap, and the consistency term
 $\mathcal{L}_{\mathrm{cons}}$ is the symmetric KL between the two
 networks' softmax distributions evaluated on the union of the two
 mini-batches.  At deployment, predictions are averaged.
-Algorithm~\ref{alg:twin-bootstrap} gives the per-epoch procedure.
 
-\paragraph{Algorithm.}
+\paragraph{Mechanism.}
+At $\lambda{=}0$ the procedure is $K{=}2$ bagging.  At $\lambda > 0$
+the consistency term penalises divergence on every example seen in
+either mini-batch, including those that appear in both bootstraps.
+Bootstrap-with-replacement at size $N$ covers ${\sim}63\%$ of unique
+indices in expectation, so two independent bootstraps share
+${\sim}0.63^2 \approx 40\%$ of indices.  The consistency loss
+therefore acts on the overlap while the cross-entropy losses
+specialise on the non-shared remainder.  
+Algorithm~\ref{alg:twin-bootstrap} gives the per-epoch
+procedure.
+
 \begin{algorithm}[H]
   \caption{Twin-bootstrap training (one epoch).}
   \label{alg:twin-bootstrap}
@@ -80,15 +91,6 @@ Algorithm~\ref{alg:twin-bootstrap} gives the per-epoch procedure.
     \EndFor
   \end{algorithmic}
 \end{algorithm}
-
-\paragraph{Mechanism.}
-At $\lambda{=}0$ the procedure is $K{=}2$ bagging.  At $\lambda > 0$
-the consistency term penalises divergence on every example seen in
-either mini-batch, including those that appear in both bootstraps.
-Bootstrap-with-replacement at size $N$ covers ${\sim}63\%$ of unique
-indices in expectation, so two independent bootstraps share
-${\sim}0.63^2 \approx 40\%$ of indices --- the operating point we
-use.
 
 \paragraph{Hyperparameter selection.}
 A single development dataset (BACE) is used to select $\lambda$ via

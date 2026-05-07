@@ -1,58 +1,49 @@
 \section{Discussion}
 \label{sec:discussion}
 
-\paragraph{Churn is reducible with methods the field already has.}
-The two procedures that work --- bagging and twin-bootstrap --- need
-nothing exotic.  Bagging is a 30-year-old method already implemented
-in every chemistry-ML toolkit; on the benchmarks we test it cuts
-ERM's $\churnMin\text{--}\churnMax\%$ churn down to
-$\bagFiveFinalLow\text{--}\bagFiveFinalHigh\%$ at no accuracy cost
-and parallelises to ERM wall-clock on $K$ devices
-(Table~\ref{tab:main}).  Twin-bootstrap, which we propose, requires
-two networks trained jointly with a sym-KL consistency loss --- a
-modification of standard training that any group running PyTorch can
-deploy --- and pushes the rate to
-$\twinFinalLow\text{--}\twinFinalHigh\%$ at $2\times$-ERM compute.
-Neither method requires a new optimisation framework, an unusual loss
-beyond cross-entropy plus KL, or specialised hardware.  The
-practical implication: per-prediction stability under retraining is a
-column the field can start reporting tomorrow.
+\paragraph{Cross-sample churn is a metric scientific-ML benchmarks have been missing.}
+Parameter-side uncertainty methods that the field treats as adequate
+--- deep ensembles, MC dropout, stochastic weight averaging ---
+do not reduce cross-sample churn on these benchmarks, and on several
+they make it worse.  This follows from how they are constructed:
+they sample over weights at fixed data, while the variance
+practitioners act on lives on the data axis they hold constant.  A
+performance-only benchmark cannot separate them from data-side
+methods that do reduce the rate, because the per-prediction signal
+they differ on is not part of the standard report.  Adding
+cross-sample churn to the standard report exposes the methods that
+produce different per-prediction calls between retrainings even when
+aggregate accuracy looks the same --- the regime where the model's
+choice of next molecule is bootstrap-sensitive and the workflow
+built on top of it is not reproducible.
 
-\paragraph{A recommended workflow.}
-A tiered recipe that practitioners can adopt incrementally on an
-existing pipeline.  (i)~Bagging-$K{=}5$ on the deployed predictor,
-parallelisable to ERM wall-clock at $5\times$ compute
-(Table~\ref{tab:main}).  (ii)~Twin-bootstrap at the rule-selected
-$\lambda$ when $5\times$ compute is prohibitive; recovers most of the
-$K{=}5$ benefit at $2\times$-ERM compute (Figure~\ref{fig:main}).
-(iii)~For triage on top of any deployed model, train one extra ERM
-bootstrap and route the top-$\reviewFraction\%$-churn predictions
-to a reviewer (Figure~\ref{fig:decile}).
+\paragraph{The data-resampling protocol is the design lever.}
+Cross-sample stability is set less by the model class than by how
+the training procedure resamples data between independent runs.  The
+codistillation-vs.\ twin-bootstrap comparison
+(Appendix~\ref{app:overlap_spectrum}) isolates the inter-network
+bootstrap overlap as the operative parameter; the consistency weight
+$\lambda$ that controls how strongly the procedure exploits the
+overlap takes a different numerical value on different
+architectures, but the development-set rule that selects it
+transfers unchanged across MLP, GIN, ChemBERTa, and ImageNet-pretrained
+ResNet-50 (Section~\ref{sec:generalisation}).  Cross-sample stability
+can therefore be designed in at training time, without changing the
+model class or the deployment pipeline, by tuning a single
+hyperparameter on the development set with the same rule.
 
-\paragraph{Stability is a property of the procedure.}
-What sets a model's cross-sample churn is the training procedure that
-produced its weights --- the optimiser, the schedule, and especially
-the data-resampling protocol.  In the codistillation-vs.\
-twin-bootstrap comparison (Appendix~\ref{app:overlap_spectrum}), a
-single hyperparameter on the procedure --- the fraction of data the
-two networks share --- separates a setting where churn increases on
-DILI ($\overlapPctHi\%$ overlap) from one where churn never increases
-on any dataset ($\sim\overlapPctMid\%$).  The same lever, the
-consistency weight $\lambda$, takes a different value on a different
-architecture, but the rule that selects it is unchanged
-(Section~\ref{sec:generalisation}).
+\paragraph{Broader impacts.}
+Reducing cross-sample churn has operational consequences because
+deployment-driven domains route substantial wet-lab effort to the
+molecules a model ranks highest at any given retraining; reducing
+the rate at which that ranking flips between dataset updates cuts
+wasted experimental work and makes computational triage decisions
+reproducible.  However, low churn is not correctness: a stably wrong
+model looks identical to a stably right
+one under this metric, and the churn-ranked triage workflow only
+flags predictions that disagree across retrainings, not those that
+agree but are jointly miscalibrated.  Cross-sample churn is also a
+bootstrap-variance quantity --- it does not characterise stability
+under distribution shift between the training population and the
+deployment domain, which requires separate measurement.
 
-\paragraph{Cross-sample churn belongs in the benchmark report.}
-AI-for-science benchmarks (MoleculeNet, TDC ADME/Tox,
-materials-science) report columns for accuracy, AUROC, and
-calibration.  None varies the training dataset; cross-sample churn does, and on every benchmark we
-test the per-example flip rate is many times larger than the
-aggregate-accuracy drift it lives behind
-(Section~\ref{sec:churn-magnitudes}, Figure~\ref{fig:overview}).
-Clinical biostatistics already reports per-individual stability
-intervals~\citep{Riley2023}; the case for adding a churn column to
-scientific-ML benchmarks is the same case --- the magnitudes are
-large enough to matter (Section~\ref{sec:churn-magnitudes}).  Once
-the column is in the report, bagging and twin-bootstrap reduce it,
-and a one-bootstrap triage identifies which predictions will flip
-first.

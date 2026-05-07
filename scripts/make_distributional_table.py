@@ -86,7 +86,7 @@ def main():
     lines = [
         r"\begin{table}[h]",
         r"  \centering",
-        r"  \caption{\textbf{Twin-bootstrap reduces distributional "
+        r"  \caption{\textbf{\boldmath Twin-bootstrap reduces distributional "
         r"disagreement (sym-KL) by an additional factor of $\sim$$8$ "
         r"beyond the strongest argmax-churn reducer.}  Paired $\Delta$ "
         r"sym-KL vs.\ ERM on the canonical id-test (in nats; "

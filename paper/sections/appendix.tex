@@ -1,75 +1,28 @@
 \noindent\textbf{Appendix roadmap.}
-Appendix~\ref{app:related_table} compares this paper to prior churn /
-reproducibility work in tabular form.
 Appendices~\ref{app:nscaling}--\ref{app:borderline} support the
 measurement framework ($N$-scaling, borderline datasets).
 Appendix~\ref{app:seed_sensitivity} reports the canonical-seed
 sensitivity of every magnitude in the main table.
 Appendices~\ref{app:pareto}--\ref{app:ablations} support the methods
+<<<<<<< HEAD
 (Pareto curve, Bayesian $\lambda$ optimization, overlap spectrum,
 ablations).
 Appendices~\ref{app:case_study}--\ref{app:entropy} support the
+=======
+(Pareto curve, overlap spectrum, ablations).
+Appendices~\ref{app:case_study}--\ref{app:bo_loop_reg} support the
+>>>>>>> main
 empirical results (per-molecule case study, distributional
-disagreement, Friedman test, triage convergence, entropy baseline).
+disagreement, Friedman test, triage convergence, entropy baseline,
+top-$K$ ranking stability and a full BO-loop simulation on
+regression as Bayesian-optimisation analogues).
 Appendices~\ref{app:gin}--\ref{app:regression} document the
 cross-architecture and cross-task generalisation evidence.
-Appendices~\ref{app:compute}--\ref{app:repro} cover compute and
-reproducibility.
+Appendix~\ref{app:compute} reports the per-method compute footprint;
+Appendix~\ref{app:filter_outcomes} lists the datasets excluded by
+the ERM-vs-majority filter.
 
-\section{Comparison to prior churn and reproducibility work}
-\label{app:related_table}
-
-\begin{table}[h]
-\centering
-\caption{\textbf{This paper anchors two groups simultaneously: the
-  population-level retraining axis (with \citealt{Riley2023}) and
-  the codistillation operating-point spectrum (with
-  \citealt{anil2018large} and \citealt{bhojanapalli2021reproducibility}).}
-  Prior churn / reproducibility work compared with this paper.}
-\label{tab:related_work}
-\footnotesize
-\begin{tabular}{p{0.22\linewidth}p{0.32\linewidth}p{0.36\linewidth}}
-\toprule
-Reference & What varies between two runs & Mechanism \\
-\midrule
-\multicolumn{3}{l}{\emph{Population-level retraining --- same axis}} \\
-\citet{Riley2023} & $1000$ bootstraps of development data & Measurement only: instability plots, MAPE \\
-\textbf{This paper} & \textbf{Independent bootstraps of the training population} & \textbf{Sym-KL codistillation, $\sim$$\overlapPctMid\%$ data overlap (twin-bootstrap)} + measurement protocol + one-bootstrap triage \\
-\midrule
-\multicolumn{3}{l}{\emph{Codistillation operating points --- same loss form, different overlap}} \\
-\citet{anil2018large} & Init.\ + disjoint data shards & KL codistillation, $\overlapPctLo\%$ data overlap (throughput goal) \\
-\citet{bhojanapalli2021reproducibility} & Init., batch order, hardware (data fixed) & Sym-KL codistillation, $\overlapPctHi\%$ data overlap (training-instability churn) \\
-\textbf{This paper} & \textbf{Independent bootstraps of the training population} & \textbf{Sym-KL codistillation, $\sim$$\overlapPctMid\%$ data overlap (twin-bootstrap)} \\
-\midrule
-\multicolumn{3}{l}{\emph{Different axis}} \\
-\citet{launch_and_iterate}; \citet{jiang2022} & Candidate trained from scratch; incumbent fixed & MCMC stabiliser / distillation from base (deployment loop) \\
-\citet{marx2020}; \citet{damour2022} & Loss-equivalent models on fixed data & Predictive multiplicity / underspecification (measurement) \\
-\citet{black2022} & Init.-randomised ensemble (fixed data) & Selective ensembles: abstain when consistency not certified \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\paragraph{What we add.}
-(i)~\textbf{Reduction methods.}  Bagging-$K{=}5$ cuts churn
-$\bagFiveLow\text{--}\bagFiveHigh\%$ on every chemistry dataset;
-twin-bootstrap cuts a further median $\twinMedianReduction\%$ at
-$2\times$-ERM compute (Table~\ref{tab:main}).
-(ii)~\textbf{Operating-point analysis} on the inter-network
-data-overlap axis ($\overlapPctLo\%$, $\sim\overlapPctMid\%$,
-$\overlapPctHi\%$; Appendix~\ref{app:overlap_spectrum});
-$\sim\overlapPctMid\%$ is the only point that reduces churn on
-every dataset.
-(iii)~\textbf{One-bootstrap triage}: a single extra retraining
-captures $\triageKtenLow\text{--}\triageKtenHigh\%$ of the flips at
-top-$\reviewFraction\%$ review fraction (Figure~\ref{fig:decile}).
-(iv)~\textbf{Architecture transfer}: the consistency-weight
-selection rule transfers unchanged across MLP, GIN, ChemBERTa, and
-ImageNet-pretrained ResNet-50.
-(v)~\textbf{Deep learning in scientific ML}: small-$N$ from-scratch
-chemistry and materials, complementing the clinical-biostatistics
-treatment of \citet{Riley2023}.
-
-\section{$N$-scaling on BACE}
+\section{\boldmath$N$-scaling on BACE}
 \label{app:nscaling}
 
 The cross-dataset variation in Table~\ref{tab:fragility-magnitudes}
@@ -122,7 +75,7 @@ permeable, substrate) calls that drive next-step decisions.
 
 \input{sections/tables/per_class_churn.tex}
 
-\section{Aggregate-metric drift under precision, recall, $F_1$, AP}
+\section{\boldmath Aggregate-metric drift under precision, recall, $F_1$, AP}
 \label{app:additional_metrics}
 
 Table~\ref{tab:fragility-magnitudes} reports
@@ -147,11 +100,11 @@ still exceeds every aggregate-metric drift on every dataset.
 These three datasets pass the ERM-versus-majority filter only
 marginally ($+\borderlineGapMin$ to $+\borderlineGapMax$pp on test
 sets of $\borderlineNTestMin$--$\borderlineNTestMax$ examples).
-Their cross-sample magnitudes appear in the bottom group of
-Table~\ref{tab:fragility-magnitudes} (separated by a midrule from
-the nine main-comparison datasets).  We do not run the method
-comparison on them because the small test sets do not give enough
-statistical power.
+Their cross-sample magnitudes are reported below; the method
+comparison is not run on them because the small test sets do not give
+enough statistical power.
+
+\input{sections/tables/borderline_magnitudes.tex}
 
 \section{Canonical-seed sensitivity}
 \label{app:seed_sensitivity}
@@ -189,15 +142,14 @@ canonical seed.
 
 \input{sections/tables/seed_sensitivity.tex}
 
-\paragraph{Out-of-scope settings.}
-The pretrained-backbone scope studies (GIN, ChemBERTa, Waterbirds:
-Appendices~\ref{app:gin}--\ref{app:waterbirds_lambda}) are reported on
-canonical seed $\canonicalSeed$ only, because each requires GPU
-compute that we did not replicate at the additional canonical seeds.
-We treat their results as architecture-feasibility evidence rather
-than as quantitative claims about effect sizes; the cross-seed
-robustness of the rule (Section~\ref{sec:generalisation}) is what
-transfers, not the specific reduction percentages.
+\paragraph{Pretrained-backbone scope studies.}
+For the pretrained-backbone scope studies (GIN, ChemBERTa, Waterbirds:
+Appendices~\ref{app:gin}--\ref{app:waterbirds_lambda}) we replicate
+ERM and the rule-selected $\lambda$ on all $\nCanonicalSeeds$
+canonical seeds; the development $\lambda$-Pareto sweeps within those
+studies are run on canonical seed $\canonicalSeed$ only, since the
+goal there is architecture-feasibility evidence and the rule-selected
+$\lambda$ does not change across seeds.
 
 \section{Development Pareto curve on BACE}
 \label{app:pareto}
@@ -221,12 +173,13 @@ A plateau of configurations $\lambda \in \{1, 3, 10, 30\}$ all preserve
 accuracy and reduce churn from ERM's $\baceErmChurn\%$ to a low-single-digit
 range; the curve drops further at higher $\lambda$ until
 $\lambda{=}300$ at $\baceTwinChurn\%$ within the $\preregTolerance$ accuracy
-tolerance (Figure~\ref{fig:pareto}).  The selected $\lambda$ sits at the extreme
-of the feasible interval that satisfies the $\preregTolerance$ accuracy tolerance,
-which suggests the rule is not knife-edge: relaxing the tolerance to
-$0.01$ would still pick the same $\lambda$, while tightening to
+tolerance (Figure~\ref{fig:pareto}).  The selected $\lambda$ sits at the extreme of the feasible interval
+that satisfies the $\preregTolerance$ accuracy tolerance, and the
+choice is robust to the exact tolerance value: relaxing the tolerance
+to $0.01$ would still pick the same $\lambda$, while tightening to
 $0.005$ would pick $\lambda{=}100$ (still on the knee).
 
+<<<<<<< HEAD
 \section{Bayesian optimization of the twin-bootstrap consistency weight}
 \label{app:bayes_twin}
 
@@ -241,6 +194,18 @@ fixed strong-regularization baseline $\lambda{=}300$.
 \input{sections/tables/bayes_twin.tex}
 
 \section{Overlap spectrum: $\sim$\overlapPctMid\% balances churn reduction and accuracy preservation}
+=======
+\paragraph{Accuracy at the frozen $\lambda$ across held-out datasets.}
+At the frozen $\lambda{=}300$, twin-bootstrap improves id-accuracy on
+$3/9$ chemistry datasets (BACE $+1.2$\,pp, DILI $+2.2$\,pp, TADF
+$+0.5$\,pp) and is within paired-bootstrap CIs on AMES, BBB-Martins,
+CYP2D6-Sub, and BBBP.  Pgp shows a small loss ($-1.5$\,pp), and
+MOF-thermal collapses ($-7.1$\,pp, well outside the $0.02$ selection-rule
+tolerance and the only dataset on which a per-dataset re-application of
+the rule would reject the BACE-frozen $\lambda$).
+
+\section{\boldmath Overlap spectrum: $\sim$\overlapPctMid\% balances churn reduction and accuracy preservation}
+>>>>>>> main
 \label{app:overlap_spectrum}
 
 The codistillation~\citep{anil2018large},
@@ -256,12 +221,11 @@ where all three methods completed.
 \input{sections/tables/overlap_spectrum.tex}
 
 Codistillation has the largest mean churn reduction on most datasets
-but trips the $\accDegradeFlagPP$\,pp accuracy-degradation flag on Pgp and
-MOF-thermal (two daggers); twin-shared trips the flag on MOF-thermal
-and increases churn on DILI; twin-bootstrap at ${\sim}40\%$ matches
-codistillation on never increasing churn while tripping the accuracy
-flag on a single dataset (MOF-thermal, where all three operating
-points collapse).  Among the three points, only twin-bootstrap at
+but drops id-accuracy by more than $\accDegradeFlagPP$\,pp on Pgp and
+MOF-thermal; twin-shared drops accuracy on MOF-thermal and increases
+churn on DILI; twin-bootstrap at ${\sim}40\%$ matches codistillation
+on never increasing churn while only collapsing accuracy on a single
+dataset (MOF-thermal, where all three operating points collapse).  Among the three points, only twin-bootstrap at
 ${\sim}\overlapPctMid\%$ overlap satisfies both criteria
 simultaneously, which is what motivates its use as the default
 operating point.
@@ -309,7 +273,7 @@ argmax-churn main result (Table~\ref{tab:main}).  The summary is in
 
 \input{sections/tables/distributional.tex}
 
-\section{Friedman test: twin-bootstrap matches bagging-$K{=}5$ in mean rank}
+\section{\boldmath Friedman test: twin-bootstrap matches bagging-$K{=}5$ in mean rank}
 \label{app:friedman}
 
 The pairwise CIs reported in Table~\ref{tab:main} test each
@@ -379,7 +343,195 @@ training run, which the speedup over training a full
 $K$-bootstrap-bagging ensemble may amortise; entropy is free at
 deployment time but is a meaningfully weaker signal.
 
-\section{GIN: bagging transfers; rule selects $\lambda{=}10$}
+\section{Bayesian-optimisation analogue: top-$K$ ranking stability}
+\label{app:bo_topk}
+
+A virtual-screening or Bayesian-optimisation pipeline ranks the
+candidate pool by predicted $P(\text{active})$ and acquires the
+top-$K$ for the next round of evaluation.  The BO-relevant question
+is then how often the top-$K$ \emph{set} would change between two
+retrainings on independent bootstraps of the same training pool ---
+the fraction of candidates that would be re-routed to different
+downstream evaluations depending on which bootstrap the surrogate
+happened to land on.
+
+\paragraph{Measurement.}
+For each chemistry dataset and each method (ERM, bagging-$K{=}5$,
+twin-bootstrap $\lambda{=}300$), we use the same $\nSeeds$
+retrainings as the main argmax-churn protocol
+(Section~\ref{sec:measurement}).  The canonical seed pins the
+train/test split once: every retraining is trained on its own
+bootstrap of the canonical training pool and is then evaluated on
+the same canonical id-test pool, which the surrogate has never seen
+during training.  The candidate library is therefore fixed across
+retrainings; only the surrogate varies (its training-data bootstrap
+and initialisation).
+
+For every retraining we rank the candidate library by the
+deployment-time prediction $P(\text{class}{=}1)$ --- a single
+forward pass for ERM, the $K{=}5$-model averaged softmax for
+bagging, and the $2$-network averaged softmax for twin-bootstrap
+--- and take the top-$K$ molecules ($K{=}10$).  $K$ is an absolute
+batch size, mirroring a typical single-round wet-lab acquisition;
+the corresponding fraction of the canonical test pool ranges from
+$\sim$1\% (AMES, $N_\text{test}{=}1164$) to $\sim$13\% (DILI,
+$N_\text{test}{=}76$).  Between each pair of retrainings $(s, s')$
+of a given method we compute the Jaccard overlap
+\[
+  J_K^{(s, s')} = \frac{|\,T_K^{(s)} \cap T_K^{(s')}\,|}
+                       {|\,T_K^{(s)} \cup T_K^{(s')}\,|},
+\]
+where $T_K^{(s)}$ is the method's top-$K$ set under retraining $s$.
+We report the mean $J_K$ over the $\binom{\nSeeds}{2}{=}\nSeedPairs$
+pairs with paired-bootstrap $95\%$ CIs over the seed-pair
+distribution and the paired $\Delta J_K$ vs.\ ERM (positive =
+stabler ranking).  We additionally report the ERM top-$K$ \emph{hit
+rate} --- the fraction of the surrogate's top-$K$ predicted-active
+molecules that are actually $y{=}1$ in the held-out test set ---
+alongside the dataset's positive-class prior.  The class prior is
+the chance baseline for hit rate (a random ranker scores its
+positive fraction); ERM hit rate substantially above the prior
+confirms the surrogate has non-trivial signal and the Jaccard
+comparison is over informative top-$K$ sets.
+
+This measures the static input-stability of a single BO acquisition
+step under the same candidate library, not the dynamics of an
+iterative BO loop where two divergent trajectories would expose
+their surrogates to different candidate pools downstream.
+
+\input{sections/tables/bo_topk.tex}
+
+\paragraph{Findings.}
+ERM top-$\boTopkK$ Jaccard is low across the
+\nDatasetsHeadline{} chemistry datasets, ranging from
+$\boTopkErmJaccardLow$ (AMES) to $\boTopkErmJaccardHigh$ (DILI).
+On AMES, BBB-Martins, and BBBP two retrainings
+on independent bootstraps overlap on a single-digit fraction of
+their top-$\boTopkK$ picks: a BO loop on these datasets would
+route nearly every wet-lab evaluation to a different molecule
+depending on the bootstrap.  Twin-bootstrap raises Jaccard on every
+dataset (paired $\Delta J_{\boTopkK} \in [\boTopkTwinDeltaMin,
+\boTopkTwinDeltaMax]$, lifting the lower end of the range to
+$\boTopkTwinJaccardLow$ and the upper end to
+$\boTopkTwinJaccardHigh$), with the largest absolute gains where
+ERM is most unstable.  The Jaccard gain exceeds what the argmax
+churn reduction alone would predict: top-$K$ ranking depends on
+the full softmax distribution, not just the argmax, and that is the
+quantity sym-KL --- and twin-bootstrap --- stabilise
+(Section~\ref{sec:experiments}, ``Distributional disagreement'').
+
+\paragraph{Scope.}
+The Jaccard quantity above measures input-stability of a single BO
+acquisition step under the identical candidate library; it does not
+simulate the full BO loop, where two trajectories that acquire
+different molecules at step $1$ subsequently see different candidate
+pools and may diverge further.  What the Jaccard does establish is
+the necessary condition for any BO loop on these datasets to make a
+reproducible first-batch decision: with ERM, two equally plausible
+bootstrap surrogates would route the next wet-lab batch to almost
+disjoint molecule sets on AMES, BBB-Martins, and BBBP; with
+twin-bootstrap, the routing is largely bootstrap-invariant.
+Appendix~\ref{app:bo_loop_reg} extends the test to a full BO loop on
+the regression benchmarks.
+
+\section{\boldmath BO trajectory variance on regression: cross-sample churn drives outcome and identity spread}
+\label{app:bo_loop_reg}
+
+Section~\ref{app:bo_topk} measures the input-stability of a single
+BO acquisition step on classification.  This appendix complements
+that result with a full BO-loop simulation on the three regression
+benchmarks (ESOL, FreeSolv, Lipo): are independent BO trajectories
+of the same method more reproducible at the trajectory level under
+bagging-$K{=}5$ and twin-bootstrap than under ERM?
+
+\paragraph{Protocol.}
+For each regression dataset and each of \{ERM, bagging-$K{=}5$,
+twin-bootstrap $\lambda{=}\boLoopRegLam$\} we run
+$T{=}\boLoopRegK$ independent BO trajectories
+(Algorithm~\ref{alg:bo-trajectory}).  All $T$ trajectories of a
+given method share the same random initial labelled subset of
+$\boLoopRegInitN$ molecules; trajectories diverge only in the
+in-loop training-data bootstraps, the same source of variance the
+paper measures elsewhere.  Acquisition is greedy top-$1$
+maximisation: ERM has no natural per-prediction variance estimate,
+while bagging and twin-bootstrap do (head-spread).  Implementing
+UCB / EI / Thompson acquisition asymmetrically across methods would
+not be a fair comparison, so we use greedy for every method.  The
+budget is $\boLoopRegBudget$ acquisitions on top of the initial
+subset; the candidate library is the canonical training pool with
+the oracle $y$ values held back until acquisition.
+
+\begin{algorithm}[H]
+  \caption{BO trajectory (one trajectory of one method on one dataset).}
+  \label{alg:bo-trajectory}
+  \begin{algorithmic}[1]
+    \Require candidate pool $(X, y)$, training method $\mathcal{M}$,
+             trajectory index $k$, initial labelled subset $L_0$, budget $B$
+    \State $L \gets L_0$
+    \For{$t = 1, \dots, B$}
+      \State seed $\gets k \cdot 10^6 + t$
+        \Comment{step- and trajectory-keyed bootstrap seed}
+      \State $f \gets \mathcal{M}.\text{train}(X_L,\, y_L;\,\text{seed})$
+        \Comment{ERM / bagging-$K{=}5$ / twin-bootstrap}
+      \State $\hat{y} \gets f.\text{predict}(X_{[\,1..N\,]\setminus L})$
+      \State $i^* \gets \arg\max \hat{y}$
+        \Comment{greedy top-$1$ acquisition}
+      \State $L \gets L \cup \{\,i^*\,\}$
+        \Comment{oracle reveals $y_{i^*}$}
+    \EndFor
+    \State \Return $L \setminus L_0$
+      \Comment{the $B$ acquired molecules of trajectory $k$}
+  \end{algorithmic}
+\end{algorithm}
+
+\input{sections/tables/bo_loop_regression.tex}
+
+\paragraph{Findings.}
+Twin-bootstrap reduces the cross-trajectory standard deviation of
+the final-best $y$ on every regression dataset
+(Table~\ref{tab:bo_loop_regression}): the per-dataset std drops
+from $\boLoopRegErmStdLow$--$\boLoopRegErmStdHigh$ under ERM to
+$\boLoopRegTwinStdLow$--$\boLoopRegTwinStdHigh$ under
+twin-bootstrap, a relative reduction of
+$\boLoopRegTwinStdRedLow\%$--$\boLoopRegTwinStdRedHigh\%$.
+Bagging-$K{=}5$ reduces std on
+$\boLoopRegBagStdRedWins/\boLoopRegNumDatasets$ datasets (down to
+$\boLoopRegBagStdLow$--$\boLoopRegBagStdHigh$ across the three) but
+does not improve on ERM on the third (Lipo), where ERM's std is
+already small ($\boLoopRegErmStdLow$).  In absolute terms the std
+is small relative to each dataset's $y$ range
+($\boLoopRegErmStdRangePctLow\%$--$\boLoopRegErmStdRangePctHigh\%$
+of the range under ERM); but it is large relative to the gap
+between the top molecules a BO loop is choosing between, which is
+what determines how reproducible the loop's next-batch decision is.
+On ESOL every bagging and twin-bootstrap trajectory converges to
+the same final molecule (std $= 0$) --- both methods consistently
+locate the dominant high-$y$ molecule in the unlabelled pool, while
+ERM trajectories scatter across $y$ values from
+$\boLoopRegEsolErmFinalLo$ to $\boLoopRegEsolErmFinalHi$.
+
+The identity-level Jaccard of acquired-molecule sequences also
+rises under both methods: mean
+$\boLoopRegErmJaccardLow$--$\boLoopRegErmJaccardHigh$ under ERM,
+$\boLoopRegBagJaccardLow$--$\boLoopRegBagJaccardHigh$ under bagging,
+$\boLoopRegTwinJaccardLow$--$\boLoopRegTwinJaccardHigh$ under
+twin-bootstrap.  The spread reduction therefore reflects more
+consistent molecule \emph{selection}, not just lucky convergence to
+molecules with similar $y$ values.
+
+\paragraph{Caveats.}
+Greedy top-$1$ acquisition isolates surrogate stability but is
+narrower than the UCB / EI / Thompson policies that real BO
+campaigns typically run; whether the reproducibility gain transfers
+to those acquisition functions is untested.  Cells in the table
+report $95\%$ bootstrap CIs over the $K{=}\boLoopRegK$ trajectories
+($10{,}000$ resamples), but $K$ is small for tight std-of-std
+estimates --- the std CIs widen accordingly.  We treat
+this experiment as a focused check that the cross-sample-churn
+reduction translates to BO-loop reproducibility on small-$N$
+regression, not a full benchmark of BO algorithms.
+
+\section{\boldmath GIN: bagging transfers; rule selects $\lambda{=}10$}
 \label{app:gin}
 
 The main comparison uses a $256$-unit MLP on Morgan fingerprints
@@ -415,7 +567,7 @@ value does not.  For practitioners changing the architecture, the
 practical recipe is a single $\lambda$ sweep on the development
 dataset before transferring to held-out data.
 
-\section{ChemBERTa: rule-selected $\lambda{=}10$ preserves accuracy and cuts churn $\chembertaCutLow$--$\chembertaCutHigh\%$}
+\section{\boldmath ChemBERTa: rule-selected $\lambda{=}10$ preserves accuracy and cuts churn $\chembertaCutLow$--$\chembertaCutHigh\%$}
 \label{app:chemberta_scope}
 
 We fine-tuned
@@ -426,7 +578,7 @@ twin-bootstrap at the rule-selected $\lambda$ on the five held-out
 datasets.  All runs use five train-seeds, giving
 $\binom{5}{2}=10$ seed-pairs per dataset.
 
-\paragraph{The BACE-MLP-frozen $\lambda$ does not transfer.}  At
+\paragraph{\boldmath The $\lambda$ chosen on the BACE MLP does not transfer.}  At
 $\lambda{=}300$ (the value selected on BACE-MLP) twin-bootstrap drops
 ChemBERTa accuracy by
 $\chembertaAccDropLow\text{--}\chembertaAccDropHigh$pp on every
@@ -436,18 +588,19 @@ datasets: the across-seed-mean paired $\Delta$ vs.\ ERM is positive
 on BACE, Pgp, and DILI (strict increase, all three canonical seeds
 agree), and the one apparent decrease (BBBP) is a model collapse to
 the majority-class predictor, not a real cut.  AMES and BBB-Martins
-are within paired CI of zero on average across seeds.  Same diagnosis
-as the GIN architecture cross-check (Appendix~\ref{app:gin}): the
-$\lambda$ tuned on a from-scratch MLP is too strong for pretrained
-representations.
+are within paired CI of zero on average across seeds.  The
+underlying cause matches the GIN architecture cross-check
+(Appendix~\ref{app:gin}): the $\lambda$ tuned on a from-scratch MLP
+is too strong for pretrained representations.
 
-\paragraph{Rule-selected $\lambda$ on BACE-ChemBERTa is $\lambda{=}10$.}
-Sweeping $\lambda \in \{1, 3, 10, 30, 100, 300\}$ on BACE-ChemBERTa
-and applying the same $\preregTolerance$ id-acc tolerance rule used on BACE-MLP:
-$\lambda \in \{1, 3, 10\}$ stay within tolerance, $\lambda{=}30$ and
-above fall below.  The rule picks $\lambda{=}10$.
+\paragraph{\boldmath Rule-selected $\lambda$ on BACE-ChemBERTa is $\lambda{=}10$.}
+On BACE-ChemBERTa we sweep $\lambda \in \{1, 3, 10, 30, 100, 300\}$
+and apply the same $\preregTolerance$ id-acc tolerance rule used on
+BACE-MLP.  The first three values keep id-acc within tolerance;
+$\lambda \geq 30$ fall below.  The rule picks the largest admissible,
+$\lambda{=}10$.
 
-\paragraph{At rule-selected $\lambda{=}10$, twin-bootstrap works on every
+\paragraph{\boldmath At rule-selected $\lambda{=}10$, twin-bootstrap works on every
 ChemBERTa dataset.}
 
 \input{sections/tables/chemberta.tex}
@@ -460,7 +613,7 @@ value $\lambda$ takes does not.
 Appendix~\ref{app:waterbirds_lambda} reports the matching result on
 the vision pretrained backbone.
 
-\section{Waterbirds (ResNet-50): rule-selected $\lambda{=}10$ cuts churn $\waterbirdsLamTenCut\%$}
+\section{\boldmath Waterbirds (ResNet-50): rule-selected $\lambda{=}10$ cuts churn $\waterbirdsLamTenCut\%$}
 \label{app:waterbirds_lambda}
 
 The same protocol is applied to Waterbirds (ImageNet-pretrained
@@ -550,42 +703,12 @@ terms this is roughly $2\times$ ERM, matched to bagging-$K{=}2$.  The
 $5\times$ Bagging-$K{=}5$ results in the same table are not matched
 compute; we include them as a stronger no-cost baseline.
 
-\section{Reproducibility}
-\label{app:repro}
+\section{Filter outcomes for excluded datasets}
+\label{app:filter_outcomes}
 
-\paragraph{Canonical-data protocol.}
-A single fixed seed determines the train/test split and the
-canonical test set; cross-sample variation comes only from ten
-train-seeds, each controlling one bootstrap of the canonical
-training pool.  Canonical-data seed: $\canonicalSeed$.
-
-\paragraph{Hyperparameters.}
-Twin-bootstrap $\lambda$ is selected on BACE alone by the
-$\preregTolerance$-tolerance rule ($\lambda{=}300$) and applied unchanged to
-every held-out chemistry dataset.  AdamW with weight decay
-$10^{-4}$, gradient clipping at $1.0$, $\text{lr}=10^{-3}$, batch
-size $64$, $30$ epochs.  Waterbirds uses the published recipe
-($\text{lr}=10^{-4}$, batch size $64$, $15$ epochs).
-
-\paragraph{Code release.}
-A single \texttt{Makefile} entry-point covers training sweeps and
-analysis; every paper table and figure is regenerated through this
-pipeline.  Each run saves predictions and a reproducibility manifest
-(git commit, command, full config, environment, canonical / test data
-hashes, wall-clock) as a sidecar JSON next to the NPZ; one row per
-completed run is appended to a top-level \texttt{RUN\_LEDGER.jsonl}.
-
-\paragraph{Filter outcomes for the five excluded datasets.}
-Table~\ref{tab:filter-outcomes} reports the per-dataset ERM id-acc and
-the canonical majority-class baseline on the five chemistry datasets
-that fail the $+\preregFilterPP$pp filter and are therefore excluded
-from the main analysis.
+Table~\ref{tab:filter-outcomes} reports the per-dataset ERM id-acc
+and the canonical majority-class baseline on the five chemistry
+datasets that fail the $+\preregFilterPP$pp filter and are therefore
+excluded from the main analysis.
 
 \input{sections/tables/filter_outcomes.tex}
-
-% (Numerical provenance is now machine-checked: every quoted number in
-% the prose imports from paper/sections/macros.tex via \input, and the
-% scripts that produce each table / figure are documented in
-% scripts/README.md.  Each NPZ also has a sidecar manifest.json with the
-% git commit, command, env, and data hashes; one row per saved NPZ in
-% outputs/cross_sample/RUN_LEDGER.jsonl.)

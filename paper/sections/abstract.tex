@@ -1,26 +1,22 @@
 \begin{abstract}
-Scientific machine learning reports accuracy.  It does not report
-whether the same prediction would survive a different draw of
-training data.  Across $\nDatasetsHeadline$ chemistry benchmarks,
+Scientific machine learning reports predictive performance.  It does not report whether the same
+prediction would survive a different draw of training data.  Across $\nDatasetsHeadline$ chemistry benchmarks,
 two classifiers trained on independent bootstraps of the same
 training set agree on aggregate accuracy to within
 $\accDiffMin\text{--}\accDiffMax$ percentage points but disagree on
 the class label of $\churnMin\text{--}\churnMax\%$ of test
 molecules.  We call this gap \emph{cross-sample prediction churn}.
-Prior churn work measures disagreement between a deployed model and
-its challenger at web scale; we measure disagreement between models
-retrained from scratch on different bootstraps of the same small
-training set --- the regime that drug discovery, materials, and
-biostatistics actually inhabit.  The standard parameter-side
-techniques (deep ensembles, MC dropout, stochastic weight averaging)
-do not reduce this gap; they sample over weights at fixed data, the
-orthogonal axis.  Two data-side methods do.  Bagging is a free-lunch baseline that has
-not previously been evaluated for churn reduction in this regime: it
-cuts the rate $\bagFiveLow\text{--}\bagFiveHigh\%$ on every dataset
-at no accuracy cost.  We propose \emph{twin-bootstrap} --- two
-networks trained on independent bootstraps with a sym-KL consistency
-loss between their predictions --- which cuts a further median
-$\twinFurtherMedianReductionVsBagTwo\%$ beyond bagging-$K{=}2$ at
-matched $2\times$-ERM compute.  Churn deserves a column alongside
-accuracy in scientific-ML benchmark reports.
+The standard parameter-side techniques (deep ensembles, MC dropout, stochastic weight averaging)
+do not reduce this gap; two data-side methods do.  The first is
+$K$-bootstrap bagging, which cuts the rate
+$\bagFiveLow\text{--}\bagFiveHigh\%$ on every dataset at no accuracy
+cost ($K{\times}$-ERM compute).  The second is \emph{twin-bootstrap},
+our proposal: two networks trained jointly on independent bootstraps
+with a sym-KL consistency loss between their predictions, which at
+matched $2{\times}$-ERM compute reduces churn a further median
+$\twinFurtherMedianReductionVsBagTwo\%$ beyond bagging-$K{=}2$.
+Cross-sample prediction churn deserves a column alongside
+predictive performance in scientific-ML benchmark reports, because
+without it the parameter-side and data-side methods are
+indistinguishable on the metric they actually differ on.
 \end{abstract}

@@ -1,6 +1,6 @@
 \begin{table}[t]
   \centering
-  \caption{\textbf{Two retrainings on independent bootstraps differ in aggregate accuracy by 1.3\,--\,4.2\,pp on average, but disagree on $8\text{--}22\%$ of individual test predictions.}  Cross-bootstrap class-flip rate on the canonical id-test of each dataset.  Top group: nine headline datasets (dev + held-out) that pass the +5pp ERM-vs-majority filter and have $N_{\text{id-test}} \geq 60$.  Bottom group: three borderline datasets that pass the filter only marginally (+3 to +4pp on 57--104-example test sets); reported for transparency, not used in the headline method comparison.  ERM id-acc is the mean across $10$ retrainings; $|\Delta\text{acc}|$ is the mean absolute accuracy difference between two retrainings, averaged over the same $45$ pairs as the churn column.  Class-flip rate is the per-example argmax-disagreement rate (cross-sample churn); sym-KL is the corresponding distributional gap.  All paired columns report mean with $95\%$ paired-bootstrap CIs ($10{,}000$ resamples).}
+  \caption{\textbf{\boldmath Two retrainings on independent bootstraps differ in aggregate accuracy by 1.3\,--\,4.2\,pp on average, but disagree on $8\text{--}22\%$ of individual test predictions.}  Cross-bootstrap class-flip rate on the canonical id-test of the nine chemistry datasets that pass a $+5$pp ERM-vs-majority filter on test sets of at least $60$ examples (BACE is the development dataset; the other eight are held-out).  Three datasets that pass the filter only marginally are reported in Appendix~\ref{app:borderline}.  ERM id-acc is the mean across $10$ retrainings; $|\Delta\text{acc}|$ is the mean absolute accuracy difference between two retrainings, averaged over the same $45$ pairs of $10$ retrainings as the churn column.  Class-flip rate is the per-example argmax-disagreement rate (cross-sample churn); sym-KL is the corresponding distributional gap.  All paired columns report mean with $95\%$ paired-bootstrap CIs ($10{,}000$ resamples).}
   \label{tab:fragility-magnitudes}
   \scriptsize
   \resizebox{\linewidth}{!}{%
@@ -19,11 +19,6 @@
     BBB-Martins & 1300 & 324 & 0.867 [0.849, 0.895] & 1.7 [1.4, 2.1] & \textbf{8.0 [7.6, 8.4]} & \textbf{0.500 [0.477, 0.524]} \\
     BBBP & 1305 & 326 & 0.838 [0.819, 0.868] & 1.5 [1.1, 1.8] & \textbf{8.5 [8.1, 8.9]} & \textbf{0.470 [0.444, 0.496]} \\
     AMES & 4658 & 1164 & 0.779 [0.756, 0.799] & 1.6 [1.3, 1.9] & \textbf{15.2 [14.8, 15.5]} & \textbf{1.121 [1.092, 1.153]} \\
-    \midrule
-    \multicolumn{7}{l}{\emph{Borderline (passes filter only marginally; not used in headline comparison):}} \\
-    SkinReact & 232 & 57 & 0.675 [0.596, 0.737] & 4.3 [3.4, 5.3] & \textbf{20.3 [18.8, 21.8]} & \textbf{1.035 [0.931, 1.140]} \\
-    HIA & 370 & 92 & 0.908 [0.891, 0.924] & 1.0 [0.8, 1.3] & \textbf{2.1 [1.8, 2.5]} & \textbf{0.106 [0.086, 0.127]} \\
-    hERG & 420 & 104 & 0.751 [0.702, 0.798] & 3.1 [2.5, 3.8] & \textbf{15.9 [14.9, 16.9]} & \textbf{0.724 [0.668, 0.779]} \\
     \bottomrule
   \end{tabular}
   }

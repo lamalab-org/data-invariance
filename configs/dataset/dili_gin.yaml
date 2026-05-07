@@ -1,0 +1,3 @@
+name: dili_gin
+arch: gin
+data_dir: ./data/tdc

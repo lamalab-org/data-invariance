@@ -97,7 +97,7 @@ def main() -> None:
     lines = [
         r"\begin{table}[h]",
         r"  \centering",
-        r"  \caption{\textbf{On imbalanced datasets, minority-class "
+        r"  \caption{\textbf{\boldmath On imbalanced datasets, minority-class "
         r"predictions are $2\text{--}4\times$ more unstable across "
         r"retrainings than majority-class predictions.}  For each "
         r"chemistry dataset: overall cross-bootstrap argmax-churn and "

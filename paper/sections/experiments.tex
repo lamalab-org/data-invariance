@@ -1,4 +1,4 @@
-\section{Experiments}
+\section{Empirical evaluation}
 \label{sec:experiments}
 
 \paragraph{Cross-sample reduction across benchmarks.}
@@ -8,18 +8,18 @@ beat ERM on the cross-sample class-flip rate with $95\%$ paired-bootstrap CIs
 that exclude zero (Table~\ref{tab:main}, Figure~\ref{fig:main}).  The
 three parameter-side techniques --- MC dropout, deep ensembles, and
 stochastic weight averaging (SWA) --- do not reduce churn
-consistently.  Their relative $\Delta$ class-flip rate ranges $\paramSideLow\%$ to
-$\paramSideHigh\%$ relative to ERM, with no consistent direction
-across datasets.  Averaging $T{=}20$ stochastic forward passes
+consistently.  Their paired $\Delta$ class-flip rate vs.\ ERM
+ranges $\paramSideLow\%$ to $\paramSideHigh\%$ across datasets,
+with no consistent sign.  Averaging $T{=}20$ stochastic forward passes
 (MC dropout), averaging $K{=}5$ networks at fixed data
 (deep ensembles), or averaging weight snapshots from a single
 training trajectory (SWA) all keep the data-resampling axis
-constant; bagging and twin-bootstrap operate on that axis directly.  At
-matched compute against bagging-$K{=}2$, twin-bootstrap wins on
-$\twinWinsBagTwoMain/\twinWinsBagTwoMainDenom$ datasets (CI excludes
-zero; the difference is not significant on DILI, where ERM accuracy
-is $\diliErmAcc$ on a $\diliNTest$-example test set).  Against the
-$5\times$-compute bagging-$K{=}5$, twin-bootstrap wins on
+constant.  
+At matched compute against bagging-$K{=}2$, twin-bootstrap wins on
+$\twinWinsBagTwoHeldout/\twinWinsBagTwoHeldoutDenom$ held-out
+datasets (paired CI excludes zero); the comparison ties on DILI,
+whose canonical id-test holds only $\diliNTest$ examples.  Against
+the $5\times$-compute bagging-$K{=}5$, twin-bootstrap wins on
 $\twinWinsBagFiveHeldout/\twinWinsBagFiveHeldoutDenom$ held-out
 datasets and trails on $\bagFiveWinsTwinHeldout$ (DILI, Pgp, TADF).
 The aggregate Friedman test rejects equal-ranks at
@@ -38,7 +38,7 @@ $\twinMedianReduction\%$ at a small accuracy cost
   \includegraphics[width=\linewidth]{figures/fig1_forest.pdf}
   \caption{\textbf{Bagging and twin-bootstrap beat ERM on every chemistry
     benchmark; MC dropout, deep ensembles, and SWA do not.}  Left: paired
-    $\Delta$ id-churn vs.\ ERM for five methods, one row per dataset
+    $\Delta$ id-churn vs.\ ERM for six methods, one row per dataset
     (smallest $N$ at top), $95\%$ paired-bootstrap CIs across
     the $\nSeedPairs$ seed pairs.  Vertical reference lines mark
     each method's across-dataset mean (twin-bootstrap solid, others
@@ -62,9 +62,21 @@ $\symKLBagFoldLow\text{--}\symKLBagFoldHigh\times$ vs.\ ERM, and
 twin-bootstrap reduces it by another factor of
 ${\sim}\symKLTwinAdditionalFoldMedian$ (per-dataset paired CIs in
 Table~\ref{tab:distributional}, Appendix~\ref{app:distributional}).
-Pipelines that consume the softmax (uncertainty-weighted ranking,
-candidate scoring) see a larger gap between the two than the
-argmax-churn column reflects.
+Pipelines that consume the softmax --- active-learning acquisition,
+Bayesian-optimisation, virtual-screening top-$K$ ranking --- see a
+larger gap between methods than argmax churn reflects.
+Appendix~\ref{app:bo_topk} quantifies this directly: twin-bootstrap
+raises the Jaccard overlap of the top-$\boTopkK$ predicted-active
+sets between two retrainings on every chemistry dataset (paired
+$\Delta J_{\boTopkK} \geq \boTopkTwinDeltaMin$ on every cell), with
+the largest gains where ERM is most unstable.  In a full BO-loop
+simulation on the three regression benchmarks, twin-bootstrap
+reduces the cross-trajectory standard deviation of the final-best
+acquired $y$ by
+$\boLoopRegTwinStdRedLow\%$--$\boLoopRegTwinStdRedHigh\%$ on every
+dataset; bagging-$K{=}5$ helps on
+$\boLoopRegBagStdRedWins/\boLoopRegNumDatasets$ but is comparable
+to ERM on the third (Appendix~\ref{app:bo_loop_reg}).
 
 \paragraph{Churn-ranked triage.}
 \label{sec:churn-decile}
@@ -86,9 +98,9 @@ $\fragTopLow\text{--}\fragTopHigh\%$ of flips in its top decile vs.\
 $\entropyTopLow\text{--}\entropyTopHigh\%$ for entropy (per-dataset
 gap $\entropyGapMin\text{--}\entropyGapMax$\,pp,
 Appendix~\ref{app:entropy}).
-A practitioner can therefore identify
-the $\topDecilePct\%$ most fragile predictions from a single additional
-retraining --- one extra bootstrap on top of the deployed pipeline.
+A practitioner can therefore identify the $\topDecilePct\%$ most
+fragile predictions from a single additional retraining: one extra
+bootstrap on top of the deployed pipeline.
 
 \begin{figure}[t]
   \centering
@@ -116,11 +128,11 @@ in Appendix~\ref{app:case_study} (Figure~\ref{fig:case_study}).
 The main result on small-$N$ from-scratch MLPs holds across three
 other architectures and on regression.  Different architectures
 require different $\lambda$ values, but the same accuracy-tolerance
-rule on the development set picks each one --- the recipe transfers
-even when the value does not.
+rule on the development set (Section~\ref{sec:methods},
+``Hyperparameter selection'') picks each one.
 
 \paragraph{Pretrained backbones.}
-The BACE-MLP-frozen $\lambda{=}300$ over-constrains pretrained
+The $\lambda{=}300$ chosen on the BACE MLP over-constrains pretrained
 representations: twin-bootstrap collapses accuracy by
 $\waterbirdsAccCollapse$pp on Waterbirds (ImageNet ResNet-50) and
 by $\chembertaAccDropLow\text{--}\chembertaAccDropHigh$pp on

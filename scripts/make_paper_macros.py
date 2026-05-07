@@ -171,6 +171,12 @@ def emit_magnitudes() -> None:
     except Exception:
         add("churnAccCorrPearson", "??")
         add("churnAccCorrSpearman", "??")
+        
+    bace = next((r for r in rows if r.get("dataset") == "bace"), None)
+    if bace:
+        add("baceMeanAccuracyDiff", _f(bace["acc_diff_pp_mean"]), "pct1")
+    else:
+        add("baceMeanAccuracyDiff", "??")
 
 
 def emit_main_table() -> None:
@@ -427,6 +433,160 @@ def emit_entropy() -> None:
     add("entropyTopHigh", max(ent), "pct0")
     add("entropyGapMin", round(min(gaps_pp)), "pct0")
     add("entropyGapMax", round(max(gaps_pp)), "pct0")
+
+
+def emit_bo_topk() -> None:
+    """Top-K Jaccard stability summary across the nine chemistry datasets.
+
+    Three macro families:
+      \\boTopkErmJaccardLow / High        ERM Jaccard range
+      \\boTopkTwinJaccardLow / High       Twin-bootstrap Jaccard range
+      \\boTopkTwinDeltaMin / Max          paired Δ vs ERM range (twin)
+      \\boTopkErmHitRateLow / High        ERM hit-rate range (sanity)
+      \\boTopkTwinDeltaPosCount           number of datasets with positive Δ
+    """
+    rows = _read_csv(OUTPUTS / "bo_topk.csv")
+    keys = ["boTopkK",
+            "boTopkErmJaccardLow", "boTopkErmJaccardHigh",
+            "boTopkTwinJaccardLow", "boTopkTwinJaccardHigh",
+            "boTopkTwinDeltaMin", "boTopkTwinDeltaMax",
+            "boTopkErmHitRateLow", "boTopkErmHitRateHigh",
+            "boTopkHitGapMin", "boTopkHitGapMax"]
+    if not rows:
+        for k in keys:
+            add(k, "??")
+        return
+    erm_jac = [_f(r["jaccard_mean"]) for r in rows if r["method"] == "ERM"]
+    twin_rows = [r for r in rows if r["method"].startswith("Twin")]
+    twin_jac = [_f(r["jaccard_mean"]) for r in twin_rows]
+    twin_deltas = [_f(r["delta_mean"]) for r in twin_rows
+                   if r["delta_mean"] not in ("", "nan")]
+    erm_hits = [_f(r["hit_rate_mean"]) * 100 for r in rows if r["method"] == "ERM"]
+    # Hit rate vs class prior gap, per dataset (in percentage points).
+    # Range across datasets characterises "above-chance" surrogate performance.
+    hit_gaps = []
+    for r in rows:
+        if r["method"] != "ERM":
+            continue
+        hr = _f(r["hit_rate_mean"]) * 100
+        cp = _f(r["class_prior"]) * 100
+        hit_gaps.append(hr - cp)
+    K_val = rows[0].get("K", "10")
+    add("boTopkK", K_val)
+    # Two decimal places suit Jaccard; helpers below expect a numeric format key.
+    add("boTopkErmJaccardLow",  f"{min(erm_jac):.2f}")
+    add("boTopkErmJaccardHigh", f"{max(erm_jac):.2f}")
+    add("boTopkTwinJaccardLow",  f"{min(twin_jac):.2f}")
+    add("boTopkTwinJaccardHigh", f"{max(twin_jac):.2f}")
+    add("boTopkTwinDeltaMin", f"{min(twin_deltas):+.2f}")
+    add("boTopkTwinDeltaMax", f"{max(twin_deltas):+.2f}")
+    add("boTopkErmHitRateLow",  f"{min(erm_hits):.0f}")
+    add("boTopkErmHitRateHigh", f"{max(erm_hits):.0f}")
+    if hit_gaps:
+        add("boTopkHitGapMin", f"{min(hit_gaps):.0f}")
+        add("boTopkHitGapMax", f"{max(hit_gaps):.0f}")
+
+
+def emit_bo_loop_regression() -> None:
+    """BO trajectory variance summary across the three regression datasets.
+
+    Macros emitted (per-method ERM / Bag / Twin):
+      boLoopRegK / InitN / Budget / Lam            protocol values
+      boLoopReg{Erm,Bag,Twin}StdLow/High           per-method std range
+      boLoopReg{Bag,Twin}StdRedLow/High            std reduction vs ERM (% range)
+      boLoopReg{Erm,Bag,Twin}JaccardLow/High       per-method Jaccard range
+      boLoopReg{Erm,Bag,Twin}StdRangePctLow/High   std as % of dataset y-range
+    """
+    rows = _read_csv(OUTPUTS / "bo_loop_regression_summary.csv")
+    method_tags = {"erm": "Erm", "bagging": "Bag", "twin": "Twin"}
+    keys = ["boLoopRegK", "boLoopRegInitN", "boLoopRegBudget", "boLoopRegLam"]
+    for tag in method_tags.values():
+        keys += [
+            f"boLoopReg{tag}StdLow",          f"boLoopReg{tag}StdHigh",
+            f"boLoopReg{tag}JaccardLow",      f"boLoopReg{tag}JaccardHigh",
+            f"boLoopReg{tag}StdRangePctLow",  f"boLoopReg{tag}StdRangePctHigh",
+        ]
+    for tag in ("Bag", "Twin"):
+        keys += [f"boLoopReg{tag}StdRedLow", f"boLoopReg{tag}StdRedHigh"]
+    if not rows:
+        for k in keys:
+            add(k, "??")
+        return
+
+    by_ds = {}
+    for r in rows:
+        by_ds.setdefault(r["dataset"], {})[r["method"]] = r
+
+    by_method = {m: [r for r in rows if r["method"] == m]
+                 for m in method_tags}
+    n_traj = max((int(_f(r["n_trajectories"])) for r in rows), default=20)
+    add("boLoopRegK",      str(n_traj))
+    add("boLoopRegInitN",  "50")
+    add("boLoopRegBudget", "10")
+    add("boLoopRegLam",    "3")
+    for method, tag in method_tags.items():
+        m_rows = by_method[method]
+        if not m_rows:
+            for k in [f"boLoopReg{tag}StdLow", f"boLoopReg{tag}StdHigh",
+                      f"boLoopReg{tag}JaccardLow", f"boLoopReg{tag}JaccardHigh",
+                      f"boLoopReg{tag}StdRangePctLow",
+                      f"boLoopReg{tag}StdRangePctHigh"]:
+                add(k, "??")
+            continue
+        stds = [_f(r["final_best_std"]) for r in m_rows]
+        jacs = [_f(r["jaccard_mean"]) for r in m_rows]
+        pcts = [_f(r["std_pct_of_range"]) for r in m_rows]
+        add(f"boLoopReg{tag}StdLow",  f"{min(stds):.3f}")
+        add(f"boLoopReg{tag}StdHigh", f"{max(stds):.3f}")
+        add(f"boLoopReg{tag}JaccardLow",  f"{min(jacs):.2f}")
+        add(f"boLoopReg{tag}JaccardHigh", f"{max(jacs):.2f}")
+        add(f"boLoopReg{tag}StdRangePctLow",  f"{min(pcts):.2f}")
+        add(f"boLoopReg{tag}StdRangePctHigh", f"{max(pcts):.2f}")
+    # Per-dataset, per-method final-best min/max across trajectories.
+    # Used in the appendix prose to anchor "ERM trajectories scatter
+    # across y values from X to Y" claims without drift.  Dataset short
+    # names mapped to MixedCase tags for the macro names.
+    ds_tags = {"esol_reg": "Esol", "freesolv_reg": "Freesolv",
+               "lipo_reg": "Lipo"}
+    method_tags_local = {"erm": "Erm", "bagging": "Bag", "twin": "Twin"}
+    for ds, cells in by_ds.items():
+        ds_tag = ds_tags.get(ds)
+        if ds_tag is None:
+            continue
+        for method, m_tag in method_tags_local.items():
+            r = cells.get(method)
+            if r is None:
+                continue
+            lo = _f(r.get("final_best_min"))
+            hi = _f(r.get("final_best_max"))
+            if lo is not None:
+                add(f"boLoopReg{ds_tag}{m_tag}FinalLo", f"{lo:.2f}")
+            if hi is not None:
+                add(f"boLoopReg{ds_tag}{m_tag}FinalHi", f"{hi:.2f}")
+
+    # Per-dataset std-reduction vs ERM (positive % = how much variance the
+    # method removes); also count the datasets where the method's std
+    # actually beats ERM, so the prose can say "k/N datasets" without
+    # hard-coding the count.
+    n_datasets = len(by_ds)
+    add("boLoopRegNumDatasets", str(n_datasets))
+    for method, tag in (("bagging", "Bag"), ("twin", "Twin")):
+        reductions = []
+        wins = 0
+        for cells in by_ds.values():
+            e = cells.get("erm"); t = cells.get(method)
+            if e is None or t is None:
+                continue
+            es = _f(e["final_best_std"]); ts = _f(t["final_best_std"])
+            if es is None or ts is None or es <= 1e-9:
+                continue
+            reductions.append(100 * (1 - ts / es))
+            if ts < es:
+                wins += 1
+        if reductions:
+            add(f"boLoopReg{tag}StdRedLow",  f"{min(reductions):.0f}")
+            add(f"boLoopReg{tag}StdRedHigh", f"{max(reductions):.0f}")
+        add(f"boLoopReg{tag}StdRedWins", str(wins))
 
 
 def emit_regression() -> None:
@@ -918,6 +1078,8 @@ def main() -> None:
     emit_friedman()
     emit_triage()
     emit_entropy()
+    emit_bo_topk()
+    emit_bo_loop_regression()
     emit_regression()
     emit_chemberta()
     emit_waterbirds()

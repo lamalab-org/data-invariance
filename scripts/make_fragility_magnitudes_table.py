@@ -123,24 +123,24 @@ def main() -> None:
     lines = [
         r"\begin{table}[t]",
         r"  \centering",
-        r"  \caption{\textbf{Two retrainings on independent bootstraps "
+        r"  \caption{\textbf{\boldmath Two retrainings on independent bootstraps "
         r"differ in aggregate accuracy by "
         + f"{min_acc_diff:.1f}" + r"\,--\," + f"{max_acc_diff:.1f}"
         + r"\,pp on average, but disagree on $8\text{--}22\%$ of "
         r"individual test predictions.}  "
         r"Cross-bootstrap class-flip rate on the canonical id-test of "
-        r"each dataset.  Top group: nine headline datasets (dev + held-out) "
-        r"that pass the +5pp ERM-vs-majority filter and have "
-        r"$N_{\text{id-test}} \geq 60$.  Bottom group: three borderline "
-        r"datasets that pass the filter only marginally (+3 to +4pp on "
-        r"57--104-example test sets); reported for transparency, not used "
-        r"in the headline method comparison.  ERM id-acc is the mean "
-        r"across $10$ retrainings; $|\Delta\text{acc}|$ is the mean "
-        r"absolute accuracy difference between two retrainings, averaged "
-        r"over the same $45$ pairs as the churn column.  Class-flip rate is "
-        r"the per-example argmax-disagreement rate (cross-sample churn); "
-        r"sym-KL is the corresponding distributional gap.  All paired columns report "
-        r"mean with $95\%$ paired-bootstrap CIs ($10{,}000$ resamples).}",
+        r"the nine chemistry datasets that pass a $+5$pp ERM-vs-majority "
+        r"filter on test sets of at least $60$ examples (BACE is the "
+        r"development dataset; the other eight are held-out).  Three "
+        r"datasets that pass the filter only marginally are reported in "
+        r"Appendix~\ref{app:borderline}.  ERM id-acc is the mean across "
+        r"$10$ retrainings; $|\Delta\text{acc}|$ is the mean absolute "
+        r"accuracy difference between two retrainings, averaged over "
+        r"the same $45$ pairs of $10$ retrainings as the churn column.  Class-flip rate is the "
+        r"per-example argmax-disagreement rate (cross-sample churn); "
+        r"sym-KL is the corresponding distributional gap.  All paired "
+        r"columns report mean with $95\%$ paired-bootstrap CIs "
+        r"($10{,}000$ resamples).}",
         r"  \label{tab:fragility-magnitudes}",
         r"  \scriptsize",
         r"  \resizebox{\linewidth}{!}{%",
@@ -169,17 +169,9 @@ def main() -> None:
             f"\\textbf{{{_fmt_pct_ci(r['churn'])}}} & "
             f"\\textbf{{{_fmt_ci(r['sym_kl'])}}} \\\\"
         )
-    if borderline_rows:
-        lines.append(r"    \midrule")
-        lines.append(r"    \multicolumn{7}{l}{\emph{Borderline (passes filter only marginally; not used in headline comparison):}} \\")
-        for r in borderline_rows:
-            acc_str = f"{r['id_acc_mean']:.3f} [{r['id_acc_min']:.3f}, {r['id_acc_max']:.3f}]"
-            lines.append(
-                f"    {display(r['dataset'])} & {r['n_train']} & {r['n_id_test']} & "
-                f"{acc_str} & {_fmt_pp_ci(r['acc_diff_pp_ci'])} & "
-                f"\\textbf{{{_fmt_pct_ci(r['churn'])}}} & "
-                f"\\textbf{{{_fmt_ci(r['sym_kl'])}}} \\\\"
-            )
+    # Borderline rows are reported only in App.~\ref{app:borderline}; the
+    # body table stays focused on the nine datasets that pass the filter
+    # cleanly.
     lines += [
         r"    \bottomrule",
         r"  \end{tabular}",
@@ -190,6 +182,53 @@ def main() -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text("\n".join(lines))
     print(f"Wrote {out_path}")
+
+    # Emit a separate borderline-magnitudes table for the appendix so the
+    # body table is not cluttered with the marginal-filter-pass rows.
+    if borderline_rows:
+        bl_lines = [
+            r"\begin{table}[h]",
+            r"  \centering",
+            r"  \caption{\textbf{\boldmath Cross-sample magnitudes for the three "
+            r"borderline datasets.}  These pass the ERM-vs-majority filter "
+            r"only marginally (+3 to +4\,pp on test sets of 57--104 examples) "
+            r"and are reported here for transparency; method comparisons are "
+            r"not run on them because the small test sets do not give enough "
+            r"statistical power.  Columns and CI conventions match "
+            r"Table~\ref{tab:fragility-magnitudes}.}",
+            r"  \label{tab:borderline-magnitudes}",
+            r"  \scriptsize",
+            r"  \resizebox{\linewidth}{!}{%",
+            r"  \begin{tabular}{lrrrl@{\hspace{1em}}ll}",
+            r"    \toprule",
+            r"    & & & \multicolumn{2}{c}{Aggregate accuracy}"
+            r" & \multicolumn{2}{c}{Per-prediction disagreement} \\",
+            r"    \cmidrule(lr){4-5} \cmidrule(lr){6-7}",
+            r"    Dataset & $N_{\text{train}}$ & $N_{\text{id-test}}$ &"
+            r" ERM id-acc & $|\Delta\text{acc}|$ (pp)"
+            r" & Argmax churn (\%) & Sym-KL (nats) \\",
+            r"    \midrule",
+        ]
+        for r in borderline_rows:
+            acc_str = (f"{r['id_acc_mean']:.3f} "
+                       f"[{r['id_acc_min']:.3f}, {r['id_acc_max']:.3f}]")
+            bl_lines.append(
+                f"    {display(r['dataset'])} & {r['n_train']} & "
+                f"{r['n_id_test']} & "
+                f"{acc_str} & {_fmt_pp_ci(r['acc_diff_pp_ci'])} & "
+                f"\\textbf{{{_fmt_pct_ci(r['churn'])}}} & "
+                f"\\textbf{{{_fmt_ci(r['sym_kl'])}}} \\\\"
+            )
+        bl_lines += [
+            r"    \bottomrule",
+            r"  \end{tabular}",
+            r"  }",
+            r"\end{table}",
+            "",
+        ]
+        bl_path = out_path.parent / "borderline_magnitudes.tex"
+        bl_path.write_text("\n".join(bl_lines))
+        print(f"Wrote {bl_path}")
 
     # CSV dump for paper-macros and audit (single row per dataset, one
     # ``group`` column to distinguish headline / borderline).

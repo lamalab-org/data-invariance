@@ -108,7 +108,7 @@ def main() -> None:
     lines = [
         r"\begin{table}[h]",
         r"  \centering",
-        r"  \caption{\textbf{Per-example argmax-disagreement (right column) "
+        r"  \caption{\textbf{\boldmath Per-example argmax-disagreement (right column) "
         r"dominates aggregate-metric drift on every dataset, regardless of "
         r"which summary statistic the aggregate-metric column uses.}  "
         r"Paired $|\Delta|$ of five aggregate metrics and the per-example "

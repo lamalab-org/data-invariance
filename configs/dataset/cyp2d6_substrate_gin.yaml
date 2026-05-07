@@ -1,0 +1,3 @@
+name: cyp2d6_substrate_gin
+arch: gin
+data_dir: ./data/tdc
