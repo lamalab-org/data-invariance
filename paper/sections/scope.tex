@@ -17,12 +17,5 @@ three regression benchmarks (Appendix~\ref{app:bo_loop_reg}:
 twin-bootstrap reduces the cross-trajectory std of the final-best
 $y$ by $\boLoopRegTwinStdRedLow\%$--$\boLoopRegTwinStdRedHigh\%$ in
 a $\boLoopRegBudget$-step greedy BO loop on every dataset; bagging
-on $2/3$).  We do not benchmark
-acquisition policies that mix exploration via the surrogate's
-predictive variance (UCB, expected improvement, Thompson sampling).
-ERM has no natural per-prediction variance estimate; bagging and
-twin-bootstrap do (the head-spread).  Implementing exploit/explore
-acquisition asymmetrically across methods would not be a fair
-comparison, so we run greedy top-$1$ for every method; whether the
-reproducibility gain transfers to explore--exploit policies is
-untested.
+on $2/3$).  We use greedy top-$1$ acquisition only; UCB, expected
+improvement, and Thompson sampling are not tested.
