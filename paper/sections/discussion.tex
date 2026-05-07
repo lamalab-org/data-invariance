@@ -5,13 +5,17 @@
 Parameter-side uncertainty methods that the field treats as adequate
 --- deep ensembles, MC dropout, stochastic weight averaging ---
 do not reduce cross-sample churn on these benchmarks, and on several
-they make it worse.  Their construction explains why: they sample
-over weights at fixed data, and the variance practitioners act on
-lives on the data axis they hold constant.  A
+they make it worse.  This follows from how they are constructed:
+they sample over weights at fixed data, while the variance
+practitioners act on lives on the data axis they hold constant.  A
 performance-only benchmark cannot separate them from data-side
 methods that do reduce the rate, because the per-prediction signal
-they differ on is not part of the standard report.  Adding cross-sample churn to the
-standard report changes which uncertainty methods look adequate.
+they differ on is not part of the standard report.  Adding
+cross-sample churn to the standard report exposes the methods that
+produce different per-prediction calls between retrainings even when
+aggregate accuracy looks the same --- the regime where the model's
+choice of next molecule is bootstrap-sensitive and the workflow
+built on top of it is not reproducible.
 
 \paragraph{The data-resampling protocol is the design lever.}
 Cross-sample stability is set less by the model class than by how
@@ -34,7 +38,8 @@ deployment-driven domains route substantial wet-lab effort to the
 molecules a model ranks highest at any given retraining; reducing
 the rate at which that ranking flips between dataset updates cuts
 wasted experimental work and makes computational triage decisions
-reproducible. However,  low churn is not correctness: a stably wrong model looks identical to a stably right
+reproducible.  However, low churn is not correctness: a stably wrong
+model looks identical to a stably right
 one under this metric, and the churn-ranked triage workflow only
 flags predictions that disagree across retrainings, not those that
 agree but are jointly miscalibrated.  Cross-sample churn is also a

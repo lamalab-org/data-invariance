@@ -7,13 +7,14 @@ $\accDiffMin\text{--}\accDiffMax$ percentage points but disagree on
 the class label of $\churnMin\text{--}\churnMax\%$ of test
 molecules.  We call this gap \emph{cross-sample prediction churn}.
 The standard parameter-side techniques (deep ensembles, MC dropout, stochastic weight averaging)
-do not reduce this gap.  Two data-side methods, however,  do.  
-Bagging cuts the rate $\bagFiveLow\text{--}\bagFiveHigh\%$ on every dataset at no accuracy
-cost ($K\times$-ERM compute).  We propose \emph{twin-bootstrap} --- two
-networks trained on independent bootstraps with a sym-KL consistency
-loss between their predictions --- which cuts a further median
-$\twinFurtherMedianReductionVsBagTwo\%$ beyond bagging-$K{=}2$ at
-matched $2\times$-ERM compute.
+do not reduce this gap; two data-side methods do.  The first is
+$K$-bootstrap bagging, which cuts the rate
+$\bagFiveLow\text{--}\bagFiveHigh\%$ on every dataset at no accuracy
+cost ($K{\times}$-ERM compute).  The second is \emph{twin-bootstrap},
+our proposal: two networks trained jointly on independent bootstraps
+with a sym-KL consistency loss between their predictions, which at
+matched $2{\times}$-ERM compute reduces churn a further median
+$\twinFurtherMedianReductionVsBagTwo\%$ beyond bagging-$K{=}2$.
 Cross-sample prediction churn deserves a column alongside
 predictive performance in scientific-ML benchmark reports, because
 without it the parameter-side and data-side methods are

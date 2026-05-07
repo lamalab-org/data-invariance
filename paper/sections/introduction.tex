@@ -15,9 +15,9 @@ and virtual-screening pipelines, model predictions feed directly into
 experimental decisions: each prediction is the unit of action --- the
 molecule selected for synthesis, the candidate prioritised in a
 screening campaign, the hit returned by a virtual screen.  Churn is
-the rate at which retraining changes which units the model selects,
-and is therefore the operational stability the practitioner cares
-about.
+the rate at which retraining changes which molecules the model
+selects, and is therefore the operational stability the practitioner
+cares about.
 
 \begin{figure}[t]
   \centering
@@ -45,13 +45,14 @@ ML.  A practitioner who updates a screening set, retrains, and
 reroutes synthesis based on the new top predictions confronts the
 challenge of cross-sample churn on every dataset update.
 
-Two existing approaches are adjacent but do not address this.
-\emph{Prediction churn}~\citep{launch_and_iterate,
-bhojanapalli2021reproducibility, jiang2022} measures disagreement
-between a candidate model and a fixed deployed incumbent on web-scale
-data; in scientific ML there is no incumbent, and the binding source
-of variance is the small training set itself, redrawn between
-retrainings.  \emph{Epistemic uncertainty} tools --- deep
+Two existing approaches are conceptually nearby but do not measure
+or reduce this gap.  \emph{Prediction churn}~\citep{launch_and_iterate,
+bhojanapalli2021reproducibility, jiang2022} measures
+retraining-induced disagreement on web-scale data; prior work varies
+training conditions on a fixed dataset or compares a candidate model
+against a deployed incumbent.  In scientific ML there is no
+incumbent, and the dominant source of variance is the small training
+set itself, redrawn between retrainings.  \emph{Epistemic uncertainty} tools --- deep
 ensembles~\citep{lakshminarayanan2017simple}, Monte Carlo (MC)
 dropout~\citep{gal2015dropout}, and stochastic weight averaging
 (SWA)~\citep{izmailov2018averaging} --- sample over weights at fixed
@@ -79,12 +80,16 @@ the twin-bootstrap procedure we propose --- do reduce it.
         $K$-bootstrap bagging~\citep{Breiman1996} cuts churn
         $\bagFiveLow\text{--}\bagFiveHigh\%$ on every dataset at no
         accuracy cost, at $K\times$-ERM compute (Table~\ref{tab:main}).
-  \item \textbf{Twin-bootstrap}, the codistillation operating point
-        at $\sim\overlapPctMid\%$ inter-network bootstrap overlap:
-        at matched $2\times$-ERM compute it cuts churn a further
-        median $\twinFurtherMedianReductionVsBagTwo\%$ beyond bagging
+  \item \textbf{Twin-bootstrap.}  Two networks are trained jointly
+        on independent bootstraps with a symmetric-KL consistency
+        loss between their predictions ($\sim\overlapPctMid\%$
+        inter-network data overlap by construction).  At matched
+        $2\times$-ERM compute it cuts churn a further median
+        $\twinFurtherMedianReductionVsBagTwo\%$ beyond bagging-$K{=}2$
         and matches $5\times$-compute bagging-$K{=}5$ in mean rank
-        (Table~\ref{tab:main}, Figure~\ref{fig:main}).
+        (Table~\ref{tab:main}, Figure~\ref{fig:main}); the same
+        reduction shows up at the Bayesian-optimisation acquisition
+        layer (Appendices~\ref{app:bo_topk} and~\ref{app:bo_loop_reg}).
   \item \textbf{Per-prediction triage} on top of any deployed model:
         sorting by per-example churn from a single extra retraining
         captures $\triageKtenLow\text{--}\triageKtenHigh\%$ of class
