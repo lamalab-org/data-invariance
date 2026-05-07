@@ -44,8 +44,14 @@ from paper_constants import DEV_DATASET, HEADLINE_DATASETS, N_TRAIN, display
 
 
 GLOB = "twin_indep_bayes_train*_lam*.npz"
+# Labels that name a fixed-lambda twin_indep run map to the regular
+# twin_indep_train*_lam{X}.npz files (NOT the BO sidecar).  Keeps
+# `--baseline-runs lam0 lam300` working when those baselines live in a
+# regular cross_sample/ outputs root produced by cross_sample_train.py.
 RUN_GLOBS = {
     "erm": GLOBS["erm"],
+    "lam0": GLOBS["twin_indep"].format(lam="0.0"),
+    "lam300": GLOBS["twin_indep"].format(lam="300.0"),
 }
 
 
