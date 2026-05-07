@@ -97,11 +97,7 @@ A single development dataset (BACE) is used to select $\lambda$ via
 the pre-registered rule: largest $\lambda$ in
 $\{1, 3, 10, 30, 100, 300\}$ such that BACE id-accuracy is within
 $\preregTolerance$ of ERM id-accuracy.  The rule yields $\lambda{=}300$
-(Pareto curve in Appendix~\ref{app:pareto}).  A post-hoc Gaussian-process
-Bayesian search over $\lambda$ confirmed that validation accuracy and
-cross-sample churn need not select the same operating point: the
-BO-selected weights often improved accuracy, but did not consistently
-beat fixed $\lambda{=}300$ on churn (Appendix~\ref{app:bayes_twin}).
+(Pareto curve in Appendix~\ref{app:pareto}).
 We apply $\lambda{=}300$ unchanged to every held-out dataset.  $K$ for
 ensemble methods is set a priori to $5$ following
 \citet{lakshminarayanan2017simple}; we additionally report $K{=}2$ for
