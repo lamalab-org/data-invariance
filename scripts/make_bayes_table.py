@@ -15,6 +15,9 @@ Fixed-lambda Bayesian-driver runs saved into separate roots::
       --compare-run bo \\
       --baseline-runs lam0 lam300
 
+The comparison table also adds ``BO vs. ERM`` by default, using
+``outputs/cross_sample`` for ``erm_train*.npz`` files.
+
 Default Bayesian-search outputs::
 
     uv run python scripts/make_bayes_table.py --roots bo=outputs/cross_sample
@@ -28,6 +31,7 @@ from pathlib import Path
 import numpy as np
 
 from _analysis_lib import (
+    GLOBS,
     bootstrap_ci,
     bootstrap_paired,
     fmt_ci,
@@ -40,6 +44,9 @@ from paper_constants import DEV_DATASET, HEADLINE_DATASETS, N_TRAIN, display
 
 
 GLOB = "twin_indep_bayes_train*_lam*.npz"
+RUN_GLOBS = {
+    "erm": GLOBS["erm"],
+}
 
 
 def _label_root(raw: str) -> tuple[str, Path]:
@@ -69,8 +76,8 @@ def _run_lambdas(runs: list[tuple[int, dict]]) -> list[float]:
     return vals
 
 
-def metrics_with_cis(dataset_dir: Path) -> dict | None:
-    runs = load_runs(dataset_dir, GLOB)
+def metrics_with_cis(dataset_dir: Path, glob: str = GLOB) -> dict | None:
+    runs = load_runs(dataset_dir, glob)
     if not runs:
         return None
 
@@ -106,16 +113,17 @@ def _acc_by_seed(runs: list[tuple[int, dict]]) -> dict[int, dict[str, float]]:
     return out
 
 
-def deltas_vs_baseline(root: Path, baseline_root: Path,
-                       dataset: str) -> dict[str, object] | None:
+def deltas_vs_baseline(root: Path, baseline_root: Path, dataset: str,
+                       glob: str = GLOB, baseline_glob: str = GLOB,
+                       ) -> dict[str, object] | None:
     """Paired deltas for ``root - baseline_root`` on one dataset.
 
     Accuracy deltas are matched by train seed.  Churn/sym-KL deltas are
     matched by seed pair.  Positive accuracy deltas are better; negative churn
     and sym-KL deltas are better.
     """
-    runs = load_runs(root / dataset, GLOB)
-    base_runs = load_runs(baseline_root / dataset, GLOB)
+    runs = load_runs(root / dataset, glob)
+    base_runs = load_runs(baseline_root / dataset, baseline_glob)
     if not runs or not base_runs:
         return None
 
@@ -244,6 +252,10 @@ def _delta_tuple(row: dict, key: str) -> tuple[float, float, float]:
     )
 
 
+def _glob_for(label: str) -> str:
+    return RUN_GLOBS.get(label, GLOB)
+
+
 def _comparison_rows(root_by_label: dict[str, Path], compare_run: str,
                      baseline_runs: list[str], datasets: list[str]) -> list[dict]:
     compare_root = root_by_label.get(compare_run)
@@ -252,21 +264,29 @@ def _comparison_rows(root_by_label: dict[str, Path], compare_run: str,
 
     rows = []
     for baseline_run in baseline_runs:
+        n_before = len(rows)
         baseline_root = root_by_label.get(baseline_run)
         if baseline_root is None:
             print(f"[warn] baseline run {baseline_run!r} was not supplied; skipping.")
             continue
         for ds in datasets:
-            m = metrics_with_cis(compare_root / ds)
+            m = metrics_with_cis(compare_root / ds, _glob_for(compare_run))
             if m is None:
                 continue
-            deltas = deltas_vs_baseline(compare_root, baseline_root, ds)
+            deltas = deltas_vs_baseline(
+                compare_root, baseline_root, ds,
+                _glob_for(compare_run), _glob_for(baseline_run))
             if deltas is None:
                 continue
             row = _flatten_row(compare_run, ds, m)
             row["baseline_run"] = baseline_run
             _add_delta_fields(row, deltas)
             rows.append(row)
+        if len(rows) == n_before:
+            print(f"[warn] no comparison rows built for "
+                  f"{compare_run!r} vs {baseline_run!r}; expected "
+                  f"{compare_root}/<dataset>/{_glob_for(compare_run)} and "
+                  f"{baseline_root}/<dataset>/{_glob_for(baseline_run)}.")
     return rows
 
 
@@ -275,6 +295,7 @@ def _pairwise_comparison_rows(root_by_label: dict[str, Path],
                               datasets: list[str]) -> list[dict]:
     rows = []
     for compare_run, baseline_run in comparisons:
+        n_before = len(rows)
         compare_root = root_by_label.get(compare_run)
         baseline_root = root_by_label.get(baseline_run)
         if compare_root is None or baseline_root is None:
@@ -282,16 +303,23 @@ def _pairwise_comparison_rows(root_by_label: dict[str, Path],
                   "one or both roots were not supplied.")
             continue
         for ds in datasets:
-            m = metrics_with_cis(compare_root / ds)
+            m = metrics_with_cis(compare_root / ds, _glob_for(compare_run))
             if m is None:
                 continue
-            deltas = deltas_vs_baseline(compare_root, baseline_root, ds)
+            deltas = deltas_vs_baseline(
+                compare_root, baseline_root, ds,
+                _glob_for(compare_run), _glob_for(baseline_run))
             if deltas is None:
                 continue
             row = _flatten_row(compare_run, ds, m)
             row["baseline_run"] = baseline_run
             _add_delta_fields(row, deltas)
             rows.append(row)
+        if len(rows) == n_before:
+            print(f"[warn] no comparison rows built for "
+                  f"{compare_run!r} vs {baseline_run!r}; expected "
+                  f"{compare_root}/<dataset>/{_glob_for(compare_run)} and "
+                  f"{baseline_root}/<dataset>/{_glob_for(baseline_run)}.")
     return rows
 
 
@@ -318,9 +346,11 @@ def write_latex(rows: list[dict], path: Path, baseline_run: str,
         r"value.}",
         r"  \label{tab:bayes_twin}",
         r"  \scriptsize",
-        r"  \begin{tabular}{llrrrr}",
+        r"  \setlength{\tabcolsep}{2pt}",
+        r"  \resizebox{\textwidth}{!}{%",
+        r"  \begin{tabular}{@{}llrrrrr@{}}",
         r"    \toprule",
-        r"    Run & Dataset & $\lambda$ & $\Delta$ ID acc & $\Delta$ OOD acc & $\Delta$ ID churn \\",
+        r"    Run & Dataset & $\lambda$ & ID acc & OOD acc & ID churn & OOD churn \\",
         r"    \midrule",
     ]
     for run in runs:
@@ -336,11 +366,12 @@ def write_latex(rows: list[dict], path: Path, baseline_run: str,
                 f"    {run_cell} & {ds_label} & {_fmt_lam(r)} & "
                 f"{_fmt_delta(_delta_tuple(r, 'id_acc'))} & "
                 f"{_fmt_delta(_delta_tuple(r, 'ood_acc'))} & "
-                f"{_fmt_delta(_delta_tuple(r, 'id_churn'))}"
+                f"{_fmt_delta(_delta_tuple(r, 'id_churn'))} & "
+                f"{_fmt_delta(_delta_tuple(r, 'ood_churn'))}"
                 + r" \\"
             )
         lines.append(r"    \addlinespace[2pt]")
-    lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
+    lines += [r"    \bottomrule", r"  \end{tabular}%", r"  }", r"\end{table}", ""]
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines))
     print(f"Wrote {path}")
@@ -350,21 +381,33 @@ def write_comparison_latex(rows: list[dict], path: Path, compare_run: str) -> No
     datasets = [DEV_DATASET] + list(HEADLINE_DATASETS)
     blocks = list(dict.fromkeys((r["run"], r["baseline_run"]) for r in rows))
     by_block_ds = {(r["run"], r["baseline_run"], r["dataset"]): r for r in rows}
+    has_erm_block = any(baseline == "erm" for _, baseline in blocks)
 
     lines = [
         r"\begin{table}[t]",
         r"  \centering",
-        rf"  \caption{{\textbf{{Bayesian optimization of $\lambda$ improves validation accuracy but does not consistently minimize cross-sample churn.}} "
-        r"Cells report the first method named in each block minus the second "
-        r"with paired bootstrap "
-        r"$95\%$ confidence intervals. Positive accuracy deltas are better; "
-        r"negative churn deltas are better; instances where first method "
-        r"outperforms second method are \textbf{bolded}. "
-        r"The $\lambda$ column reports the mean $\lambda$ for the first "
-        r"method in the block.}",
+        r"  \caption{\textbf{Bayesian optimization discovers dataset-specific operating",
+        r" points on the accuracy--stability frontier.} Cells report the first method",
+        r" named in each block minus the second with paired bootstrap $95\%$ confidence",
+        r" intervals. Positive accuracy deltas indicate improved performance, while",
+        r" negative churn deltas indicate improved stability. Bayesian optimization (BO)",
+        r" generally identifies intermediate $\lambda$ values that improve ID accuracy and",
+        r" often improve OOD accuracy relative to $\lambda{=}0$, while trading off some",
+        r" stability relative to strongly regularized models ($\lambda{=}300$).",
+    ]
+    if has_erm_block:
+        lines += [
+            r" The BO-vs.-ERM block checks whether optimized $\lambda$ values retain a churn",
+            r" reduction relative to ordinary retraining.",
+        ]
+    lines += [
+        r" The $\lambda$",
+        r" column reports the mean optimized $\lambda$ for the first method in each comparison",
+        r" block. Bolded entries indicate cases where the point estimate favors the first",
+        r" method.}",
         r"  \label{tab:bayes_twin}",
         r"  \scriptsize",
-        r"  \setlength{\tabcolsep}{3pt}",
+        r"  \setlength{\tabcolsep}{2pt}",
     ]
     for i, (run, baseline) in enumerate(blocks):
         if i > 0:
@@ -374,9 +417,10 @@ def write_comparison_latex(rows: list[dict], path: Path, compare_run: str) -> No
         lines += [
             rf"  \noindent\makebox[\textwidth][c]{{\textbf{{{pretty_run} vs.\ {pretty_baseline}}}}}",
             r"  \vspace{-0.35em}",
-            r"  \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lrllll@{}}",
+            r"  \resizebox{\textwidth}{!}{%",
+            r"  \begin{tabular}{@{}lrlllll@{}}",
             r"    \toprule",
-            r"    Dataset & $N$ & Mean $\lambda$ & $\Delta$ ID acc & $\Delta$ OOD acc & $\Delta$ ID churn \\",
+            r"    Dataset & $N$ & Mean $\lambda$ & ID acc & OOD acc & ID churn & OOD churn \\",
             r"    \midrule",
         ]
         for ds in datasets:
@@ -388,10 +432,11 @@ def write_comparison_latex(rows: list[dict], path: Path, compare_run: str) -> No
                 f"    {ds_label} & {N_TRAIN.get(ds, '---')} & {_fmt_lam_mean(r)} & "
                 f"{_fmt_signed_cell(_delta_tuple(r, 'id_acc'), good='positive')} & "
                 f"{_fmt_signed_cell(_delta_tuple(r, 'ood_acc'), good='positive')} & "
-                f"{_fmt_signed_cell(_delta_tuple(r, 'id_churn'), good='negative')}"
+                f"{_fmt_signed_cell(_delta_tuple(r, 'id_churn'), good='negative')} & "
+                f"{_fmt_signed_cell(_delta_tuple(r, 'ood_churn'), good='negative')}"
                 + r" \\"
             )
-        lines += [r"    \bottomrule", r"  \end{tabular*}"]
+        lines += [r"    \bottomrule", r"  \end{tabular}%", r"  }"]
     lines += [r"\end{table}", ""]
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines))
@@ -401,6 +446,8 @@ def write_comparison_latex(rows: list[dict], path: Path, compare_run: str) -> No
 def _pretty_run_label(run: str) -> str:
     if run == "bo":
         return "BO"
+    if run == "erm":
+        return "ERM"
     if run.startswith("lam"):
         return run.replace("lam", r"$\lambda{=}") + "$"
     return run
@@ -423,10 +470,16 @@ def main() -> None:
                     help="Baselines for --compare-run comparisons.")
     ap.add_argument("--extra-comparisons", nargs="*", default=[],
                     help="Extra LaTeX comparisons as RUN:BASELINE, e.g. lam0:lam300.")
+    ap.add_argument("--erm-root", default="outputs/cross_sample",
+                    help="Root containing ERM runs for the BO-vs-ERM churn check.")
+    ap.add_argument("--skip-erm-comparison", action="store_true",
+                    help="Do not add the BO-vs-ERM comparison block.")
     args = ap.parse_args()
 
     root_specs = [_label_root(r) for r in args.roots]
     root_by_label = dict(root_specs)
+    if not args.skip_erm_comparison and args.erm_root:
+        root_by_label.setdefault("erm", Path(args.erm_root))
     baseline_root = root_by_label.get(args.baseline_run)
     if baseline_root is None:
         print(f"[warn] baseline run {args.baseline_run!r} was not supplied; "
@@ -436,7 +489,8 @@ def main() -> None:
     print("== Bayesian twin-bootstrap outputs ==\n")
     print(f"{'run':14s} {'dataset':18s} {'n':>3s} {'lambda':>18s} "
           f"{'id_acc':>18s} {'ood_acc':>18s} {'id_churn':>18s} "
-          f"{'Δid_acc':>18s} {'Δood_acc':>18s} {'Δid_churn':>18s}")
+          f"{'ood_churn':>18s} {'Δid_acc':>18s} {'Δood_acc':>18s} "
+          f"{'Δid_churn':>18s} {'Δood_churn':>18s}")
     for label, root in root_specs:
         for ds in args.datasets:
             m = metrics_with_cis(root / ds)
@@ -449,14 +503,17 @@ def main() -> None:
             d_id = _delta_tuple(row, "id_acc")
             d_ood = _delta_tuple(row, "ood_acc")
             d_ch = _delta_tuple(row, "id_churn")
+            d_ood_ch = _delta_tuple(row, "ood_churn")
             print(f"{label:14s} {ds:18s} {m['n_seeds']:3d} "
                   f"{_fmt_lam(row):>18s} "
                   f"{fmt_ci(m['id_acc'], pct=True):>18s} "
                   f"{fmt_ci(m['ood_acc'], pct=True):>18s} "
                   f"{fmt_ci(m['id_churn'], pct=True):>18s} "
+                  f"{fmt_ci(m['ood_churn'], pct=True):>18s} "
                   f"{_fmt_delta(d_id):>18s} "
                   f"{_fmt_delta(d_ood):>18s} "
-                  f"{_fmt_delta(d_ch):>18s}")
+                  f"{_fmt_delta(d_ch):>18s} "
+                  f"{_fmt_delta(d_ood_ch):>18s}")
         print()
 
     if not rows:
@@ -465,6 +522,10 @@ def main() -> None:
     write_csv(rows, Path(args.csv))
     if args.compare_run is not None:
         comparison_baselines = args.baseline_runs or [args.baseline_run]
+        if not args.skip_erm_comparison and "erm" in root_by_label:
+            comparison_baselines = list(comparison_baselines)
+            if "erm" not in comparison_baselines:
+                comparison_baselines.append("erm")
         comp_rows = _comparison_rows(
             root_by_label, args.compare_run, comparison_baselines, args.datasets)
         extra_pairs = []
