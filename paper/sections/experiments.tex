@@ -8,17 +8,17 @@ beat ERM on the cross-sample class-flip rate with $95\%$ paired-bootstrap CIs
 that exclude zero (Table~\ref{tab:main}, Figure~\ref{fig:main}).  The
 three parameter-side techniques --- MC dropout, deep ensembles, and
 stochastic weight averaging (SWA) --- do not reduce churn
-consistently.  Their relative $\Delta$ class-flip rate ranges $\paramSideLow\%$ to
-$\paramSideHigh\%$ relative to ERM, with no consistent direction
-across datasets.  Averaging $T{=}20$ stochastic forward passes
+consistently.  Their paired $\Delta$ class-flip rate vs.\ ERM
+ranges $\paramSideLow\%$ to $\paramSideHigh\%$ across datasets,
+with no consistent sign.  Averaging $T{=}20$ stochastic forward passes
 (MC dropout), averaging $K{=}5$ networks at fixed data
 (deep ensembles), or averaging weight snapshots from a single
 training trajectory (SWA) all keep the data-resampling axis
 constant.  
 At matched compute against bagging-$K{=}2$, twin-bootstrap wins on
-$\twinWinsBagTwoMain/\twinWinsBagTwoMainDenom$ datasets (CI excludes
-zero; the difference is not significant on DILI, where ERM accuracy
-is $\diliErmAcc$ on a $\diliNTest$-example test set).  Against the
+$\twinWinsBagTwoMain/\twinWinsBagTwoMainDenom$ datasets (paired CI
+excludes zero); the comparison ties on DILI, whose canonical id-test
+holds only $\diliNTest$ examples.  Against the
 $5\times$-compute bagging-$K{=}5$, twin-bootstrap wins on
 $\twinWinsBagFiveHeldout/\twinWinsBagFiveHeldoutDenom$ held-out
 datasets and trails on $\bagFiveWinsTwinHeldout$ (DILI, Pgp, TADF).

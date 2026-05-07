@@ -17,8 +17,8 @@ $x$ is
   \rho(\mathcal{A}, x) =
   \mathbb{P}_{S_A, S_B}\!\big[\arg\max f_{S_A}(x) \neq \arg\max f_{S_B}(x)\big].
 \end{equation}
-A churn-aware report supplements the standard accuracy with the
-expected per-example argmax disagreement
+A churn-aware report supplements the standard predictive-performance
+columns with the expected per-example argmax disagreement
 $\bar\rho(\mathcal{A}) = \mathbb{E}_x [\rho(\mathcal{A}, x)]$, and
 optionally with a distributional analogue
 $\bar\rho_{\mathrm{KL}}(\mathcal{A})
@@ -39,12 +39,12 @@ proxy, which is computable from a single observed training
 set.
 
 \paragraph{Measurement protocol.}
-We use the term \emph{canonical seed} to refer to a specific train/test split defined by one seed; within
-that split, the training pool and test set are reused across every
-method and every train seed, so test-side variance is zero by
+A \emph{canonical seed} fixes one train/test split.  Within a
+canonical seed, the training pool and test set are reused across
+every method and train seed, so test-side variance is zero by
 construction.  For each train seed $s \in \{1, \dots, \nSeeds\}$ we
-draw a bootstrap $S^{(s)}$ from the canonical training pool and train
-$f^{(s)} = \mathcal{A}(S^{(s)})$ on it.  Cross-sample churn is the average of
+draw a bootstrap $S^{(s)}$ from the canonical training pool and
+train $f^{(s)} = \mathcal{A}(S^{(s)})$ on it.  Cross-sample churn is the average of
 $\mathbf{1}[\arg\max f^{(s)}(x) \neq \arg\max f^{(s')}(x)]$ over all
 $\binom{\nSeeds}{2}{=}\nSeedPairs$ pairs $(s, s')$ and over the canonical test set.
 Confidence intervals come from $10{,}000$-sample bootstrap on the

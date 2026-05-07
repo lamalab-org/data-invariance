@@ -79,10 +79,12 @@ the twin-bootstrap procedure we propose --- do reduce it.
         $K$-bootstrap bagging~\citep{Breiman1996} cuts churn
         $\bagFiveLow\text{--}\bagFiveHigh\%$ on every dataset at no
         accuracy cost, at $K\times$-ERM compute (Table~\ref{tab:main}).
-  \item \textbf{Twin-bootstrap}, the codistillation operating point
-        at $\sim\overlapPctMid\%$ inter-network bootstrap overlap:
-        at matched $2\times$-ERM compute it cuts churn a further
-        median $\twinFurtherMedianReductionVsBagTwo\%$ beyond bagging
+  \item \textbf{Twin-bootstrap.}  Two networks are trained jointly
+        on independent bootstraps with a symmetric-KL consistency
+        loss between their predictions ($\sim\overlapPctMid\%$
+        inter-network data overlap by construction).  At matched
+        $2\times$-ERM compute it cuts churn a further median
+        $\twinFurtherMedianReductionVsBagTwo\%$ beyond bagging-$K{=}2$
         and matches $5\times$-compute bagging-$K{=}5$ in mean rank
         (Table~\ref{tab:main}, Figure~\ref{fig:main}).
   \item \textbf{Per-prediction triage} on top of any deployed model:

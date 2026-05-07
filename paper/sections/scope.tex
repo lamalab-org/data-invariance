@@ -18,10 +18,11 @@ twin-bootstrap reduces the cross-trajectory std of the final-best
 $y$ by $\boLoopRegTwinStdRedLow\%$--$\boLoopRegTwinStdRedHigh\%$ in
 a $\boLoopRegBudget$-step greedy BO loop on every dataset; bagging
 on $2/3$).  We do not benchmark
-larger acquisition policies that mix exploration via the
-surrogate's predictive variance (UCB, Thompson sampling, expected
-improvement); for our setting only twin-bootstrap exposes a
-predictive-variance estimate (the two heads' disagreement), so a
-fair single-policy comparison forces greedy top-$1$.  Whether the
-reproducibility gain we observe at greedy top-$1$ holds under
-explore-exploit policies is untested.
+acquisition policies that mix exploration via the surrogate's
+predictive variance (UCB, expected improvement, Thompson sampling).
+ERM has no natural per-prediction variance estimate; bagging and
+twin-bootstrap do (the head-spread).  Implementing exploit/explore
+acquisition asymmetrically across methods would not be a fair
+comparison, so we run greedy top-$1$ for every method; whether the
+reproducibility gain transfers to explore--exploit policies is
+untested.

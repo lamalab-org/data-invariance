@@ -433,11 +433,11 @@ from scratch on the currently labelled subset (with a step- and
 trajectory-keyed bootstrap seed), predicts $\hat{y}$ on the
 unlabelled remainder, and acquires the $\arg\max\hat{y}$.  The
 oracle reveals the molecule's actual $y$, and it joins the labelled
-subset.  Acquisition is greedy top-$1$ maximisation: only
-twin-bootstrap exposes a per-prediction variance estimate (the two
-heads' disagreement), so to keep the ERM-vs-bagging-vs-twin
-comparison single-policy we deliberately exclude UCB / EI / Thompson
-acquisition.  The budget is $\boLoopRegBudget$ acquisitions on top
+subset.  Acquisition is greedy top-$1$ maximisation: ERM has no
+natural per-prediction variance estimate, while bagging and
+twin-bootstrap do (head-spread).  Implementing UCB / EI / Thompson
+acquisition asymmetrically across methods would not be a fair
+comparison, so we use greedy for every method.  The budget is $\boLoopRegBudget$ acquisitions on top
 of the initial subset; the candidate library is the canonical
 training pool with the oracle $y$ values held back until
 acquisition.
