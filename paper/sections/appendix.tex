@@ -4,7 +4,7 @@ measurement framework ($N$-scaling, borderline datasets).
 Appendix~\ref{app:seed_sensitivity} reports the canonical-seed
 sensitivity of every magnitude in the main table.
 Appendices~\ref{app:pareto}--\ref{app:ablations} support the methods
-(Pareto curve, overlap spectrum, ablations).
+(Pareto curve, twin-bootstrap bayesian optimisation, overlap spectrum, ablations).
 Appendices~\ref{app:case_study}--\ref{app:bo_loop_reg} support the
 empirical results (per-molecule case study, distributional
 disagreement, Friedman test, triage convergence, entropy baseline,
@@ -182,16 +182,16 @@ MOF-thermal collapses ($-7.1$\,pp, well outside the $0.02$ selection-rule
 tolerance and the only dataset on which a per-dataset re-application of
 the rule would reject the BACE-frozen $\lambda$).
 
-\section{Bayesian optimization discovers dataset-specific}
+\section{Twin-bootstrap bayesian optimization discovers dataset-specific}
 
-Table~\ref{tab:bayes_twin} shows that $\lambda$ controls a clear accuracy--stability 
-tradeoff across datasets. Larger $\lambda$ values generally reduce churn but can 
-substantially degrade ID and OOD accuracy, while smaller $\lambda$ values improve 
-predictive performance at the cost of increased instability. Bayesian optimization 
-(BO) consistently identifies intermediate operating points that recover much of 
-the accuracy lost under strong regularization while often preserving part of its 
-stability benefit. The optimal $\lambda$ varies considerably across datasets, 
-indicating that the accuracy--stability frontier is dataset specific rather than 
+Table~\ref{tab:bayes_twin} shows that $\lambda$ controls a clear accuracy--stability
+tradeoff across datasets. Larger $\lambda$ values generally reduce churn but can
+substantially degrade ID and OOD accuracy, while smaller $\lambda$ values improve
+predictive performance at the cost of increased instability. Twin Bootstrap bayesian
+optimization (BO) consistently identifies intermediate operating points that recover much of
+the accuracy lost under strong regularization while often preserving part of its
+stability benefit. The optimal $\lambda$ varies considerably across datasets,
+indicating that the accuracy--stability frontier is dataset specific rather than
 governed by a single globally optimal regularization strength.
 
 \input{sections/tables/bayes_twin.tex}

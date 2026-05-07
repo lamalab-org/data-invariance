@@ -386,7 +386,7 @@ def write_comparison_latex(rows: list[dict], path: Path, compare_run: str) -> No
     lines = [
         r"\begin{table}[t]",
         r"  \centering",
-        r"  \caption{\textbf{Bayesian optimization discovers dataset-specific operating",
+        r"  \caption{\textbf{Twin-bootstrap bayesian optimization discovers dataset-specific operating",
         r" points on the accuracy--stability frontier.} Cells report the first method",
         r" named in each block minus the second with paired bootstrap $95\%$ confidence",
         r" intervals. Positive accuracy deltas indicate improved performance, while",
