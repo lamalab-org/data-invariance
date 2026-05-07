@@ -87,7 +87,9 @@ the twin-bootstrap procedure we propose --- do reduce it.
         $2\times$-ERM compute it cuts churn a further median
         $\twinFurtherMedianReductionVsBagTwo\%$ beyond bagging-$K{=}2$
         and matches $5\times$-compute bagging-$K{=}5$ in mean rank
-        (Table~\ref{tab:main}, Figure~\ref{fig:main}).
+        (Table~\ref{tab:main}, Figure~\ref{fig:main}); the same
+        reduction shows up at the Bayesian-optimisation acquisition
+        layer (Appendices~\ref{app:bo_topk} and~\ref{app:bo_loop_reg}).
   \item \textbf{Per-prediction triage} on top of any deployed model:
         sorting by per-example churn from a single extra retraining
         captures $\triageKtenLow\text{--}\triageKtenHigh\%$ of class
