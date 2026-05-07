@@ -171,6 +171,12 @@ def emit_magnitudes() -> None:
     except Exception:
         add("churnAccCorrPearson", "??")
         add("churnAccCorrSpearman", "??")
+        
+    bace = next((r for r in rows if r.get("dataset") == "bace"), None)
+    if bace:
+        add("baceMeanAccuracyDiff", _f(bace["acc_diff_pp_mean"]), "pct1")
+    else:
+        add("baceMeanAccuracyDiff", "??")
 
 
 def emit_main_table() -> None:
