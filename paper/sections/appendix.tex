@@ -424,23 +424,42 @@ bagging-$K{=}5$ and twin-bootstrap than under ERM?
 \paragraph{Protocol.}
 For each regression dataset and each of \{ERM, bagging-$K{=}5$,
 twin-bootstrap $\lambda{=}\boLoopRegLam$\} we run
-$K{=}\boLoopRegK$ independent BO trajectories.  All $K$ trajectories
-of a given method share the same random initial labelled subset of
+$T{=}\boLoopRegK$ independent BO trajectories
+(Algorithm~\ref{alg:bo-trajectory}).  All $T$ trajectories of a
+given method share the same random initial labelled subset of
 $\boLoopRegInitN$ molecules; trajectories diverge only in the
 in-loop training-data bootstraps, the same source of variance the
-paper measures elsewhere.  At each step the surrogate is retrained
-from scratch on the currently labelled subset (with a step- and
-trajectory-keyed bootstrap seed), predicts $\hat{y}$ on the
-unlabelled remainder, and acquires the $\arg\max\hat{y}$.  The
-oracle reveals the molecule's actual $y$, and it joins the labelled
-subset.  Acquisition is greedy top-$1$ maximisation: ERM has no
-natural per-prediction variance estimate, while bagging and
-twin-bootstrap do (head-spread).  Implementing UCB / EI / Thompson
-acquisition asymmetrically across methods would not be a fair
-comparison, so we use greedy for every method.  The budget is $\boLoopRegBudget$ acquisitions on top
-of the initial subset; the candidate library is the canonical
-training pool with the oracle $y$ values held back until
-acquisition.
+paper measures elsewhere.  Acquisition is greedy top-$1$
+maximisation: ERM has no natural per-prediction variance estimate,
+while bagging and twin-bootstrap do (head-spread).  Implementing
+UCB / EI / Thompson acquisition asymmetrically across methods would
+not be a fair comparison, so we use greedy for every method.  The
+budget is $\boLoopRegBudget$ acquisitions on top of the initial
+subset; the candidate library is the canonical training pool with
+the oracle $y$ values held back until acquisition.
+
+\begin{algorithm}[H]
+  \caption{BO trajectory (one trajectory of one method on one dataset).}
+  \label{alg:bo-trajectory}
+  \begin{algorithmic}[1]
+    \Require candidate pool $(X, y)$, training method $\mathcal{M}$,
+             trajectory index $k$, initial labelled subset $L_0$, budget $B$
+    \State $L \gets L_0$
+    \For{$t = 1, \dots, B$}
+      \State seed $\gets k \cdot 10^6 + t$
+        \Comment{step- and trajectory-keyed bootstrap seed}
+      \State $f \gets \mathcal{M}.\text{train}(X_L,\, y_L;\,\text{seed})$
+        \Comment{ERM / bagging-$K{=}5$ / twin-bootstrap}
+      \State $\hat{y} \gets f.\text{predict}(X_{[\,1..N\,]\setminus L})$
+      \State $i^* \gets \arg\max \hat{y}$
+        \Comment{greedy top-$1$ acquisition}
+      \State $L \gets L \cup \{\,i^*\,\}$
+        \Comment{oracle reveals $y_{i^*}$}
+    \EndFor
+    \State \Return $L \setminus L_0$
+      \Comment{the $B$ acquired molecules of trajectory $k$}
+  \end{algorithmic}
+\end{algorithm}
 
 \input{sections/tables/bo_loop_regression.tex}
 

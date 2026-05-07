@@ -200,7 +200,9 @@ def main() -> None:
         r"BO-relevant consequence of cross-sample churn.}",
         r"  \label{tab:bo_topk}",
         r"  \scriptsize",
-        r"  \begin{tabular}{lrr@{\hspace{0.8em}}c@{\hspace{0.8em}}cc@{\hspace{0.8em}}cc}",
+        r"  \setlength{\tabcolsep}{4pt}",
+        r"  \resizebox{\linewidth}{!}{%",
+        r"  \begin{tabular}{lrr@{\hspace{0.6em}}c@{\hspace{0.6em}}cc@{\hspace{0.6em}}cc}",
         r"    \toprule",
         r"    & class & ERM & ERM & \multicolumn{2}{c}{Bagging-$K{=}5$}"
         r" & \multicolumn{2}{c}{Twin-bootstrap $\lambda{=}300$} \\",
@@ -249,6 +251,7 @@ def main() -> None:
     lines += [
         r"    \bottomrule",
         r"  \end{tabular}",
+        r"  }",
         r"\end{table}",
         "",
     ]

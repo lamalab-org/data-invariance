@@ -167,7 +167,7 @@ def main() -> None:
     for r in summary_rows:
         by_ds.setdefault(r["dataset"], {})[r["method"]] = r
 
-    K_traj = max((r["n_trajectories"] for r in summary_rows), default=0)
+    T_traj = max((r["n_trajectories"] for r in summary_rows), default=0)
     lines = [
         r"\begin{table}[h]",
         r"  \centering",
@@ -175,18 +175,18 @@ def main() -> None:
         r"regression benchmarks: bagging-$K{=}5$ and twin-bootstrap reduce "
         r"the cross-trajectory standard deviation of the final-best $y$ on "
         r"every dataset.}  For each (dataset, method) we run "
-        f"$K{{=}}{K_traj}$ "
+        f"$T{{=}}{T_traj}$ "
         r"BO trajectories sharing the same random initial subset of "
         r"$50$ labelled molecules; trajectories diverge only in the in-loop "
         r"training-data bootstraps.  At each step the surrogate is "
         r"retrained from scratch, predicts $\hat{y}$ on the unlabelled "
         r"remainder, and acquires the $\arg\max\hat{y}$.  \emph{Final best} "
         r"reports cross-trajectory mean and std with $95\%$ bootstrap CIs "
-        r"over the $K$ trajectories ($10{,}000$ resamples).  \emph{std/range} is the std as a "
+        r"over the $T$ trajectories ($10{,}000$ resamples).  \emph{std/range} is the std as a "
         r"percentage of each dataset's $y$ range, anchoring its absolute "
         r"scale.  \emph{Acquired Jaccard} is the mean overlap of "
         r"per-trajectory acquired-molecule sets across all "
-        r"$\binom{K}{2}$ trajectory pairs.}",
+        r"$\binom{T}{2}$ trajectory pairs.}",
         r"  \label{tab:bo_loop_regression}",
         r"  \scriptsize",
         r"  \setlength{\tabcolsep}{4pt}",

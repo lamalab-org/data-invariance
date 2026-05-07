@@ -3,7 +3,9 @@
   \caption{\textbf{\boldmath Top-$K$ ranking stability ($10$ molecules) between independent retrainings: a Bayesian-optimisation analogue of cross-sample churn.}  Jaccard overlap of the top-$K$ predicted-active sets across the same $45$ pairs of $10$ retrainings as the main table; $1.0$ = identical sets, $0.0$ = disjoint.  Paired $\Delta$ vs.\ ERM in the right two columns (positive = stabler ranking).  All cells: mean $[\,95\%\ \text{CI}\,]$ from $10{,}000$ paired-bootstrap resamples.  Class prior is the positive-class fraction on the canonical id-test, the chance baseline for top-$K$ hit rate; the surrogate has signal whenever the ERM hit rate exceeds the prior.  The Jaccard difference is the BO-relevant consequence of cross-sample churn.}
   \label{tab:bo_topk}
   \scriptsize
-  \begin{tabular}{lrr@{\hspace{0.8em}}c@{\hspace{0.8em}}cc@{\hspace{0.8em}}cc}
+  \setlength{\tabcolsep}{4pt}
+  \resizebox{\linewidth}{!}{%
+  \begin{tabular}{lrr@{\hspace{0.6em}}c@{\hspace{0.6em}}cc@{\hspace{0.6em}}cc}
     \toprule
     & class & ERM & ERM & \multicolumn{2}{c}{Bagging-$K{=}5$} & \multicolumn{2}{c}{Twin-bootstrap $\lambda{=}300$} \\
     \cmidrule(lr){5-6} \cmidrule(lr){7-8}
@@ -20,4 +22,5 @@
     AMES & 51 & 89 & 0.03 [0.02, 0.05] & 0.09 [0.06, 0.13] & +0.06 [+0.02, +0.10] & \textbf{0.49 [0.45, 0.54]} & \textbf{+0.46 [+0.42, +0.51]} \\
     \bottomrule
   \end{tabular}
+  }
 \end{table}
