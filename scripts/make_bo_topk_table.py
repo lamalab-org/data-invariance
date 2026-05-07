@@ -210,6 +210,9 @@ def main() -> None:
         r" & Jaccard & $\Delta$ vs ERM \\",
         r"    \midrule",
     ]
+    def _bold(cell: str, do: bool) -> str:
+        return r"\textbf{" + cell + r"}" if do else cell
+
     for ds in datasets:
         cells = by_ds.get(ds, {})
         if "ERM" not in cells:
@@ -218,15 +221,30 @@ def main() -> None:
         bag = cells.get("Bagging-K=5")
         twin = cells.get(f"Twin-lam{int(FROZEN_LAM)}")
         ds_label = display(ds) + (r"\,(dev)" if ds == DEV_DATASET else "")
+        # Bold the highest Jaccard across {ERM, Bag, Twin} per row, ties bold
+        # both; bold the larger paired Δ vs ERM between Bag and Twin.
+        jac_vals = [(erm["jaccard_mean"], "erm")]
+        if bag:  jac_vals.append((bag["jaccard_mean"],  "bag"))
+        if twin: jac_vals.append((twin["jaccard_mean"], "twin"))
+        jac_best = max(v for v, _ in jac_vals)
+        jac_winners = {n for v, n in jac_vals if abs(v - jac_best) < 1e-9}
+        delta_winners = set()
+        if bag and twin and not np.isnan(bag["delta_mean"]) \
+                and not np.isnan(twin["delta_mean"]):
+            d_best = max(bag["delta_mean"], twin["delta_mean"])
+            if abs(bag["delta_mean"] - d_best) < 1e-9:
+                delta_winners.add("bag")
+            if abs(twin["delta_mean"] - d_best) < 1e-9:
+                delta_winners.add("twin")
         lines.append(
             f"    {ds_label} & "
             f"{erm['class_prior']*100:.0f} & "
             f"{erm['hit_rate_mean']*100:.0f} & "
-            f"{cell_jac(erm)} & "
-            f"{cell_jac(bag) if bag else '---'} & "
-            f"{cell_delta(bag) if bag else '---'} & "
-            f"{cell_jac(twin) if twin else '---'} & "
-            f"{cell_delta(twin) if twin else '---'} \\\\"
+            f"{_bold(cell_jac(erm), 'erm' in jac_winners)} & "
+            f"{_bold(cell_jac(bag), 'bag' in jac_winners) if bag else '---'} & "
+            f"{_bold(cell_delta(bag), 'bag' in delta_winners) if bag else '---'} & "
+            f"{_bold(cell_jac(twin), 'twin' in jac_winners) if twin else '---'} & "
+            f"{_bold(cell_delta(twin), 'twin' in delta_winners) if twin else '---'} \\\\"
         )
     lines += [
         r"    \bottomrule",

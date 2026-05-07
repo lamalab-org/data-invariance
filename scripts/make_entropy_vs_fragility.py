@@ -139,12 +139,24 @@ def main() -> None:
         r"    Dataset & Churn & Entropy & Churn & Entropy \\",
         r"    \midrule",
     ]
+    # Bold the winner per row × per metric (higher is better for both
+    # top-10% recall and AuPC).  Ties bold both cells.
+    def _b(val_str: str, win: bool) -> str:
+        return r"\textbf{" + val_str + r"}" if win else val_str
+
     for r in rows:
+        f_top = r["frag_top10_capture"]
+        e_top = r["ent_top10_capture"]
+        f_auc = r["frag_aupc"]
+        e_auc = r["ent_aupc"]
+        f_top_s = _b(f"{f_top*100:.1f}", f_top >= e_top - 1e-9)
+        e_top_s = _b(f"{e_top*100:.1f}", e_top >= f_top - 1e-9)
+        f_auc_s = _b(f"{f_auc:.3f}",     f_auc >= e_auc - 1e-9)
+        e_auc_s = _b(f"{e_auc:.3f}",     e_auc >= f_auc - 1e-9)
         lines.append(
             f"    {display(r['dataset'])} & "
-            f"{r['frag_top10_capture']*100:.1f} & "
-            f"{r['ent_top10_capture']*100:.1f} & "
-            f"{r['frag_aupc']:.3f} & {r['ent_aupc']:.3f} \\\\"
+            f"{f_top_s} & {e_top_s} & "
+            f"{f_auc_s} & {e_auc_s} \\\\"
         )
     lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
     Path(args.latex).parent.mkdir(parents=True, exist_ok=True)

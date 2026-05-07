@@ -391,11 +391,11 @@ dataset (paired $\Delta J_{\boTopkK} \in [\boTopkTwinDeltaMin,
 \boTopkTwinDeltaMax]$, lifting the lower end of the range to
 $\boTopkTwinJaccardLow$ and the upper end to
 $\boTopkTwinJaccardHigh$), with the largest absolute gains where
-ERM is most unstable.  The Jaccard improvement tracks but exceeds
-what argmax churn alone would predict --- the rank order in the
-upper tail integrates over the full softmax distribution, which is
-the quantity sym-KL stabilises (Section~\ref{sec:experiments},
-``Distributional disagreement'').
+ERM is most unstable.  The Jaccard gain exceeds what the argmax
+churn reduction alone would predict: top-$K$ ranking depends on
+the full softmax distribution, not just the argmax, and that is the
+quantity sym-KL --- and twin-bootstrap --- stabilise
+(Section~\ref{sec:experiments}, ``Distributional disagreement'').
 
 \paragraph{Scope.}
 The Jaccard quantity above measures input-stability of a single BO
