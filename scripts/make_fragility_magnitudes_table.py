@@ -129,7 +129,7 @@ def main() -> None:
         + r"\,pp on average, but disagree on $8\text{--}22\%$ of "
         r"individual test predictions.}  "
         r"Cross-bootstrap class-flip rate on the canonical id-test of "
-        r"the nine chemistry datasets that pass the +5pp ERM-vs-majority "
+        r"the nine chemistry datasets that pass a $+5$pp ERM-vs-majority "
         r"filter on test sets of at least $60$ examples (BACE is the "
         r"development dataset; the other eight are held-out).  Three "
         r"datasets that pass the filter only marginally are reported in "

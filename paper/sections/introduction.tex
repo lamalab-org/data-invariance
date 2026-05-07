@@ -93,6 +93,14 @@ the twin-bootstrap procedure we propose --- do reduce it.
         captures $\triageKtenLow\text{--}\triageKtenHigh\%$ of class
         flips at the top-$\reviewFraction\%$ review fraction; better
         than predictive entropy on every dataset
-        (Section~\ref{sec:churn-decile}).
+        (Section~\ref{sec:churn-decile}).  This stability transfers
+        to the Bayesian-optimisation acquisition step: twin-bootstrap
+        raises top-$\boTopkK$ Jaccard between two retrainings on
+        every chemistry dataset (Appendix~\ref{app:bo_topk}) and
+        cuts the cross-trajectory std of the final-best acquired
+        $y$ by
+        $\boLoopRegTwinStdRedLow\%\text{--}\boLoopRegTwinStdRedHigh\%$
+        in a greedy BO loop on the three regression benchmarks
+        (Appendix~\ref{app:bo_loop_reg}).
 \end{itemize}
 
