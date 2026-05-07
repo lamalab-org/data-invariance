@@ -5,11 +5,25 @@ the same cross-sample data protocol, but chooses the twin-indep consistency
 weight ``lambda`` with a small Gaussian-process Bayesian optimizer before
 saving the final predictions.
 
+Selection-vs-reporting hygiene
+------------------------------
+The default ``--objective_split val`` carves a deterministic
+``--val_frac`` fraction off the canonical training pool *before*
+bootstrapping (seed = ``--canonical_data_seed``).  Bootstraps are drawn
+from the remaining ``train`` indices only; ``id_test`` and ``ood_test``
+are never seen during optimisation.  This is the rigorous setting for
+the preprint and revision.
+
+``--objective_split id_test`` and ``ood_test`` remain available for
+comparison runs that deliberately use the test set as the BO oracle
+(an upper bound on what tuning could achieve, not a fair held-out
+result).
+
 The optimizer depends only on scikit-learn, which is already a project
 dependency.  It searches in log10(lambda) and maximizes validation score:
 
-* classification: ensemble accuracy on ``--objective_split``
-* regression: negative ensemble MAE on ``--objective_split``
+* classification: ensemble accuracy on the chosen objective split
+* regression: negative ensemble MAE on the chosen objective split
 """
 from __future__ import annotations
 
@@ -22,6 +36,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from torch.utils.data import DataLoader, Subset
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -138,13 +153,60 @@ def _idx_hash(loader) -> str:
     return hashlib.sha256(np.asarray(idxs, dtype=np.int64).tobytes()).hexdigest()[:16]
 
 
+def _carve_val(canonical_loaders, canonical_data_seed: int, val_frac: float,
+               subsample_size: int | None
+               ) -> tuple[np.ndarray, np.ndarray, DataLoader]:
+    """Split the canonical training pool into (train_pool, val).
+
+    The split is deterministic in ``canonical_data_seed`` and lives entirely
+    inside the canonical training set: ``id_test`` and ``ood_test`` are
+    untouched.  When ``subsample_size`` is set, the subsample is drawn
+    *first* and val is then carved from that prefix, so the subsample-vs-no
+    subsample comparison stays apples-to-apples on the val fraction.
+
+    Returns ``(pool_idx, val_idx, val_loader)``.  ``pool_idx`` is the new
+    bootstrap pool that ``_train_twin_indep`` consumes; ``val_loader``
+    iterates the held-out indices in input order (no shuffle, no aug
+    differences from the canonical train transforms).
+    """
+    train_loader = canonical_loaders["train"]
+    base = train_loader.dataset
+    n_train_full = len(base)
+
+    shuffled = np.random.default_rng(canonical_data_seed).permutation(n_train_full)
+    if subsample_size is not None and subsample_size < n_train_full:
+        shuffled = shuffled[:subsample_size]
+
+    if not (0.0 < val_frac < 1.0):
+        raise ValueError(f"--val_frac must be in (0, 1); got {val_frac}")
+    n_val = max(1, int(round(val_frac * len(shuffled))))
+    if n_val >= len(shuffled):
+        raise ValueError(
+            f"--val_frac={val_frac} leaves no training pool "
+            f"(pool size {len(shuffled)}, n_val {n_val})"
+        )
+    val_idx = shuffled[:n_val]
+    pool_idx = shuffled[n_val:]
+
+    val_loader = DataLoader(
+        Subset(base, val_idx.tolist()),
+        batch_size=train_loader.batch_size,
+        shuffle=False,
+        num_workers=train_loader.num_workers,
+        pin_memory=train_loader.pin_memory,
+        collate_fn=train_loader.collate_fn,
+    )
+    return pool_idx, val_idx, val_loader
+
+
 def _save_trials(path: Path, trials: list[dict], best: dict) -> None:
     path.write_text(json.dumps({"best": best, "trials": trials}, indent=2))
 
 
 def _save_final(args, cfg, canonical_loaders, out_root: Path, device, m_a, m_b,
                 best: dict, train_seed: int, epochs: int, n_train: int,
-                n_train_full: int, data_hash: str, test_hash: str) -> None:
+                n_train_full: int, data_hash: str, test_hash: str,
+                val_hash: str | None = None, val_size: int | None = None) -> None:
     lam = best["lam"]
     if _is_regression(cfg):
         id_p_a, id_y, id_i = _predict_reg(m_a, canonical_loaders["id_test"], device)
@@ -201,6 +263,9 @@ def _save_final(args, cfg, canonical_loaders, out_root: Path, device, m_a, m_b,
         "bayes_init_trials": args.bayes_init_trials,
         "bayes_seed": args.bayes_seed,
         "objective_split": args.objective_split,
+        "val_frac": args.val_frac if args.objective_split == "val" else None,
+        "val_size": val_size,
+        "val_hash": val_hash,
         "lam": lam,
         "lam_min": args.lam_min,
         "lam_max": args.lam_max,
@@ -233,18 +298,43 @@ def run(args) -> None:
     epochs = args.epochs if args.epochs is not None else HPARAMS[args.dataset]["epochs"]
     n_train_full = len(canonical_loaders["train"].dataset)
 
-    pool_idx = None
-    if args.subsample_size is not None and args.subsample_size < n_train_full:
+    val_loader = None
+    val_hash: str | None = None
+    val_size: int | None = None
+    if args.objective_split == "val":
+        pool_idx, val_idx, val_loader = _carve_val(
+            canonical_loaders, args.canonical_data_seed,
+            args.val_frac, args.subsample_size,
+        )
+        n_train = len(pool_idx)
+        val_size = int(len(val_idx))
+        val_hash = hashlib.sha256(
+            np.asarray(val_idx, dtype=np.int64).tobytes()).hexdigest()[:16]
+        data_hash = hashlib.sha256(
+            np.asarray(pool_idx, dtype=np.int64).tobytes()).hexdigest()[:16]
+        print(f"Held-out val: n={val_size} carved from canonical pool "
+              f"(seed={args.canonical_data_seed}, frac={args.val_frac}); "
+              f"bootstrap pool n={n_train}.")
+    elif args.subsample_size is not None and args.subsample_size < n_train_full:
         pool_rng = np.random.default_rng(args.canonical_data_seed)
         pool_idx = pool_rng.permutation(n_train_full)[: args.subsample_size]
         n_train = args.subsample_size
-        data_hash = hashlib.sha256(np.asarray(pool_idx, dtype=np.int64).tobytes()).hexdigest()[:16]
+        data_hash = hashlib.sha256(
+            np.asarray(pool_idx, dtype=np.int64).tobytes()).hexdigest()[:16]
         print(f"Subsample: training pool capped at M={n_train} "
               f"(canonical set has {n_train_full} examples).")
     else:
+        pool_idx = None
         n_train = n_train_full
         data_hash = _idx_hash(canonical_loaders["train"])
-    test_hash = _idx_hash(canonical_loaders[args.objective_split])
+
+    if args.objective_split == "val":
+        objective_loader = val_loader
+        objective_hash = val_hash
+    else:
+        objective_loader = canonical_loaders[args.objective_split]
+        objective_hash = _idx_hash(objective_loader)
+    test_hash = objective_hash
 
     print(f"Canonical test set: id n={len(canonical_loaders['id_test'].dataset)}, "
           f"ood n={len(canonical_loaders['ood_test'].dataset)}")
@@ -272,7 +362,7 @@ def run(args) -> None:
                 pool_idx=pool_idx, n_train=n_train,
             )
             score, metrics = _score_twin(
-                cfg, m_a, m_b, canonical_loaders[args.objective_split], device)
+                cfg, m_a, m_b, objective_loader, device)
             record = {
                 "trial": trial_idx,
                 "lam": float(lam),
@@ -299,6 +389,7 @@ def run(args) -> None:
         _save_final(
             args, cfg, canonical_loaders, out_root, device, m_a, m_b, best,
             train_seed, epochs, n_train, n_train_full, data_hash, test_hash,
+            val_hash=val_hash, val_size=val_size,
         )
 
 
@@ -326,12 +417,20 @@ if __name__ == "__main__":
                     help="Optional comma-separated lambda values to try first.")
     ap.add_argument("--include_zero_trial", action="store_true",
                     help="Try lambda=0 before positive-lambda Bayesian search.")
-    ap.add_argument("--objective_split", choices=["id_test", "ood_test"],
-                    default="id_test",
-                    help="Split used to score Bayesian-optimization trials.")
+    ap.add_argument("--objective_split", choices=["val", "id_test", "ood_test"],
+                    default="val",
+                    help="Split used to score Bayesian-optimization trials. "
+                         "'val' carves a held-out fraction of the canonical "
+                         "training pool (rigorous default). 'id_test' / "
+                         "'ood_test' deliberately use the test set as the BO "
+                         "oracle (upper-bound comparison only).")
+    ap.add_argument("--val_frac", type=float, default=0.2,
+                    help="Fraction of the canonical training pool held out as "
+                         "the BO objective when --objective_split=val.  "
+                         "Ignored otherwise.")
     ap.add_argument("--subsample_size", type=int, default=None,
                     help="If set, cap the canonical training pool at this many examples.")
     ap.add_argument("--epochs", type=int, default=None,
                     help="Override epochs from HPARAMS.")
-    ap.add_argument("--output_dir", default="outputs/cross_sample_bayes")
+    ap.add_argument("--output_dir", default="outputs/cross_sample_bayes_val")
     run(ap.parse_args())

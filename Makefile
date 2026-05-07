@@ -1,7 +1,8 @@
 .PHONY: install lint format test check figures tables analysis macros \
         sweep-erm sweep-bagging sweep-deep-ensemble sweep-twin-indep \
         sweep-pareto-bace sweep-borderline sweep-excluded \
-        bo-loop-regression bo-topk help
+        bo-loop-regression bo-topk \
+        bayes-twin-val bayes-twin-val-baselines bayes-twin-table help
 
 # === Development ===
 
@@ -192,6 +193,63 @@ BO_LOOP_ARGS ?= --K 20 --budget 10 --initial_n 50
 bo-loop-regression:
 	uv run python scripts/bo_loop_regression.py $(BO_LOOP_ARGS)
 	uv run python scripts/make_bo_loop_regression_table.py
+	uv run python scripts/make_paper_macros.py
+
+
+# === Per-dataset Bayesian optimisation of lambda (App. bayes_twin) ===
+#
+# Rigorous protocol for the preprint and revision:
+#   - BO objective is a held-out fraction (--val_frac) of the canonical
+#     training pool, carved deterministically by --canonical_data_seed.
+#     id_test and ood_test are never seen during selection.
+#   - 50 GP-EI trials per (dataset, train_seed); Matérn-2.5 kernel.
+#   - Outputs land in outputs/cross_sample_bayes_val/ to keep the v1
+#     id_test-objective numbers (outputs/cross_sample_bayes/) separate.
+#
+# Step 1 (cluster): submit slurm/full_retraining/10_bayes_twin_headline.sh.
+#   The slurm script's defaults match this Makefile (val, val_frac=0.2,
+#   output_dir=outputs/cross_sample_bayes_val).  90 array tasks =
+#   9 datasets × 10 train_seeds.  Then rsync the output dir back.
+# Step 2 (cluster, optional): generate the lambda=0 baseline used by the
+#   BO-vs-lambda=0 block (see bayes-twin-val-baselines).  lambda=300 is
+#   already covered by outputs/cross_sample/*twin_indep*lam300.0.npz.
+# Step 3 (local): make bayes-twin-table.
+BAYES_DATASETS := $(DEV_DATASET) dili pgp_broccatelli bbb_martins bbbp tadf \
+                  mof_thermal ames cyp2d6_substrate
+BAYES_VAL_ROOT := outputs/cross_sample_bayes_val
+BAYES_LAM0_ROOT := outputs/cross_sample_bayes_lam0
+BAYES_LAM300_ROOT := outputs/cross_sample
+
+bayes-twin-val:
+	@echo "Submit on the cluster:"
+	@echo "  sbatch slurm/full_retraining/10_bayes_twin_headline.sh"
+	@echo "Then rsync $(BAYES_VAL_ROOT)/ back and run: make bayes-twin-table"
+
+# lambda=0 fixed-lambda twin_indep baseline (= K=2 bagging, mechanistically).
+# Cheap relative to BO: ten retrainings per dataset, no inner sweep.
+bayes-twin-val-baselines:
+	@for ds in $(BAYES_DATASETS); do \
+	  uv run python scripts/cross_sample_train.py \
+	    --dataset $$ds --canonical_data_seed $(CANON_DATA_SEED) \
+	    --train_seeds $(SEEDS) --mode twin_indep --lam 0 \
+	    --output_dir $(BAYES_LAM0_ROOT); \
+	done
+
+# Build the four-block bayes_twin table from the rigorous BO outputs.
+# Requires NPZs to already exist; if any are missing the script will
+# print a warning row.
+bayes-twin-table:
+	uv run python scripts/make_bayes_table.py \
+	  --roots bo=$(BAYES_VAL_ROOT) lam0=$(BAYES_LAM0_ROOT) \
+	          lam300=$(BAYES_LAM300_ROOT) \
+	  --datasets $(BAYES_DATASETS) \
+	  --erm-root $(BAYES_LAM300_ROOT) \
+	  --baseline-run lam0 \
+	  --baseline-runs lam0 lam300 \
+	  --compare-run bo \
+	  --extra-comparisons lam0:lam300 \
+	  --csv outputs/bayes_table.csv \
+	  --latex paper/sections/tables/bayes_twin.tex
 	uv run python scripts/make_paper_macros.py
 
 
