@@ -16,12 +16,15 @@ with no consistent sign.  Averaging $T{=}20$ stochastic forward passes
 training trajectory (SWA) all keep the data-resampling axis
 constant.  
 At matched compute against bagging-$K{=}2$, twin-bootstrap wins on
-$\twinWinsBagTwoMain/\twinWinsBagTwoMainDenom$ datasets (paired CI
-excludes zero); the comparison ties on DILI, whose canonical id-test
-holds only $\diliNTest$ examples.  Against the
-$5\times$-compute bagging-$K{=}5$, twin-bootstrap wins on
+$\twinWinsBagTwoMain/\twinWinsBagTwoMainDenom$ datasets across the
+full set (paired CI excludes zero); the comparison ties on DILI,
+whose canonical id-test holds only $\diliNTest$ examples.  Against
+the $5\times$-compute bagging-$K{=}5$, twin-bootstrap wins on
 $\twinWinsBagFiveHeldout/\twinWinsBagFiveHeldoutDenom$ held-out
-datasets and trails on $\bagFiveWinsTwinHeldout$ (DILI, Pgp, TADF).
+datasets and trails on $\bagFiveWinsTwinHeldout$ (DILI, Pgp, TADF);
+we restrict this cross-tier comparison to the
+$\nDatasetsHeldout{}$ held-out datasets so the dev dataset BACE
+(on which $\lambda$ was selected) does not enter the count.
 The aggregate Friedman test rejects equal-ranks at
 $\chi^2 = \friedmanChi$, $p = \friedmanP$; twin-bootstrap ranks
 first, indistinguishable from bagging-$K{=}5$ at less than half the
