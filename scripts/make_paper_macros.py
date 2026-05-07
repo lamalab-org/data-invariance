@@ -131,6 +131,11 @@ def emit_dataset_counts() -> None:
     # main-table protocol was replicated on (the original 99 plus 7
     # and 42).  See scripts/run_seed_sweep.sh.
     add("nCanonicalSeeds", "3")
+    # Pre-registered lambda picked by the BACE selection rule and applied
+    # unchanged to every held-out dataset.  Mirrors FROZEN_LAM in
+    # paper_constants.py so the prose, table captions, and the per-dataset
+    # callouts in the appendix all read from one source.
+    add("preregLambda", str(int(FROZEN_LAM)))
 
 
 def emit_magnitudes() -> None:
@@ -433,6 +438,38 @@ def emit_entropy() -> None:
     add("entropyTopHigh", max(ent), "pct0")
     add("entropyGapMin", round(min(gaps_pp)), "pct0")
     add("entropyGapMax", round(max(gaps_pp)), "pct0")
+
+
+def emit_bayes_twin() -> None:
+    """Per-dataset twin-bootstrap Bayesian-optimisation summary.
+
+    No source CSV exists yet (the cluster sweep produced NPZs that fed
+    paper/sections/tables/bayes_twin.tex directly).  These macros mirror
+    the published table so the appendix prose can reference them via
+    \\bayesTwin{...}.  When ``outputs/bayes_table.csv`` lands later,
+    swap this hard-coded block for a loop over that CSV.
+    """
+    # Protocol values; match slurm/full_retraining/10_bayes_twin_headline.sh.
+    add("bayesTwinTrials",      "50")
+    add("bayesTwinInitTrials",  "4")
+    add("bayesTwinKernel",      r"\textrm{Mat\'ern-2.5}")
+    add("bayesTwinLamMin",      "10^{-3}")
+    add("bayesTwinLamMax",      r"3{\cdot}10^2")
+    # Range of mean BO-selected lambda across the nine datasets.
+    # From paper/sections/tables/bayes_twin.tex (MOF-thermal=1.122, BBBP=153.3).
+    add("bayesTwinMeanLamLo",   "1.1")
+    add("bayesTwinMeanLamHi",   "153")
+    # ID-churn delta range (BO minus lambda=preregLambda) across the table:
+    # min Pgp=-0.1, max MOF-thermal=+7.2.
+    add("bayesTwinVsRuleIdChurnLo", "-0.1")
+    add("bayesTwinVsRuleIdChurnHi", "+7.2")
+    # BO-vs-ERM head-counts: number of datasets (out of nDatasetsHeadline)
+    # on which BO beats ERM on each axis.  ID churn 9/9; OOD churn 8/9
+    # (DILI is the outlier on both OOD axes).  Accuracy counts are not
+    # quoted in prose because the BO objective is id_test, so they would
+    # be selection-on-test artefacts rather than a real held-out claim.
+    add("bayesTwinVsErmIdChurnCount", "9")
+    add("bayesTwinVsErmOodChurnCount", "8")
 
 
 def emit_bo_topk() -> None:
@@ -1078,6 +1115,7 @@ def main() -> None:
     emit_friedman()
     emit_triage()
     emit_entropy()
+    emit_bayes_twin()
     emit_bo_topk()
     emit_bo_loop_regression()
     emit_regression()

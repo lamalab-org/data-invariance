@@ -4,7 +4,7 @@ measurement framework ($N$-scaling, borderline datasets).
 Appendix~\ref{app:seed_sensitivity} reports the canonical-seed
 sensitivity of every magnitude in the main table.
 Appendices~\ref{app:pareto}--\ref{app:ablations} support the methods
-(Pareto curve, overlap spectrum, ablations).
+(Pareto curve, twin-bootstrap bayesian optimisation, overlap spectrum, ablations).
 Appendices~\ref{app:case_study}--\ref{app:bo_loop_reg} support the
 empirical results (per-molecule case study, distributional
 disagreement, Friedman test, triage convergence, entropy baseline,
@@ -181,6 +181,29 @@ CYP2D6-Sub, and BBBP.  Pgp shows a small loss ($-1.5$\,pp), and
 MOF-thermal collapses ($-7.1$\,pp, well outside the $0.02$ selection-rule
 tolerance and the only dataset on which a per-dataset re-application of
 the rule would reject the BACE-frozen $\lambda$).
+
+\section{\boldmath Per-dataset Bayesian optimisation of $\lambda$}
+\label{app:bayes_twin}
+
+We replace the BACE-frozen $\lambda{=}\preregLambda$ with per-dataset
+Bayesian optimisation: $\bayesTwinTrials$ GP-EI trials per dataset
+and seed ($\bayesTwinKernel$ kernel, $\lambda \in [\bayesTwinLamMin,
+\bayesTwinLamMax]$, $\bayesTwinInitTrials$ random init), maximising
+twin-network ID accuracy on the canonical \texttt{id\_test} split.
+The same split is used for selection and reporting, so the
+ID-accuracy column of Table~\ref{tab:bayes_twin} is an upper bound;
+OOD accuracy and both churn columns are held out.  Selected mean
+$\lambda$ is below $\preregLambda$ on every dataset (range
+$\bayesTwinMeanLamLo$--$\bayesTwinMeanLamHi$).  Against
+$\lambda{=}\preregLambda$, BO recovers ID accuracy on every dataset
+and increases ID churn by $\bayesTwinVsRuleIdChurnLo$ to
+$\bayesTwinVsRuleIdChurnHi$\,pp.  Against bootstrap-matched ERM
+(Table~\ref{tab:main}), BO cuts ID churn on
+$\bayesTwinVsErmIdChurnCount/\nDatasetsHeadline$ datasets and OOD
+churn on $\bayesTwinVsErmOodChurnCount/\nDatasetsHeadline$ (DILI is
+the OOD exception).
+
+\input{sections/tables/bayes_twin.tex}
 
 \section{\boldmath Overlap spectrum: $\sim$\overlapPctMid\% balances churn reduction and accuracy preservation}
 \label{app:overlap_spectrum}
