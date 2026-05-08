@@ -455,7 +455,7 @@ def emit_bayes_twin() -> None:
     add("bayesTwinInitTrials",  "4")
     add("bayesTwinKernel",      r"\textrm{Mat\'ern-2.5}")
     add("bayesTwinLamMin",      "10^{-3}")
-    add("bayesTwinLamMax",      r"3{\cdot}10^2")
+    add("bayesTwinLamMax",      "10^{4}")
 
 
 def emit_bo_topk() -> None:

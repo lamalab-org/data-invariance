@@ -130,19 +130,115 @@ def _candidate_lam(trials: list[dict], args) -> float:
     return float(10.0 ** grid[int(order[0]), 0])
 
 
-def _score_twin(cfg, m_a, m_b, loader, device) -> tuple[float, dict]:
+def _twin_metrics(cfg, m_a, m_b, loader, device) -> dict[str, float]:
+    """Forward-pass metrics for one twin (A, B) on `loader`.
+
+    Returns a flat dict with both an *accuracy* signal and a *churn*
+    signal so the BO objective can be composed downstream:
+
+      classification:
+        ``acc``    -- ensemble argmax accuracy of (A+B)/2
+        ``churn``  -- inter-network argmax disagreement (A.argmax != B.argmax)
+                      on the same loader, in [0, 1].  Free: A and B are
+                      already computed.
+
+      regression:
+        ``acc``    -- negative ensemble MAE (so larger is better, matching
+                      classification)
+        ``churn``  -- inter-network MAE: |A - B|.mean(), unsigned magnitude
+                      of inter-network disagreement.
+
+    The two signals share the same loader; for k-fold mode, the per-fold
+    dicts are averaged into a single mean dict before BO scoring.
+    """
     if _is_regression(cfg):
         p_a, y, _ = _predict_reg(m_a, loader, device)
         p_b, _, _ = _predict_reg(m_b, loader, device)
         avg = 0.5 * (p_a + p_b)
-        mae = float(np.abs(avg - y).mean())
-        return -mae, {"mae": mae}
+        return {
+            "acc": -float(np.abs(avg - y).mean()),
+            "churn": float(np.abs(p_a - p_b).mean()),
+        }
 
     p_a, y, _ = _predict(m_a, loader, device)
     p_b, _, _ = _predict(m_b, loader, device)
     avg = 0.5 * (p_a + p_b)
-    acc = float((avg.argmax(1) == y).mean())
-    return acc, {"acc": acc}
+    return {
+        "acc": float((avg.argmax(1) == y).mean()),
+        "churn": float((p_a.argmax(1) != p_b.argmax(1)).mean()),
+    }
+
+
+def _trial_metrics(cfg, canonical_loaders, device, train_seed: int,
+                   epochs: int, lam: float, *, folds, objective_loader,
+                   pool_idx, n_train: int) -> dict[str, float]:
+    """Train one twin (A, B) at ``lam`` and return mean ``{acc, churn}``.
+
+    For k-fold mode, trains k twins (one per fold), averages metrics
+    over folds, and additionally records per-fold acc/churn under
+    ``acc_per_fold`` / ``churn_per_fold`` for diagnostics.
+
+    For hold-out mode, trains a single twin on ``pool_idx`` and scores
+    it on ``objective_loader``.
+    """
+    if folds is not None:
+        per_fold: list[dict[str, float]] = []
+        for f_train_idx, _, f_val_loader in folds:
+            fm_a, fm_b = _train_twin_indep(
+                cfg, canonical_loaders, device, train_seed, epochs, lam,
+                pool_idx=f_train_idx, n_train=len(f_train_idx),
+            )
+            per_fold.append(_twin_metrics(cfg, fm_a, fm_b, f_val_loader, device))
+            del fm_a, fm_b
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        accs = [m["acc"] for m in per_fold]
+        churns = [m["churn"] for m in per_fold]
+        return {
+            "acc": float(np.mean(accs)),
+            "churn": float(np.mean(churns)),
+            "acc_per_fold": [round(a, 4) for a in accs],
+            "churn_per_fold": [round(c, 4) for c in churns],
+        }
+
+    m_a, m_b = _train_twin_indep(
+        cfg, canonical_loaders, device, train_seed, epochs, lam,
+        pool_idx=pool_idx, n_train=n_train,
+    )
+    out = _twin_metrics(cfg, m_a, m_b, objective_loader, device)
+    del m_a, m_b
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    return out
+
+
+def _bo_score(metrics: dict[str, float], args, baseline_acc: float | None
+              ) -> float:
+    """Compose a scalar BO objective from twin metrics.
+
+    Two modes, switched by ``--bo_objective``:
+
+    * ``acc``               -- maximise val accuracy (legacy default).
+    * ``churn_constrained`` -- maximise (-val_churn) subject to the
+      paper's accuracy constraint: val_acc must be within
+      ``--prereg_tolerance`` of the baseline (twin@lambda=0) val acc.
+      Constraint enforced via a steep linear penalty; ``--churn_penalty``
+      sets the slope.  Outside feasibility, the score grows more
+      negative the further the constraint is violated, so BO is pulled
+      back into the feasible region.
+
+    The first trial in ``churn_constrained`` mode is the baseline trial
+    itself (lambda=0); its score is ``-churn`` (no penalty) so BO has a
+    valid GP target before ``baseline_acc`` is known.
+    """
+    if args.bo_objective == "acc":
+        return metrics["acc"]
+    if args.bo_objective == "churn_constrained":
+        if baseline_acc is None:
+            return -metrics["churn"]
+        deficit = max(0.0, (baseline_acc - args.prereg_tolerance) - metrics["acc"])
+        return -metrics["churn"] - args.churn_penalty * deficit
+    raise ValueError(f"unknown --bo_objective: {args.bo_objective}")
 
 
 def _idx_hash(loader) -> str:
@@ -265,6 +361,30 @@ def _save_trials(path: Path, trials: list[dict], best: dict) -> None:
     path.write_text(json.dumps({"best": best, "trials": trials}, indent=2))
 
 
+def _select_lambda(trials: list[dict], args) -> dict:
+    """Pick the BO trial that becomes the final model.
+
+    ``best_score`` returns the trial with the highest BO objective.
+    ``rule_largest_lam`` mirrors the paper's pre-registered selection
+    rule (Section~\\ref{sec:methods}): among trials whose val accuracy
+    lies within ``--prereg_tolerance`` of the smallest-lambda trial's
+    val accuracy, pick the largest lambda.  This re-expresses the
+    rule's recipe per-dataset, so the rule and the per-dataset BO
+    optimise the same target.
+    """
+    if args.selection_rule == "rule_largest_lam":
+        baseline_trial = min(trials, key=lambda t: t["lam"])
+        baseline_score = float(baseline_trial["score"])
+        tol = args.prereg_tolerance
+        feasible = [t for t in trials
+                    if float(t["score"]) >= baseline_score - tol]
+        if feasible:
+            return max(feasible, key=lambda t: t["lam"])
+        # Fallback: no trial matched the constraint -- pick the best score
+        # (matches ``best_score`` behavior so we always return *something*).
+    return max(trials, key=lambda t: t["score"])
+
+
 def _save_final(args, cfg, canonical_loaders, out_root: Path, device, m_a, m_b,
                 best: dict, train_seed: int, epochs: int, n_train: int,
                 n_train_full: int, data_hash: str, test_hash: str,
@@ -328,6 +448,15 @@ def _save_final(args, cfg, canonical_loaders, out_root: Path, device, m_a, m_b,
         "bayes_seed": args.bayes_seed,
         "objective_split": args.objective_split,
         "cv_folds": int(args.cv_folds),
+        "bo_objective": args.bo_objective,
+        "churn_penalty": (args.churn_penalty
+                          if args.bo_objective == "churn_constrained"
+                          else None),
+        "selection_rule": args.selection_rule,
+        "prereg_tolerance": (args.prereg_tolerance
+                             if (args.selection_rule == "rule_largest_lam"
+                                 or args.bo_objective == "churn_constrained")
+                             else None),
         "val_frac": (args.val_frac if args.objective_split == "val"
                      and args.cv_folds == 1 else None),
         "val_size": val_size,
@@ -356,6 +485,13 @@ def run(args) -> None:
             "--cv_folds > 1 only makes sense with --objective_split val "
             "(BO objective is the cross-validation mean over folds)"
         )
+    if args.bo_objective == "churn_constrained" and args.lam_min > 0.001:
+        # The first trial is forced to lambda=0; after that the GP samples
+        # in log10([lam_min, lam_max]).  A high lam_min would fence BO out
+        # of the lightly-regularised regime where acc is close to baseline.
+        print(f"  [warn] --bo_objective churn_constrained with --lam_min="
+              f"{args.lam_min:g}; consider lam_min<=1e-3 so BO can probe "
+              f"near the baseline.")
 
     device = torch.device(
         "cuda" if torch.cuda.is_available() else
@@ -429,7 +565,13 @@ def run(args) -> None:
           f"lambda in [{args.lam_min:g}, {args.lam_max:g}]")
 
     initial_lams = _parse_lams(args.initial_lams)
-    if args.include_zero_trial:
+    # In churn-constrained mode the first trial *must* be the unregularised
+    # baseline so we have a reference accuracy for the constraint.  Force
+    # it; tolerate the user also passing --include_zero_trial.
+    if args.bo_objective == "churn_constrained":
+        if not initial_lams or initial_lams[0] != 0.0:
+            initial_lams.insert(0, 0.0)
+    elif args.include_zero_trial:
         initial_lams.insert(0, 0.0)
 
     for train_seed in (int(s) for s in args.train_seeds.split(",")):
@@ -437,58 +579,37 @@ def run(args) -> None:
               f"train_seed={train_seed}  mode=twin_indep_bayes ===")
         trials: list[dict] = []
         trial_path = out_root / f"twin_indep_bayes_train{train_seed}_trials.json"
+        baseline_acc: float | None = None  # set after the lam=0 trial
 
         for trial_idx in range(args.bayes_trials):
-            if trial_idx < len(initial_lams):
-                lam = initial_lams[trial_idx]
-            else:
-                lam = _candidate_lam(trials, args)
+            lam = (initial_lams[trial_idx] if trial_idx < len(initial_lams)
+                   else _candidate_lam(trials, args))
+            metrics = _trial_metrics(
+                cfg, canonical_loaders, device, train_seed, epochs, lam,
+                folds=folds, objective_loader=objective_loader,
+                pool_idx=pool_idx, n_train=n_train,
+            )
+            score = _bo_score(metrics, args, baseline_acc)
+            if (args.bo_objective == "churn_constrained"
+                    and baseline_acc is None and lam == 0.0):
+                baseline_acc = metrics["acc"]
 
-            if folds is not None:
-                # k-fold CV: average the BO objective across folds.
-                fold_scores: list[float] = []
-                for f_train_idx, _, f_val_loader in folds:
-                    fm_a, fm_b = _train_twin_indep(
-                        cfg, canonical_loaders, device, train_seed, epochs,
-                        lam, pool_idx=f_train_idx, n_train=len(f_train_idx),
-                    )
-                    fs, _ = _score_twin(cfg, fm_a, fm_b, f_val_loader, device)
-                    fold_scores.append(float(fs))
-                    del fm_a, fm_b
-                    if torch.cuda.is_available():
-                        torch.cuda.empty_cache()
-                score = float(np.mean(fold_scores))
-                metrics = {"acc_mean": score,
-                           "acc_per_fold": [round(s, 4) for s in fold_scores]}
-            else:
-                m_a, m_b = _train_twin_indep(
-                    cfg, canonical_loaders, device, train_seed, epochs, lam,
-                    pool_idx=pool_idx, n_train=n_train,
-                )
-                score, metrics = _score_twin(
-                    cfg, m_a, m_b, objective_loader, device)
-                del m_a, m_b
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-
-            record = {
+            trials.append({
                 "trial": trial_idx,
                 "lam": float(lam),
                 "score": float(score),
                 "metrics": metrics,
-            }
-            trials.append(record)
+            })
             best = max(trials, key=lambda t: t["score"])
             _save_trials(trial_path, trials, best)
-            extra_print = ""
-            if folds is not None:
-                extra_print = "  per-fold=" + str(metrics.get("acc_per_fold"))
             print(f"  trial={trial_idx:02d} lambda={lam:.6g} "
-                  f"score={score:.4f} best={best['lam']:.6g}{extra_print}")
+                  f"acc={metrics['acc']:.4f} churn={metrics['churn']:.4f} "
+                  f"score={score:.4f} best={best['lam']:.6g}")
 
-        best = max(trials, key=lambda t: t["score"])
+        best = _select_lambda(trials, args)
         print(f"  selected lambda={best['lam']:.6g} "
-              f"score={best['score']:.4f}; retraining final model")
+              f"score={best['score']:.4f} (rule={args.selection_rule}); "
+              f"retraining final model")
         m_a, m_b = _train_twin_indep(
             cfg, canonical_loaders, device, train_seed, epochs, best["lam"],
             pool_idx=pool_idx, n_train=n_train,
@@ -536,6 +657,35 @@ if __name__ == "__main__":
                     help="Fraction of the canonical training pool held out as "
                          "the BO objective when --objective_split=val and "
                          "--cv_folds=1.  Ignored otherwise.")
+    ap.add_argument("--bo_objective", choices=["acc", "churn_constrained"],
+                    default="acc",
+                    help="What BO maximises per trial.  'acc' (default): "
+                         "ensemble val accuracy.  'churn_constrained': "
+                         "(-val_churn) with a steep penalty when val_acc "
+                         "drops more than --prereg_tolerance below the "
+                         "baseline (twin@lambda=0).  Forces the first trial "
+                         "to lambda=0 to set the baseline.")
+    ap.add_argument("--churn_penalty", type=float, default=100.0,
+                    help="Slope of the accuracy-deficit penalty in "
+                         "--bo_objective churn_constrained.  100 -> a 0.01 "
+                         "acc shortfall costs 1.0 of score, dwarfing the "
+                         "feasible-region range [-1, 0] of (-val_churn).")
+    ap.add_argument("--selection_rule",
+                    choices=["best_score", "rule_largest_lam"],
+                    default="best_score",
+                    help="How to pick the final lambda from the trial pool. "
+                         "'best_score' (default): trial with the highest BO "
+                         "objective.  'rule_largest_lam': the paper's "
+                         "pre-registered rule applied per-dataset -- among "
+                         "trials whose val acc is within --prereg_tolerance "
+                         "of the smallest-lambda trial's val acc, pick the "
+                         "largest lambda.  Use with --include_zero_trial so "
+                         "the smallest-lambda trial is the unregularised "
+                         "baseline.")
+    ap.add_argument("--prereg_tolerance", type=float, default=0.02,
+                    help="Accuracy tolerance for --selection_rule "
+                         "rule_largest_lam.  Matches the rule used in the "
+                         "paper's main protocol.")
     ap.add_argument("--cv_folds", type=int, default=1,
                     help="If >=2, replace the hold-out val with k-fold CV "
                          "over the canonical training pool: each BO trial "
