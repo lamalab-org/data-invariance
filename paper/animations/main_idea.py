@@ -365,9 +365,14 @@ class MainIdea(Scene):
         h, w = 4.4, 2.6
         rng = random.Random(11)
         consensus = [rng.randint(0, 1) for _ in range(rows)]
-        erm = _heatmap(rows, cols, w, h, churn_p=0.22, seed=13,
+        # Match the captions:
+        # per-pair disagreement = 2*p*(1-p), so for 16% choose p=0.087,
+        # for 6% choose p=0.031.  Using p_ERM=0.09 / p_twin=0.03 keeps the
+        # 3x contrast while making the visual flip rate consistent with
+        # the percentages quoted underneath the heatmaps.
+        erm = _heatmap(rows, cols, w, h, churn_p=0.09, seed=13,
                        base_run_class=consensus)
-        twin = _heatmap(rows, cols, w, h, churn_p=0.04, seed=17,
+        twin = _heatmap(rows, cols, w, h, churn_p=0.03, seed=17,
                         base_run_class=consensus)
 
         # ERM starts centred so the noisy texture reads on its own.
