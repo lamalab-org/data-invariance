@@ -45,7 +45,6 @@ from manim import (
     ReplacementTransform,
     Scene,
     Tex,
-    Text,
     Transform,
     VGroup,
     Write,
@@ -64,16 +63,24 @@ config.background_color = BLACK
 
 
 # --- typography helpers ---------------------------------------------------
-# Manim's Text kerning is poor below ~36pt; render at 72pt then scale down.
-# Centralise the trick so every label benefits from it.
+# 3b1b's signature look is LaTeX-rendered Computer Modern Serif.  Tex
+# and MathTex both go through LaTeX, so use them everywhere -- no
+# Pango / system fonts, no mixed serif / sans-serif on the same frame.
+# Render every label at font_size=72 then .scale(target/72) so the
+# rasterizer always works at a high resolution and kerning is clean.
 _BIG = 72.0
 
 
-def _txt(s: str, size: float = 36, color: str = PAPER,
-         weight: str = "NORMAL") -> Text:
-    t = Text(s, font_size=_BIG, color=color, weight=weight)
+def _tex(s: str, size: float = 36, color: str = PAPER) -> Tex:
+    """Plain text via LaTeX (Computer Modern Serif).  `s` is LaTeX
+    source: literal % must be ``\\%``, em-dash is ``--`` etc."""
+    t = Tex(s, font_size=_BIG, color=color)
     t.scale(size / _BIG)
     return t
+
+
+def _bold(s: str, size: float = 36, color: str = PAPER) -> Tex:
+    return _tex(rf"\textbf{{{s}}}", size=size, color=color)
 
 
 def _math(s: str, size: float = 36, color: str = PAPER) -> MathTex:
@@ -168,7 +175,7 @@ class MainIdea(Scene):
         n, cols, dot_r, gap = 24, 8, 0.18, 0.45
         full = _dot_grid(n, cols, dot_r, gap)
         full.move_to(ORIGIN)
-        cap = _txt("Same training set", size=28, color=GREY
+        cap = _tex("Same training set", size=28, color=GREY
                    ).next_to(full, DOWN, buff=0.45)
         self.play(LaggedStart(*[FadeIn(d, scale=0.6) for d in full],
                               lag_ratio=0.04, run_time=1.6),
@@ -186,8 +193,8 @@ class MainIdea(Scene):
         right_target.move_to(RIGHT * 3.4 + UP * 0.7)
 
         copy = full.copy()
-        a_lab = _txt("Bootstrap A", size=26).next_to(left_target, UP, buff=0.3)
-        b_lab = _txt("Bootstrap B", size=26).next_to(right_target, UP, buff=0.3)
+        a_lab = _tex("Bootstrap A", size=26).next_to(left_target, UP, buff=0.3)
+        b_lab = _tex("Bootstrap B", size=26).next_to(right_target, UP, buff=0.3)
 
         self.play(
             FadeOut(cap),
@@ -214,8 +221,8 @@ class MainIdea(Scene):
                           fill_color=BLACK, fill_opacity=1.0,
                           stroke_width=1.5
                           ).move_to(RIGHT * 3.4 + DOWN * 1.4)
-        net_a_lab = _txt("Net A", size=24).move_to(net_a)
-        net_b_lab = _txt("Net B", size=24).move_to(net_b)
+        net_a_lab = _tex("Net A", size=24).move_to(net_a)
+        net_b_lab = _tex("Net B", size=24).move_to(net_b)
         arr_a = Arrow(self.boot_left.get_bottom(), net_a.get_top(),
                       buff=0.12, color=GREY, stroke_width=2)
         arr_b = Arrow(self.boot_right.get_bottom(), net_b.get_top(),
@@ -225,7 +232,9 @@ class MainIdea(Scene):
                   Write(net_a_lab), Write(net_b_lab), run_time=0.7)
 
         # Numerical accuracy ticking up: use DecimalNumber for the count-up
-        # effect.  Targets are 0.811 (A) and 0.813 (B) -- visually identical.
+        # effect.  Pick example values that land inside the paper's quoted
+        # range of 1--4 pp accuracy difference (acc_A = 0.805, acc_B =
+        # 0.821 -> |Delta| = 1.6 pp).
         acc_a_label = _math(r"\text{acc}_A = ", size=30
                             ).next_to(net_a, DOWN, buff=0.4)
         acc_b_label = _math(r"\text{acc}_B = ", size=30
@@ -242,13 +251,13 @@ class MainIdea(Scene):
         self.play(Write(acc_a_label), Write(acc_b_label),
                   FadeIn(acc_a_num), FadeIn(acc_b_num), run_time=0.5)
         self.play(
-            acc_a_num.animate.set_value(0.811),
-            acc_b_num.animate.set_value(0.813),
+            acc_a_num.animate.set_value(0.805),
+            acc_b_num.animate.set_value(0.821),
             run_time=1.4,
         )
         self.wait(0.4)
 
-        delta = _math(r"|\Delta\text{acc}| = 0.2\,\text{pp}",
+        delta = _math(r"|\Delta\text{acc}| = 1.6\,\text{pp}",
                       size=32, color=GREEN).to_edge(DOWN, buff=0.5)
         self.play(Write(delta), run_time=0.8)
         self.play(Indicate(delta, scale_factor=1.15, color=GREEN),
@@ -267,18 +276,20 @@ class MainIdea(Scene):
         # Net A / Net B prediction comparison.
         self.play(FadeOut(self._beat2_group, shift=UP * 0.4), run_time=0.8)
 
-        header = _txt("Aggregates match.  Per-molecule predictions disagree.",
+        header = _tex("Aggregates match. Per-molecule predictions disagree.",
                       size=30).to_edge(UP, buff=0.7)
         self.play(Write(header), run_time=1.0)
 
-        n_mol = 12
-        cell = 0.7
+        # 10 molecules, 2 disagreements -> 20% per-molecule churn, inside
+        # the paper's 8--22% range.
+        n_mol = 10
+        cell = 0.78
         x0 = -((n_mol - 1) / 2) * cell
 
         rng = random.Random(7)
         preds_a = [rng.randint(0, 1) for _ in range(n_mol)]
         preds_b = preds_a.copy()
-        flip_idx = sorted(rng.sample(range(n_mol), 3))
+        flip_idx = sorted(rng.sample(range(n_mol), 2))
         for i in flip_idx:
             preds_b[i] = 1 - preds_a[i]
 
@@ -294,9 +305,9 @@ class MainIdea(Scene):
 
         row_a = _row(preds_a, 1.1)
         row_b = _row(preds_b, -0.5)
-        a_tag = _txt("Net A", size=24).next_to(row_a, LEFT, buff=0.45)
-        b_tag = _txt("Net B", size=24).next_to(row_b, LEFT, buff=0.45)
-        molecules_lab = _txt("12 test molecules", size=22, color=GREY
+        a_tag = _tex("Net A", size=24).next_to(row_a, LEFT, buff=0.45)
+        b_tag = _tex("Net B", size=24).next_to(row_b, LEFT, buff=0.45)
+        molecules_lab = _tex("10 test molecules", size=22, color=GREY
                              ).next_to(row_a, UP, buff=0.4)
 
         self.play(
@@ -322,7 +333,7 @@ class MainIdea(Scene):
                    ).move_to(row_b[i].get_center())
             for i in flip_idx
         ])
-        churn = _math(r"\text{churn} = \frac{3}{12} = 25\%",
+        churn = _math(r"\text{churn} = \frac{2}{10} = 20\%",
                       size=36, color=RED).move_to(DOWN * 2.0)
         self.play(LaggedStart(*[GrowFromCenter(r) for r in rings],
                               lag_ratio=0.1, run_time=0.9))
@@ -335,7 +346,7 @@ class MainIdea(Scene):
     # -- 4. Magnitude callout -------------------------------------------
     def beat4_magnitude(self):
         self.play(FadeOut(self._beat3_group, shift=UP * 0.3), run_time=0.7)
-        line1 = _txt("Across 8 chemistry datasets",
+        line1 = _tex("Across 8 chemistry datasets",
                      size=32, color=GREY).move_to(UP * 0.5)
         line2 = _math(
             r"8\text{--}22\%\ \text{per-molecule churn}"
@@ -361,8 +372,8 @@ class MainIdea(Scene):
 
         # ERM starts centred so the noisy texture reads on its own.
         erm.move_to(DOWN * 0.2)
-        erm_title = _txt("ERM", size=32).next_to(erm, UP, buff=0.35)
-        cap_erm = _txt(r"~16% of molecules flip class",
+        erm_title = _tex("ERM", size=32).next_to(erm, UP, buff=0.35)
+        cap_erm = _tex(r"$\sim$16\% of molecules flip class",
                        size=24, color=RED
                        ).next_to(erm, DOWN, buff=0.45)
         self.play(Write(erm_title), FadeIn(erm), run_time=1.0)
@@ -372,10 +383,9 @@ class MainIdea(Scene):
         # Move ERM-cluster left as one unit; reveal twin on the right.
         erm_cluster = VGroup(erm, erm_title, cap_erm)
         twin.move_to(RIGHT * 2.4 + DOWN * 0.2)
-        twin_title = Tex(r"Twin-bootstrap (\(\lambda{=}300\))",
-                         font_size=_BIG, color=PAPER
-                         ).scale(32 / _BIG).next_to(twin, UP, buff=0.35)
-        cap_twin = _txt(r"~6% flip rate, same accuracy",
+        twin_title = _tex(r"Twin-bootstrap ($\lambda{=}300$)",
+                          size=32).next_to(twin, UP, buff=0.35)
+        cap_twin = _tex(r"$\sim$6\% flip rate, same accuracy",
                         size=24, color=GREEN
                         ).next_to(twin, DOWN, buff=0.45)
         self.play(
@@ -392,9 +402,8 @@ class MainIdea(Scene):
     # -- 6. Takeaway -----------------------------------------------------
     def beat6_takeaway(self):
         self.play(FadeOut(self._beat5_group), run_time=0.8)
-        line = _txt("Reducing cross-sample prediction churn",
-                    size=42, weight="BOLD")
-        sub = _txt("in scientific machine learning",
+        line = _bold("Reducing cross-sample prediction churn", size=42)
+        sub = _tex("in scientific machine learning",
                    size=30, color=GREY
                    ).next_to(line, DOWN, buff=0.4)
         self.play(Write(line), run_time=1.0)
