@@ -443,11 +443,12 @@ def emit_entropy() -> None:
 def emit_bayes_twin() -> None:
     """Per-dataset twin-bootstrap Bayesian-optimisation summary.
 
-    No source CSV exists yet (the cluster sweep produced NPZs that fed
-    paper/sections/tables/bayes_twin.tex directly).  These macros mirror
-    the published table so the appendix prose can reference them via
-    \\bayesTwin{...}.  When ``outputs/bayes_table.csv`` lands later,
-    swap this hard-coded block for a loop over that CSV.
+    Only emits *protocol* macros that don't change between runs.
+    Per-dataset deltas (range, head-counts) are no longer macroised
+    here -- when the full k-fold sweep regenerates
+    ``outputs/bayes_table.csv``, that CSV becomes the source of truth
+    and the appendix prose can pull values directly from
+    Table~\\ref{tab:bayes_twin} rather than via additional macros.
     """
     # Protocol values; match slurm/full_retraining/10_bayes_twin_headline.sh.
     add("bayesTwinTrials",      "50")
@@ -455,21 +456,6 @@ def emit_bayes_twin() -> None:
     add("bayesTwinKernel",      r"\textrm{Mat\'ern-2.5}")
     add("bayesTwinLamMin",      "10^{-3}")
     add("bayesTwinLamMax",      r"3{\cdot}10^2")
-    # Range of mean BO-selected lambda across the nine datasets.
-    # From paper/sections/tables/bayes_twin.tex (MOF-thermal=1.122, BBBP=153.3).
-    add("bayesTwinMeanLamLo",   "1.1")
-    add("bayesTwinMeanLamHi",   "153")
-    # ID-churn delta range (BO minus lambda=preregLambda) across the table:
-    # min Pgp=-0.1, max MOF-thermal=+7.2.
-    add("bayesTwinVsRuleIdChurnLo", "-0.1")
-    add("bayesTwinVsRuleIdChurnHi", "+7.2")
-    # BO-vs-ERM head-counts: number of datasets (out of nDatasetsHeadline)
-    # on which BO beats ERM on each axis.  ID churn 9/9; OOD churn 8/9
-    # (DILI is the outlier on both OOD axes).  Accuracy counts are not
-    # quoted in prose because the BO objective is id_test, so they would
-    # be selection-on-test artefacts rather than a real held-out claim.
-    add("bayesTwinVsErmIdChurnCount", "9")
-    add("bayesTwinVsErmOodChurnCount", "8")
 
 
 def emit_bo_topk() -> None:

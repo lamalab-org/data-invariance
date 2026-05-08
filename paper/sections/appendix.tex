@@ -187,21 +187,25 @@ the rule would reject the BACE-frozen $\lambda$).
 
 We replace the BACE-frozen $\lambda{=}\preregLambda$ with per-dataset
 Bayesian optimisation: $\bayesTwinTrials$ GP-EI trials per dataset
-and seed ($\bayesTwinKernel$ kernel, $\lambda \in [\bayesTwinLamMin,
-\bayesTwinLamMax]$, $\bayesTwinInitTrials$ random init), maximising
-twin-network ID accuracy on the canonical \texttt{id\_test} split.
-The same split is used for selection and reporting, so the
-ID-accuracy column of Table~\ref{tab:bayes_twin} is an upper bound;
-OOD accuracy and both churn columns are held out.  Selected mean
-$\lambda$ is below $\preregLambda$ on every dataset (range
-$\bayesTwinMeanLamLo$--$\bayesTwinMeanLamHi$).  Against
-$\lambda{=}\preregLambda$, BO recovers ID accuracy on every dataset
-and increases ID churn by $\bayesTwinVsRuleIdChurnLo$ to
-$\bayesTwinVsRuleIdChurnHi$\,pp.  Against bootstrap-matched ERM
-(Table~\ref{tab:main}), BO cuts ID churn on
-$\bayesTwinVsErmIdChurnCount/\nDatasetsHeadline$ datasets and OOD
-churn on $\bayesTwinVsErmOodChurnCount/\nDatasetsHeadline$ (DILI is
-the OOD exception).
+and training seed ($\bayesTwinKernel$ kernel; $\lambda \in
+[\bayesTwinLamMin, \bayesTwinLamMax]$; $\bayesTwinInitTrials$ random
+initial points), with the BO objective evaluated by $k{=}3$
+cross-validation on the canonical training pool.  The CV pool is
+carved deterministically from the canonical training set with seed
+$\canonicalSeed$, so \texttt{id\_test} and \texttt{ood\_test} are
+never seen during selection; final retraining at the BO-selected
+$\lambda$ uses the full pool.
+
+Across datasets, BO loses ID-churn reduction relative to
+$\lambda{=}\preregLambda$ on every entry of
+Table~\ref{tab:bayes_twin}; the smallest penalty has a CI that
+overlaps zero, so no dataset has BO genuinely dominating the rule
+on stability.  Against bootstrap-matched ERM (Table~\ref{tab:main}),
+BO still cuts ID churn across the board, so per-dataset tuning
+preserves the twin-bootstrap effect rather than erasing it.  The
+rule's largest-$\lambda$-within-tolerance choice trades a small
+accuracy margin for stability that fully tuned BO with k-fold CV
+cannot match.
 
 \input{sections/tables/bayes_twin.tex}
 
