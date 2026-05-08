@@ -1,29 +1,61 @@
 """Bayesian-optimization driver for ``_train_twin_indep``.
 
-This is a sibling entry point to ``scripts/cross_sample_train.py``.  It keeps
-the same cross-sample data protocol, but chooses the twin-indep consistency
-weight ``lambda`` with a small Gaussian-process Bayesian optimizer before
-saving the final predictions.
+Sibling entry point to ``scripts/cross_sample_train.py``.  Same
+cross-sample data protocol, but the twin-indep consistency weight
+``lambda`` is chosen by a Gaussian-process BO before the final
+predictions are saved.
 
 Selection-vs-reporting hygiene
 ------------------------------
-The default ``--objective_split val`` carves a deterministic
-``--val_frac`` fraction off the canonical training pool *before*
-bootstrapping (seed = ``--canonical_data_seed``).  Bootstraps are drawn
-from the remaining ``train`` indices only; ``id_test`` and ``ood_test``
-are never seen during optimisation.  This is the rigorous setting for
-the preprint and revision.
+``id_test`` and ``ood_test`` are never seen during optimisation.
+The default ``--objective_split val`` carves a deterministic split
+of the canonical training pool (seed = ``--canonical_data_seed``):
 
-``--objective_split id_test`` and ``ood_test`` remain available for
-comparison runs that deliberately use the test set as the BO oracle
-(an upper bound on what tuning could achieve, not a fair held-out
-result).
+* ``--cv_folds 1`` (default): hold out ``--val_frac`` of the pool once;
+  BO scores on this val.
+* ``--cv_folds k`` (k>=2): split the pool into k contiguous folds; each
+  BO trial trains k twins (one per fold) and averages val score across
+  folds.  Final retraining uses the full pool.
 
-The optimizer depends only on scikit-learn, which is already a project
-dependency.  It searches in log10(lambda) and maximizes validation score:
+``--objective_split {id_test, ood_test}`` are upper-bound oracle modes
+for ablation only (not held-out).
 
-* classification: ensemble accuracy on the chosen objective split
-* regression: negative ensemble MAE on the chosen objective split
+BO objective and selection
+--------------------------
+``--bo_objective`` switches what the BO maximises per trial:
+
+* ``acc`` (default): ensemble val accuracy.
+* ``churn_constrained``: ``-val_churn`` with a steep penalty when val
+  accuracy falls more than ``--prereg_tolerance`` below the unregularised
+  baseline (twin@lambda=0).  ``val_churn`` is the inter-network argmax
+  disagreement on val (free at every twin training).  The first trial
+  is forced to lambda=0 to set the baseline.
+
+``--selection_rule`` switches how the final lambda is picked from the
+trial pool:
+
+* ``best_score`` (default): trial with the highest BO objective.
+* ``rule_largest_lam``: the paper's pre-registered rule applied
+  per-dataset -- among trials whose val accuracy is within
+  ``--prereg_tolerance`` of the smallest-lambda trial, pick the largest
+  lambda.  Feasibility is checked against ``metrics["acc"]`` directly
+  so it stays correct under any ``--bo_objective``.
+
+Optimizer
+---------
+sklearn ``GaussianProcessRegressor`` with a Matern-2.5 kernel; searches
+in log10(lambda) over ``[--lam_min, --lam_max]``; expected-improvement
+acquisition.  The initial ``--bayes_init_trials`` positive-lambda trials
+are random uniform-in-log10; subsequent trials use the GP.
+
+Provenance
+----------
+Each saved NPZ has a manifest sidecar (``_provenance``) recording git
+commit, env, full command, canonical_data_seed, train_seed, lam,
+cv_folds, fold_val_hashes (one per fold), val_hash, val_size,
+bo_objective, churn_penalty, selection_rule, prereg_tolerance,
+n_train, n_train_full, lam_min, lam_max, best_score.  test_hash always
+identifies the canonical id_test split.
 """
 from __future__ import annotations
 
@@ -365,23 +397,24 @@ def _select_lambda(trials: list[dict], args) -> dict:
     """Pick the BO trial that becomes the final model.
 
     ``best_score`` returns the trial with the highest BO objective.
+
     ``rule_largest_lam`` mirrors the paper's pre-registered selection
     rule (Section~\\ref{sec:methods}): among trials whose val accuracy
     lies within ``--prereg_tolerance`` of the smallest-lambda trial's
-    val accuracy, pick the largest lambda.  This re-expresses the
-    rule's recipe per-dataset, so the rule and the per-dataset BO
-    optimise the same target.
+    val accuracy, pick the largest lambda.  Feasibility is checked
+    against ``metrics["acc"]`` directly so it stays correct under any
+    ``--bo_objective`` (the BO score is a different scalar in
+    ``churn_constrained`` mode).  Falls back to ``best_score`` when no
+    trial passes the constraint.
     """
     if args.selection_rule == "rule_largest_lam":
         baseline_trial = min(trials, key=lambda t: t["lam"])
-        baseline_score = float(baseline_trial["score"])
+        baseline_acc = float(baseline_trial["metrics"]["acc"])
         tol = args.prereg_tolerance
         feasible = [t for t in trials
-                    if float(t["score"]) >= baseline_score - tol]
+                    if float(t["metrics"]["acc"]) >= baseline_acc - tol]
         if feasible:
             return max(feasible, key=lambda t: t["lam"])
-        # Fallback: no trial matched the constraint -- pick the best score
-        # (matches ``best_score`` behavior so we always return *something*).
     return max(trials, key=lambda t: t["score"])
 
 

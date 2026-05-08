@@ -8,25 +8,39 @@
 #SBATCH --time=12:00:00
 #SBATCH --array=0-89%12
 
-# Bayesian lambda search for headline classification datasets.
-# Each array task runs one (dataset, train_seed) tuple.  Each seed
-# performs BAYES_TRIALS twin-indep trainings plus one final retraining
-# at the selected lambda.
+# Per-dataset Bayesian optimisation of lambda for twin-bootstrap
+# (App.~bayes_twin).  Each array task runs one (dataset, train_seed)
+# tuple: BAYES_TRIALS twin-indep trainings plus one final retraining
+# at the BO-selected lambda.  Four overridable axes:
 #
-# Default protocol (rigorous, used for preprint+revision):
-#   --objective_split val --val_frac 0.2
-# Held-out validation is carved from the canonical training pool with
-# seed=$CANONICAL_DATA_SEED before bootstrapping; id_test and ood_test
-# never enter selection.  Outputs land in
-# outputs/cross_sample_bayes_val/ to keep them separate from the v1
-# id_test-objective runs in outputs/cross_sample_bayes/.
+#   OBJECTIVE_SPLIT ∈ {val, id_test, ood_test}   default val
+#       The "val" path carves a held-out fraction (or k folds) off the
+#       canonical training pool; id_test / ood_test paths are oracle
+#       baselines for ablation.
 #
-# Optional overrides:
-#   BAYES_TRIALS=8 sbatch slurm/full_retraining/10_bayes_twin_headline.sh
-#   OBJECTIVE_SPLIT=id_test OUTPUT_DIR=outputs/cross_sample_bayes \
-#     sbatch slurm/full_retraining/10_bayes_twin_headline.sh
-#   INITIAL_LAMS=1.0,10.0,100.0,300.0 sbatch ...
-#   INCLUDE_ZERO_TRIAL=1 sbatch ...
+#   CV_FOLDS = N (>=1)                            default 1
+#       1 = hold-out (val_frac of the pool), >=2 = k-fold CV (averaged
+#       over folds; final retrain on full pool).
+#
+#   BO_OBJECTIVE ∈ {acc, churn_constrained}      default acc
+#       'acc' maximises val accuracy.  'churn_constrained' maximises
+#       (-val_churn) with a steep penalty when val accuracy falls
+#       PREREG_TOLERANCE below the lambda=0 baseline.  See the python
+#       script's docstring for the exact formula.
+#
+#   SELECTION_RULE ∈ {best_score, rule_largest_lam}  default best_score
+#       'rule_largest_lam' is the paper's pre-registered rule applied
+#       per-dataset.
+#
+# Other useful overrides:
+#   BAYES_TRIALS, BAYES_INIT_TRIALS, BAYES_SEED,
+#   LAM_MIN, LAM_MAX,
+#   VAL_FRAC, PREREG_TOLERANCE, CHURN_PENALTY,
+#   INITIAL_LAMS, INCLUDE_ZERO_TRIAL,
+#   OUTPUT_DIR.
+#
+# Default OUTPUT_DIR is split by mode so distinct runs don't clobber
+# each other; you can override.
 
 set -e
 
@@ -50,18 +64,27 @@ LAM_MAX=${LAM_MAX:-3e2}
 OBJECTIVE_SPLIT=${OBJECTIVE_SPLIT:-val}
 VAL_FRAC=${VAL_FRAC:-0.2}
 CV_FOLDS=${CV_FOLDS:-1}
-# Default output dir splits hold-out (cv=1) from k-fold runs so they
-# don't clobber each other.
-if [ "$CV_FOLDS" -ge 2 ]; then
-  OUTPUT_DIR=${OUTPUT_DIR:-outputs/cross_sample_bayes_kfold${CV_FOLDS}}
-else
-  OUTPUT_DIR=${OUTPUT_DIR:-outputs/cross_sample_bayes_val}
+BO_OBJECTIVE=${BO_OBJECTIVE:-acc}
+CHURN_PENALTY=${CHURN_PENALTY:-100.0}
+SELECTION_RULE=${SELECTION_RULE:-best_score}
+PREREG_TOLERANCE=${PREREG_TOLERANCE:-0.02}
+
+# Per-mode default output dirs so hold-out / k-fold / churn-BO sweeps
+# don't clobber each other.  An explicit OUTPUT_DIR= overrides.
+if [ -z "${OUTPUT_DIR:-}" ]; then
+  if [ "$BO_OBJECTIVE" = "churn_constrained" ]; then
+    OUTPUT_DIR="outputs/cross_sample_bayes_churn"
+  elif [ "$CV_FOLDS" -ge 2 ]; then
+    OUTPUT_DIR="outputs/cross_sample_bayes_kfold${CV_FOLDS}"
+  else
+    OUTPUT_DIR="outputs/cross_sample_bayes_val"
+  fi
 fi
 
 mkdir -p logs/bayes_twin_headline
-LOG="logs/bayes_twin_headline/${DS}_seed${SEED}_trials${BAYES_TRIALS}_${OBJECTIVE_SPLIT}_cv${CV_FOLDS}.log"
+LOG="logs/bayes_twin_headline/${DS}_seed${SEED}_${BO_OBJECTIVE}_${OBJECTIVE_SPLIT}_cv${CV_FOLDS}.log"
 
-echo "=== $DS twin_indep_bayes seed=$SEED trials=$BAYES_TRIALS lam=[$LAM_MIN,$LAM_MAX] objective=$OBJECTIVE_SPLIT cv_folds=$CV_FOLDS val_frac=$VAL_FRAC out=$OUTPUT_DIR $(hostname) $(date) ===" > "$LOG"
+echo "=== $DS twin_indep_bayes seed=$SEED trials=$BAYES_TRIALS lam=[$LAM_MIN,$LAM_MAX] objective=$OBJECTIVE_SPLIT cv_folds=$CV_FOLDS bo_objective=$BO_OBJECTIVE selection=$SELECTION_RULE out=$OUTPUT_DIR $(hostname) $(date) ===" > "$LOG"
 
 CMD=(
   $PY scripts/cross_sample_train_bayes.py
@@ -75,6 +98,10 @@ CMD=(
   --lam_max "$LAM_MAX"
   --objective_split "$OBJECTIVE_SPLIT"
   --cv_folds "$CV_FOLDS"
+  --bo_objective "$BO_OBJECTIVE"
+  --churn_penalty "$CHURN_PENALTY"
+  --selection_rule "$SELECTION_RULE"
+  --prereg_tolerance "$PREREG_TOLERANCE"
   --output_dir "$OUTPUT_DIR"
 )
 
