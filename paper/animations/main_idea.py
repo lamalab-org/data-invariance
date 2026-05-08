@@ -1,82 +1,103 @@
 """Manim animation: cross-sample prediction churn (main paper idea).
 
+Style: 3b1b-flavoured -- black background, smooth transforms, stable
+spatial composition, math typography in proper LaTeX, large-font-then-
+scaled-down for crisp kerning.
+
 Render preview (480p, ~30 s):
     /opt/miniconda3/bin/manim -pql paper/animations/main_idea.py MainIdea
 
 Render high-quality (1080p):
     /opt/miniconda3/bin/manim -pqh paper/animations/main_idea.py MainIdea
 
-Storyboard:
-    1. Two retrainings on the same training set (bootstrap A, bootstrap B)
-    2. Two networks reach near-identical aggregate accuracy
-    3. ...but disagree on individual molecules ("churn")
-    4. Heatmaps: ERM noisy stripes vs. twin-bootstrap clean stripes
-
 The animation deliberately mirrors paper/figures/fig0_overview.pdf so
-that figure and animation share the same visual language.
+that figure and animation share the same visual language.  Beats:
+
+  1. Two retrainings of the same training set produce two bootstraps.
+  2. Two networks reach near-identical aggregate accuracy.
+  3. ...but disagree on individual molecules ("churn").
+  4. Heatmaps: ERM noisy stripes vs. twin-bootstrap clean stripes.
+  5. Single-line takeaway.
 """
 from __future__ import annotations
 
 import random
 
 from manim import (
+    BLACK,
     DOWN,
     LEFT,
     ORIGIN,
     RIGHT,
     UP,
+    WHITE,
     Arrow,
     Circle,
     Create,
+    DecimalNumber,
     FadeIn,
     FadeOut,
     GrowFromCenter,
+    Indicate,
+    LaggedStart,
     MathTex,
     Rectangle,
+    ReplacementTransform,
     Scene,
     Tex,
     Text,
+    Transform,
     VGroup,
     Write,
     config,
 )
 
-# --- palette matched to fig0_overview / fig5_overlap -----------------------
-CLASS0 = "#4F7CB6"  # blue
-CLASS1 = "#E5824D"  # orange
-INK = "#222222"
-MUTED = "#9A9A9A"
-ACCENT = "#C0392B"
-GREEN = "#1F8A4C"
+# --- 3b1b-style palette ---------------------------------------------------
+BLUE = "#58C4DD"     # class 0
+GOLD = "#F0AC5F"     # class 1
+RED = "#FC6255"      # accent / disagreement
+GREEN = "#83C167"    # accent / improvement
+GREY = "#888888"     # muted
+PAPER = WHITE        # main text on black background
 
-config.background_color = "#FAFAFA"
-
-
-def _txt(s: str, size: float = 36, color: str = INK, weight: str = "NORMAL") -> Text:
-    return Text(s, font_size=size, color=color, weight=weight)
+config.background_color = BLACK
 
 
-def _math(s: str, size: float = 36, color: str = INK) -> MathTex:
-    return MathTex(s, font_size=size, color=color)
+# --- typography helpers ---------------------------------------------------
+# Manim's Text kerning is poor below ~36pt; render at 72pt then scale down.
+# Centralise the trick so every label benefits from it.
+_BIG = 72.0
 
 
+def _txt(s: str, size: float = 36, color: str = PAPER,
+         weight: str = "NORMAL") -> Text:
+    t = Text(s, font_size=_BIG, color=color, weight=weight)
+    t.scale(size / _BIG)
+    return t
+
+
+def _math(s: str, size: float = 36, color: str = PAPER) -> MathTex:
+    m = MathTex(s, font_size=_BIG, color=color)
+    m.scale(size / _BIG)
+    return m
+
+
+# --- visual helpers -------------------------------------------------------
 def _dot_grid(n: int, cols: int, dot_r: float, gap: float,
               fill_pattern: list[int] | None = None) -> VGroup:
-    """Grid of `n` dots in `cols` columns; optional fill_pattern marks
-    which dots are coloured (0 = blue, 1 = orange, -1 = grey/missing)."""
     rows = (n + cols - 1) // cols
     grid = VGroup()
     for k in range(n):
         i, j = k // cols, k % cols
         if fill_pattern is None:
-            color, opacity = MUTED, 0.7
+            color, opacity = GREY, 0.55
         else:
             v = fill_pattern[k]
             if v == -1:
-                color, opacity = MUTED, 0.10
+                color, opacity = GREY, 0.10
             else:
-                color = CLASS0 if v == 0 else CLASS1
-                opacity = 0.85
+                color = BLUE if v == 0 else GOLD
+                opacity = 0.95
         c = Circle(radius=dot_r, color=color, fill_color=color,
                    fill_opacity=opacity, stroke_width=0)
         c.move_to([(j - (cols - 1) / 2) * gap,
@@ -86,9 +107,11 @@ def _dot_grid(n: int, cols: int, dot_r: float, gap: float,
 
 
 def _bootstrap_pattern(n: int, seed: int) -> list[int]:
-    """Produce a -1/0/1 pattern: -1 = molecule absent from this bootstrap,
-    0/1 = its class.  Two bootstraps from the same canonical set share
-    ~63% of indices (with replacement); ~37% are missing per bootstrap."""
+    """Two bootstraps share ~63% of indices on expectation; 37% missing.
+
+    -1 = molecule absent from this bootstrap
+    0/1 = its class (alternating along k for a clean alternating look).
+    """
     rng = random.Random(seed)
     classes = [k % 2 for k in range(n)]
     pattern = []
@@ -102,7 +125,6 @@ def _bootstrap_pattern(n: int, seed: int) -> list[int]:
 
 def _heatmap(rows: int, cols: int, w: float, h: float, churn_p: float,
              seed: int, base_run_class: list[int] | None = None) -> VGroup:
-    """Heatmap of `rows` molecules x `cols` retrainings."""
     rng = random.Random(seed)
     cell_w = w / cols
     cell_h = h / rows
@@ -115,7 +137,7 @@ def _heatmap(rows: int, cols: int, w: float, h: float, churn_p: float,
         for j in range(cols):
             flipped = rng.random() < churn_p
             cls = 1 - consensus if flipped else consensus
-            color = CLASS0 if cls == 0 else CLASS1
+            color = BLUE if cls == 0 else GOLD
             r = Rectangle(
                 width=cell_w, height=cell_h,
                 stroke_width=0, fill_color=color, fill_opacity=1.0,
@@ -129,103 +151,125 @@ def _heatmap(rows: int, cols: int, w: float, h: float, churn_p: float,
     return cells
 
 
+# --- the scene -------------------------------------------------------------
 class MainIdea(Scene):
-    """Single-shot animation; ~50 s at 30 fps."""
+    """3b1b-style ~50 s animation; black background, no title card."""
 
     def construct(self):
-        self.s1_title()
-        self.clear_scene()
-        self.s2_two_retrainings()
-        self.clear_scene()
-        self.s3_aggregate_vs_individual()
-        self.clear_scene()
-        self.s4_heatmaps()
-        self.clear_scene()
-        self.s5_end_card()
+        self.beat1_two_bootstraps()
+        self.beat2_networks_and_accuracy()
+        self.beat3_per_molecule_disagreement()
+        self.beat4_magnitude()
+        self.beat5_heatmaps()
+        self.beat6_takeaway()
 
-    def clear_scene(self):
-        if self.mobjects:
-            self.play(*[FadeOut(m) for m in self.mobjects], run_time=0.5)
-
-    # -- 1. Title --------------------------------------------------------
-    def s1_title(self):
-        title = _txt("Two retrainings on the same data", size=48)
-        sub = _txt("...same accuracy, different predictions",
-                   size=28, color=MUTED).next_to(title, DOWN, buff=0.4)
-        self.play(Write(title), run_time=1.2)
-        self.play(FadeIn(sub, shift=UP * 0.2), run_time=0.7)
-        self.wait(1.4)
-
-    # -- 2. Two bootstraps -> two networks -------------------------------
-    def s2_two_retrainings(self):
+    # -- 1. Two bootstraps from the same training set --------------------
+    def beat1_two_bootstraps(self):
         n, cols, dot_r, gap = 24, 8, 0.18, 0.45
         full = _dot_grid(n, cols, dot_r, gap)
-        full.move_to(UP * 0.6)
-        cap = _txt("Training set", size=28, color=MUTED
-                   ).next_to(full, DOWN, buff=0.3)
-        self.play(FadeIn(full, shift=UP * 0.2), Write(cap), run_time=1.0)
+        full.move_to(ORIGIN)
+        cap = _txt("Same training set", size=28, color=GREY
+                   ).next_to(full, DOWN, buff=0.45)
+        self.play(LaggedStart(*[FadeIn(d, scale=0.6) for d in full],
+                              lag_ratio=0.04, run_time=1.6),
+                  Write(cap), run_time=1.6)
         self.wait(0.6)
 
-        # Two bootstraps side by side
-        left = _dot_grid(n, cols, dot_r, gap,
-                         fill_pattern=_bootstrap_pattern(n, seed=1))
-        right = _dot_grid(n, cols, dot_r, gap,
-                          fill_pattern=_bootstrap_pattern(n, seed=2))
-        left.move_to(LEFT * 3.4 + UP * 0.6)
-        right.move_to(RIGHT * 3.4 + UP * 0.6)
-        a_lab = _txt("Bootstrap A", size=24).next_to(left, UP, buff=0.3)
-        b_lab = _txt("Bootstrap B", size=24).next_to(right, UP, buff=0.3)
+        # Build bootstrap A (left) and bootstrap B (right) by transforming
+        # the original grid into its left target and a copy into the right
+        # target; this keeps the screen continuous (no fade-and-redraw).
+        left_target = _dot_grid(n, cols, dot_r, gap,
+                                fill_pattern=_bootstrap_pattern(n, seed=1))
+        right_target = _dot_grid(n, cols, dot_r, gap,
+                                 fill_pattern=_bootstrap_pattern(n, seed=2))
+        left_target.move_to(LEFT * 3.4 + UP * 0.7)
+        right_target.move_to(RIGHT * 3.4 + UP * 0.7)
+
+        copy = full.copy()
+        a_lab = _txt("Bootstrap A", size=26).next_to(left_target, UP, buff=0.3)
+        b_lab = _txt("Bootstrap B", size=26).next_to(right_target, UP, buff=0.3)
 
         self.play(
-            FadeOut(full, shift=DOWN * 0.2),
             FadeOut(cap),
-            FadeIn(left, shift=LEFT * 0.4),
-            FadeIn(right, shift=RIGHT * 0.4),
-            Write(a_lab), Write(b_lab),
-            run_time=1.3,
+            Transform(full, left_target),
+            Transform(copy, right_target),
+            run_time=1.5,
         )
+        self.play(Write(a_lab), Write(b_lab), run_time=0.7)
         self.wait(0.6)
 
-        # Two networks below
-        net_a = Rectangle(width=1.6, height=0.9, color=INK,
-                          fill_color="#FFFFFF", fill_opacity=1.0,
+        # Persist for next beat.
+        self.boot_left = full
+        self.boot_right = copy
+        self.a_lab = a_lab
+        self.b_lab = b_lab
+
+    # -- 2. Two networks reach near-identical aggregate accuracy ---------
+    def beat2_networks_and_accuracy(self):
+        net_a = Rectangle(width=1.6, height=0.85, color=PAPER,
+                          fill_color=BLACK, fill_opacity=1.0,
                           stroke_width=1.5
-                          ).move_to(LEFT * 3.4 + DOWN * 1.6)
-        net_b = Rectangle(width=1.6, height=0.9, color=INK,
-                          fill_color="#FFFFFF", fill_opacity=1.0,
+                          ).move_to(LEFT * 3.4 + DOWN * 1.4)
+        net_b = Rectangle(width=1.6, height=0.85, color=PAPER,
+                          fill_color=BLACK, fill_opacity=1.0,
                           stroke_width=1.5
-                          ).move_to(RIGHT * 3.4 + DOWN * 1.6)
-        net_a_lab = _txt("Net A", size=22).move_to(net_a)
-        net_b_lab = _txt("Net B", size=22).move_to(net_b)
-        arr_a = Arrow(left.get_bottom(), net_a.get_top(),
-                      buff=0.15, color=MUTED, stroke_width=2)
-        arr_b = Arrow(right.get_bottom(), net_b.get_top(),
-                      buff=0.15, color=MUTED, stroke_width=2)
+                          ).move_to(RIGHT * 3.4 + DOWN * 1.4)
+        net_a_lab = _txt("Net A", size=24).move_to(net_a)
+        net_b_lab = _txt("Net B", size=24).move_to(net_b)
+        arr_a = Arrow(self.boot_left.get_bottom(), net_a.get_top(),
+                      buff=0.12, color=GREY, stroke_width=2)
+        arr_b = Arrow(self.boot_right.get_bottom(), net_b.get_top(),
+                      buff=0.12, color=GREY, stroke_width=2)
+        self.play(Create(arr_a), Create(arr_b), run_time=0.8)
+        self.play(FadeIn(net_a), FadeIn(net_b),
+                  Write(net_a_lab), Write(net_b_lab), run_time=0.7)
 
-        self.play(Create(arr_a), Create(arr_b),
-                  FadeIn(net_a), FadeIn(net_b),
-                  Write(net_a_lab), Write(net_b_lab),
-                  run_time=1.0)
-        self.wait(0.5)
+        # Numerical accuracy ticking up: use DecimalNumber for the count-up
+        # effect.  Targets are 0.811 (A) and 0.813 (B) -- visually identical.
+        acc_a_label = _math(r"\text{acc}_A = ", size=30
+                            ).next_to(net_a, DOWN, buff=0.4)
+        acc_b_label = _math(r"\text{acc}_B = ", size=30
+                            ).next_to(net_b, DOWN, buff=0.4)
+        acc_a_num = DecimalNumber(0.0, num_decimal_places=3,
+                                  font_size=_BIG, color=PAPER
+                                  ).scale(30 / _BIG)
+        acc_b_num = DecimalNumber(0.0, num_decimal_places=3,
+                                  font_size=_BIG, color=PAPER
+                                  ).scale(30 / _BIG)
+        acc_a_num.next_to(acc_a_label, RIGHT, buff=0.12)
+        acc_b_num.next_to(acc_b_label, RIGHT, buff=0.12)
 
-        # Aggregate accuracy lines below the boxes.
-        acc_a = _math(r"\text{acc}_A = 0.811", size=28
-                      ).next_to(net_a, DOWN, buff=0.35)
-        acc_b = _math(r"\text{acc}_B = 0.813", size=28
-                      ).next_to(net_b, DOWN, buff=0.35)
-        delta = _math(r"|\Delta\text{acc}| = 0.2\,\text{pp}",
-                      size=30, color=GREEN).to_edge(DOWN, buff=0.6)
-        self.play(FadeIn(acc_a, shift=UP * 0.1),
-                  FadeIn(acc_b, shift=UP * 0.1), run_time=0.8)
-        self.play(Write(delta), run_time=0.7)
-        self.wait(1.6)
-
-    # -- 3. Aggregate match, individual disagreement ---------------------
-    def s3_aggregate_vs_individual(self):
-        header = _txt("Same accuracy.  Per-molecule predictions disagree.",
-                      size=32).to_edge(UP, buff=0.6)
-        self.play(Write(header), run_time=1.0)
+        self.play(Write(acc_a_label), Write(acc_b_label),
+                  FadeIn(acc_a_num), FadeIn(acc_b_num), run_time=0.5)
+        self.play(
+            acc_a_num.animate.set_value(0.811),
+            acc_b_num.animate.set_value(0.813),
+            run_time=1.4,
+        )
         self.wait(0.4)
+
+        delta = _math(r"|\Delta\text{acc}| = 0.2\,\text{pp}",
+                      size=32, color=GREEN).to_edge(DOWN, buff=0.5)
+        self.play(Write(delta), run_time=0.8)
+        self.play(Indicate(delta, scale_factor=1.15, color=GREEN),
+                  run_time=0.7)
+        self.wait(0.8)
+
+        self._beat2_group = VGroup(
+            self.boot_left, self.boot_right, self.a_lab, self.b_lab,
+            net_a, net_b, net_a_lab, net_b_lab, arr_a, arr_b,
+            acc_a_label, acc_b_label, acc_a_num, acc_b_num, delta,
+        )
+
+    # -- 3. Per-molecule disagreement -----------------------------------
+    def beat3_per_molecule_disagreement(self):
+        # Sweep beat-2 contents off the screen; replace with a clean
+        # Net A / Net B prediction comparison.
+        self.play(FadeOut(self._beat2_group, shift=UP * 0.4), run_time=0.8)
+
+        header = _txt("Aggregates match.  Per-molecule predictions disagree.",
+                      size=30).to_edge(UP, buff=0.7)
+        self.play(Write(header), run_time=1.0)
 
         n_mol = 12
         cell = 0.7
@@ -241,50 +285,71 @@ class MainIdea(Scene):
         def _row(preds, y):
             row = VGroup()
             for i, p in enumerate(preds):
-                color = CLASS0 if p == 0 else CLASS1
+                color = BLUE if p == 0 else GOLD
                 sq = Rectangle(width=0.55, height=0.55, stroke_width=0,
                                fill_color=color, fill_opacity=1.0)
                 sq.move_to([x0 + i * cell, y, 0])
                 row.add(sq)
             return row
 
-        row_a = _row(preds_a, 1.0)
-        row_b = _row(preds_b, -0.4)
+        row_a = _row(preds_a, 1.1)
+        row_b = _row(preds_b, -0.5)
         a_tag = _txt("Net A", size=24).next_to(row_a, LEFT, buff=0.45)
         b_tag = _txt("Net B", size=24).next_to(row_b, LEFT, buff=0.45)
-        molecules_lab = _txt("12 test molecules", size=22, color=MUTED
-                             ).next_to(row_a, UP, buff=0.45)
+        molecules_lab = _txt("12 test molecules", size=22, color=GREY
+                             ).next_to(row_a, UP, buff=0.4)
 
-        self.play(Write(molecules_lab), run_time=0.5)
-        self.play(FadeIn(row_a, shift=DOWN * 0.2), Write(a_tag),
-                  run_time=0.7)
-        self.play(FadeIn(row_b, shift=UP * 0.2), Write(b_tag),
-                  run_time=0.7)
+        self.play(
+            LaggedStart(*[FadeIn(sq, scale=0.7) for sq in row_a],
+                        lag_ratio=0.05, run_time=0.9),
+            Write(a_tag), Write(molecules_lab),
+            run_time=1.0,
+        )
+        self.play(
+            LaggedStart(*[FadeIn(sq, scale=0.7) for sq in row_b],
+                        lag_ratio=0.05, run_time=0.9),
+            Write(b_tag),
+            run_time=1.0,
+        )
         self.wait(0.4)
 
-        rings = VGroup()
-        for i in flip_idx:
-            r1 = Circle(radius=0.36, color=ACCENT, stroke_width=3
-                        ).move_to(row_a[i].get_center())
-            r2 = Circle(radius=0.36, color=ACCENT, stroke_width=3
-                        ).move_to(row_b[i].get_center())
-            rings.add(r1, r2)
-        churn_text = _math(r"\text{churn} = 3 / 12 = 25\%", size=34,
-                           color=ACCENT).move_to(DOWN * 1.7)
-        self.play(*[GrowFromCenter(r) for r in rings], run_time=0.7)
-        self.play(Write(churn_text), run_time=0.7)
-        self.wait(1.5)
+        rings = VGroup(*[
+            Circle(radius=0.36, color=RED, stroke_width=4
+                   ).move_to(row_a[i].get_center())
+            for i in flip_idx
+        ] + [
+            Circle(radius=0.36, color=RED, stroke_width=4
+                   ).move_to(row_b[i].get_center())
+            for i in flip_idx
+        ])
+        churn = _math(r"\text{churn} = \frac{3}{12} = 25\%",
+                      size=36, color=RED).move_to(DOWN * 2.0)
+        self.play(LaggedStart(*[GrowFromCenter(r) for r in rings],
+                              lag_ratio=0.1, run_time=0.9))
+        self.play(Write(churn), run_time=0.9)
+        self.wait(1.6)
 
-        magnitudes = _txt(
-            "Across 8 chemistry datasets:  8–22% per-molecule churn  "
-            "vs.  1–4 pp accuracy difference",
-            size=24, color=INK,
-        ).to_edge(DOWN, buff=0.4)
-        self.play(Write(magnitudes), run_time=1.0)
-        self.wait(2.0)
+        self._beat3_group = VGroup(header, row_a, row_b, a_tag, b_tag,
+                                   molecules_lab, rings, churn)
 
-    # -- 4. Heatmaps ERM vs Twin-bootstrap -------------------------------
-    def s4_heatmaps(self):
+    # -- 4. Magnitude callout -------------------------------------------
+    def beat4_magnitude(self):
+        self.play(FadeOut(self._beat3_group, shift=UP * 0.3), run_time=0.7)
+        line1 = _txt("Across 8 chemistry datasets",
+                     size=32, color=GREY).move_to(UP * 0.5)
+        line2 = _math(
+            r"8\text{--}22\%\ \text{per-molecule churn}"
+            r"\quad\text{vs.}\quad"
+            r"1\text{--}4\,\text{pp accuracy difference}",
+            size=34, color=PAPER,
+        ).move_to(DOWN * 0.5)
+        self.play(Write(line1), run_time=0.9)
+        self.play(Write(line2), run_time=1.5)
+        self.wait(2.2)
+        self.play(FadeOut(line1), FadeOut(line2), run_time=0.5)
+
+    # -- 5. Heatmaps: ERM noisy vs Twin-bootstrap clean -----------------
+    def beat5_heatmaps(self):
         rows, cols = 40, 10
         h, w = 4.4, 2.6
         rng = random.Random(11)
@@ -293,44 +358,48 @@ class MainIdea(Scene):
                        base_run_class=consensus)
         twin = _heatmap(rows, cols, w, h, churn_p=0.04, seed=17,
                         base_run_class=consensus)
-        erm.move_to(LEFT * 2.4 + DOWN * 0.2)
-        twin.move_to(RIGHT * 2.4 + DOWN * 0.2)
 
-        erm_title = _txt("ERM", size=30).next_to(erm, UP, buff=0.3)
-        twin_title = Tex(r"Twin-bootstrap (\(\lambda{=}300\))",
-                         font_size=30, color=INK
-                         ).next_to(twin, UP, buff=0.3)
-        x_axis = _txt("retraining  1—10", size=20, color=MUTED
-                      ).next_to(erm, DOWN, buff=0.35)
-        x_axis2 = _txt("retraining  1—10", size=20, color=MUTED
-                       ).next_to(twin, DOWN, buff=0.35)
-
-        # ERM first, with a red caption underneath
-        self.play(Write(erm_title), FadeIn(erm), Write(x_axis), run_time=1.0)
-        cap_erm = _txt("noisy: ~16% of test molecules flip class",
-                       size=22, color=ACCENT
-                       ).next_to(x_axis, DOWN, buff=0.45)
-        self.play(Write(cap_erm), run_time=0.6)
+        # ERM starts centred so the noisy texture reads on its own.
+        erm.move_to(DOWN * 0.2)
+        erm_title = _txt("ERM", size=32).next_to(erm, UP, buff=0.35)
+        cap_erm = _txt(r"~16% of molecules flip class",
+                       size=24, color=RED
+                       ).next_to(erm, DOWN, buff=0.45)
+        self.play(Write(erm_title), FadeIn(erm), run_time=1.0)
+        self.play(Write(cap_erm), run_time=0.7)
         self.wait(1.6)
 
-        # Twin-bootstrap second, with a green caption.
-        self.play(Write(twin_title), FadeIn(twin), Write(x_axis2),
-                  run_time=1.0)
-        cap_twin = _txt("clean: ~6% flip rate, same accuracy",
-                        size=22, color=GREEN
-                        ).next_to(x_axis2, DOWN, buff=0.45)
-        self.play(Write(cap_twin), FadeOut(cap_erm), run_time=0.7)
-        self.wait(2.0)
+        # Move ERM-cluster left as one unit; reveal twin on the right.
+        erm_cluster = VGroup(erm, erm_title, cap_erm)
+        twin.move_to(RIGHT * 2.4 + DOWN * 0.2)
+        twin_title = Tex(r"Twin-bootstrap (\(\lambda{=}300\))",
+                         font_size=_BIG, color=PAPER
+                         ).scale(32 / _BIG).next_to(twin, UP, buff=0.35)
+        cap_twin = _txt(r"~6% flip rate, same accuracy",
+                        size=24, color=GREEN
+                        ).next_to(twin, DOWN, buff=0.45)
+        self.play(
+            erm_cluster.animate.shift(LEFT * 2.4),
+            FadeIn(twin, shift=LEFT * 0.4),
+            FadeIn(twin_title, shift=LEFT * 0.4),
+            run_time=1.3,
+        )
+        self.play(Write(cap_twin), run_time=0.8)
+        self.wait(2.2)
 
-    # -- 5. End card -----------------------------------------------------
-    def s5_end_card(self):
-        title = _txt("Reducing cross-sample prediction churn",
-                     size=44, weight="BOLD")
-        sub = _txt("in scientific machine learning", size=32, color=MUTED
-                   ).next_to(title, DOWN, buff=0.35)
-        self.play(Write(title), run_time=1.0)
-        self.play(FadeIn(sub, shift=UP * 0.2), run_time=0.7)
-        self.wait(2.0)
+        self._beat5_group = VGroup(erm_cluster, twin, twin_title, cap_twin)
+
+    # -- 6. Takeaway -----------------------------------------------------
+    def beat6_takeaway(self):
+        self.play(FadeOut(self._beat5_group), run_time=0.8)
+        line = _txt("Reducing cross-sample prediction churn",
+                    size=42, weight="BOLD")
+        sub = _txt("in scientific machine learning",
+                   size=30, color=GREY
+                   ).next_to(line, DOWN, buff=0.4)
+        self.play(Write(line), run_time=1.0)
+        self.play(FadeIn(sub, shift=UP * 0.15), run_time=0.7)
+        self.wait(2.2)
 
 
-_ = ORIGIN  # keep manim import warm; ORIGIN unused but other layouts use it
+_ = ReplacementTransform  # imported for future ablation; keep symbol live
