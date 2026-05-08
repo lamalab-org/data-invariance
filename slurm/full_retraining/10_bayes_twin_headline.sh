@@ -49,12 +49,19 @@ LAM_MIN=${LAM_MIN:-1e-3}
 LAM_MAX=${LAM_MAX:-3e2}
 OBJECTIVE_SPLIT=${OBJECTIVE_SPLIT:-val}
 VAL_FRAC=${VAL_FRAC:-0.2}
-OUTPUT_DIR=${OUTPUT_DIR:-outputs/cross_sample_bayes_val}
+CV_FOLDS=${CV_FOLDS:-1}
+# Default output dir splits hold-out (cv=1) from k-fold runs so they
+# don't clobber each other.
+if [ "$CV_FOLDS" -ge 2 ]; then
+  OUTPUT_DIR=${OUTPUT_DIR:-outputs/cross_sample_bayes_kfold${CV_FOLDS}}
+else
+  OUTPUT_DIR=${OUTPUT_DIR:-outputs/cross_sample_bayes_val}
+fi
 
 mkdir -p logs/bayes_twin_headline
-LOG="logs/bayes_twin_headline/${DS}_seed${SEED}_trials${BAYES_TRIALS}_${OBJECTIVE_SPLIT}.log"
+LOG="logs/bayes_twin_headline/${DS}_seed${SEED}_trials${BAYES_TRIALS}_${OBJECTIVE_SPLIT}_cv${CV_FOLDS}.log"
 
-echo "=== $DS twin_indep_bayes seed=$SEED trials=$BAYES_TRIALS lam=[$LAM_MIN,$LAM_MAX] objective=$OBJECTIVE_SPLIT val_frac=$VAL_FRAC out=$OUTPUT_DIR $(hostname) $(date) ===" > "$LOG"
+echo "=== $DS twin_indep_bayes seed=$SEED trials=$BAYES_TRIALS lam=[$LAM_MIN,$LAM_MAX] objective=$OBJECTIVE_SPLIT cv_folds=$CV_FOLDS val_frac=$VAL_FRAC out=$OUTPUT_DIR $(hostname) $(date) ===" > "$LOG"
 
 CMD=(
   $PY scripts/cross_sample_train_bayes.py
@@ -67,10 +74,11 @@ CMD=(
   --lam_min "$LAM_MIN"
   --lam_max "$LAM_MAX"
   --objective_split "$OBJECTIVE_SPLIT"
+  --cv_folds "$CV_FOLDS"
   --output_dir "$OUTPUT_DIR"
 )
 
-if [ "$OBJECTIVE_SPLIT" = "val" ]; then
+if [ "$OBJECTIVE_SPLIT" = "val" ] && [ "$CV_FOLDS" -lt 2 ]; then
   CMD+=(--val_frac "$VAL_FRAC")
 fi
 

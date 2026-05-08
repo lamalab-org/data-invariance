@@ -153,10 +153,48 @@ def _idx_hash(loader) -> str:
     return hashlib.sha256(np.asarray(idxs, dtype=np.int64).tobytes()).hexdigest()[:16]
 
 
+def _make_val_loader(base, val_idx: np.ndarray, train_loader) -> DataLoader:
+    """DataLoader iterating ``base[val_idx]`` with the canonical kwargs.
+
+    Indices are sorted before subsetting so the val loader's iteration
+    order is stable and independent of the shuffle that produced
+    ``val_idx`` (loader's own ``shuffle=False`` then locks the order).
+    """
+    val_idx_sorted = np.sort(val_idx)
+    return DataLoader(
+        Subset(base, val_idx_sorted.tolist()),
+        batch_size=train_loader.batch_size,
+        shuffle=False,
+        num_workers=train_loader.num_workers,
+        pin_memory=train_loader.pin_memory,
+        collate_fn=train_loader.collate_fn,
+    )
+
+
+def _hash_idx(idx: np.ndarray) -> str:
+    return hashlib.sha256(np.asarray(idx, dtype=np.int64).tobytes()
+                          ).hexdigest()[:16]
+
+
+def _shuffled_pool(canonical_loaders, canonical_data_seed: int,
+                   subsample_size: int | None) -> np.ndarray:
+    """Deterministic permutation of the canonical training-pool indices.
+
+    Used as the source-of-truth for both hold-out and k-fold paths so
+    they share the same shuffle and stay reproducible by
+    ``canonical_data_seed`` alone.
+    """
+    n = len(canonical_loaders["train"].dataset)
+    shuffled = np.random.default_rng(canonical_data_seed).permutation(n)
+    if subsample_size is not None and subsample_size < n:
+        shuffled = shuffled[:subsample_size]
+    return shuffled
+
+
 def _carve_val(canonical_loaders, canonical_data_seed: int, val_frac: float,
                subsample_size: int | None
                ) -> tuple[np.ndarray, np.ndarray, DataLoader]:
-    """Split the canonical training pool into (train_pool, val).
+    """Hold-out: split the canonical training pool into (train_pool, val).
 
     The split is deterministic in ``canonical_data_seed`` and lives entirely
     inside the canonical training set: ``id_test`` and ``ood_test`` are
@@ -164,19 +202,12 @@ def _carve_val(canonical_loaders, canonical_data_seed: int, val_frac: float,
     *first* and val is then carved from that prefix, so the subsample-vs-no
     subsample comparison stays apples-to-apples on the val fraction.
 
-    Returns ``(pool_idx, val_idx, val_loader)``.  ``pool_idx`` is the new
-    bootstrap pool that ``_train_twin_indep`` consumes; ``val_loader``
-    iterates the held-out indices in input order (no shuffle, no aug
-    differences from the canonical train transforms).
+    Returns ``(pool_idx, val_idx, val_loader)``.  ``val_idx`` is in
+    shuffle order (provenance hash is computed against the unsorted form);
+    the loader sorts before subsetting so iteration order is stable.
     """
-    train_loader = canonical_loaders["train"]
-    base = train_loader.dataset
-    n_train_full = len(base)
-
-    shuffled = np.random.default_rng(canonical_data_seed).permutation(n_train_full)
-    if subsample_size is not None and subsample_size < n_train_full:
-        shuffled = shuffled[:subsample_size]
-
+    shuffled = _shuffled_pool(canonical_loaders, canonical_data_seed,
+                              subsample_size)
     if not (0.0 < val_frac < 1.0):
         raise ValueError(f"--val_frac must be in (0, 1); got {val_frac}")
     n_val = max(1, int(round(val_frac * len(shuffled))))
@@ -188,15 +219,46 @@ def _carve_val(canonical_loaders, canonical_data_seed: int, val_frac: float,
     val_idx = shuffled[:n_val]
     pool_idx = shuffled[n_val:]
 
-    val_loader = DataLoader(
-        Subset(base, val_idx.tolist()),
-        batch_size=train_loader.batch_size,
-        shuffle=False,
-        num_workers=train_loader.num_workers,
-        pin_memory=train_loader.pin_memory,
-        collate_fn=train_loader.collate_fn,
-    )
+    val_loader = _make_val_loader(canonical_loaders["train"].dataset,
+                                  val_idx, canonical_loaders["train"])
     return pool_idx, val_idx, val_loader
+
+
+def _carve_kfold(canonical_loaders, canonical_data_seed: int, k: int,
+                 subsample_size: int | None
+                 ) -> tuple[np.ndarray, list[tuple[np.ndarray, np.ndarray, DataLoader]]]:
+    """k-fold CV: split the canonical training pool into k contiguous folds.
+
+    Each fold yields a ``(train_pool_idx, val_idx, val_loader)`` triple.
+    All k folds together cover the canonical training pool; ``id_test``
+    and ``ood_test`` remain untouched.
+
+    Returns ``(full_pool, folds)``.  ``full_pool`` is the complete
+    permutation -- used for the *final retraining* at the BO-selected
+    lambda (no held-out portion).
+    """
+    if k < 2:
+        raise ValueError(f"--cv_folds must be >= 2 for the k-fold path; got {k}")
+    full_pool = _shuffled_pool(canonical_loaders, canonical_data_seed,
+                               subsample_size)
+    n = len(full_pool)
+    if n < k * 2:
+        raise ValueError(
+            f"training pool too small ({n}) for {k} folds with >=2 per fold"
+        )
+    base = canonical_loaders["train"].dataset
+    train_loader = canonical_loaders["train"]
+
+    fold_size = n // k
+    folds: list[tuple[np.ndarray, np.ndarray, DataLoader]] = []
+    for f in range(k):
+        start = f * fold_size
+        end = (f + 1) * fold_size if f < k - 1 else n
+        val_idx = full_pool[start:end]
+        train_idx = np.concatenate([full_pool[:start], full_pool[end:]])
+        loader = _make_val_loader(base, val_idx, train_loader)
+        folds.append((train_idx, val_idx, loader))
+    return full_pool, folds
 
 
 def _save_trials(path: Path, trials: list[dict], best: dict) -> None:
@@ -206,7 +268,9 @@ def _save_trials(path: Path, trials: list[dict], best: dict) -> None:
 def _save_final(args, cfg, canonical_loaders, out_root: Path, device, m_a, m_b,
                 best: dict, train_seed: int, epochs: int, n_train: int,
                 n_train_full: int, data_hash: str, test_hash: str,
-                val_hash: str | None = None, val_size: int | None = None) -> None:
+                val_hash: str | None = None, val_size: int | None = None,
+                fold_val_hashes: list[str] | None = None,
+                fold_val_sizes: list[int] | None = None) -> None:
     lam = best["lam"]
     if _is_regression(cfg):
         id_p_a, id_y, id_i = _predict_reg(m_a, canonical_loaders["id_test"], device)
@@ -263,9 +327,13 @@ def _save_final(args, cfg, canonical_loaders, out_root: Path, device, m_a, m_b,
         "bayes_init_trials": args.bayes_init_trials,
         "bayes_seed": args.bayes_seed,
         "objective_split": args.objective_split,
-        "val_frac": args.val_frac if args.objective_split == "val" else None,
+        "cv_folds": int(args.cv_folds),
+        "val_frac": (args.val_frac if args.objective_split == "val"
+                     and args.cv_folds == 1 else None),
         "val_size": val_size,
         "val_hash": val_hash,
+        "fold_val_sizes": fold_val_sizes,
+        "fold_val_hashes": fold_val_hashes,
         "lam": lam,
         "lam_min": args.lam_min,
         "lam_max": args.lam_max,
@@ -283,6 +351,11 @@ def run(args) -> None:
         raise ValueError("--lam_min must be positive and less than --lam_max")
     if args.bayes_trials < 1:
         raise ValueError("--bayes_trials must be at least 1")
+    if args.cv_folds > 1 and args.objective_split != "val":
+        raise ValueError(
+            "--cv_folds > 1 only makes sense with --objective_split val "
+            "(BO objective is the cross-validation mean over folds)"
+        )
 
     device = torch.device(
         "cuda" if torch.cuda.is_available() else
@@ -298,20 +371,37 @@ def run(args) -> None:
     epochs = args.epochs if args.epochs is not None else HPARAMS[args.dataset]["epochs"]
     n_train_full = len(canonical_loaders["train"].dataset)
 
-    val_loader = None
+    # Three selection paths: hold-out val, k-fold CV, or test-set oracle.
+    folds: list[tuple[np.ndarray, np.ndarray, DataLoader]] | None = None
+    objective_loader = None
     val_hash: str | None = None
     val_size: int | None = None
-    if args.objective_split == "val":
+    fold_val_hashes: list[str] | None = None
+    fold_val_sizes: list[int] | None = None
+
+    if args.objective_split == "val" and args.cv_folds > 1:
+        full_pool, folds = _carve_kfold(
+            canonical_loaders, args.canonical_data_seed,
+            args.cv_folds, args.subsample_size,
+        )
+        # Final retraining at the BO-selected lambda uses the full pool.
+        pool_idx = full_pool
+        n_train = len(full_pool)
+        data_hash = _hash_idx(full_pool)
+        fold_val_hashes = [_hash_idx(v) for _, v, _ in folds]
+        fold_val_sizes = [int(len(v)) for _, v, _ in folds]
+        print(f"k={args.cv_folds}-fold CV: pool n={n_train} -> folds of size "
+              f"{fold_val_sizes}; id_test/ood_test untouched.")
+    elif args.objective_split == "val":
         pool_idx, val_idx, val_loader = _carve_val(
             canonical_loaders, args.canonical_data_seed,
             args.val_frac, args.subsample_size,
         )
         n_train = len(pool_idx)
         val_size = int(len(val_idx))
-        val_hash = hashlib.sha256(
-            np.asarray(val_idx, dtype=np.int64).tobytes()).hexdigest()[:16]
-        data_hash = hashlib.sha256(
-            np.asarray(pool_idx, dtype=np.int64).tobytes()).hexdigest()[:16]
+        val_hash = _hash_idx(val_idx)
+        data_hash = _hash_idx(pool_idx)
+        objective_loader = val_loader
         print(f"Held-out val: n={val_size} carved from canonical pool "
               f"(seed={args.canonical_data_seed}, frac={args.val_frac}); "
               f"bootstrap pool n={n_train}.")
@@ -319,26 +409,23 @@ def run(args) -> None:
         pool_rng = np.random.default_rng(args.canonical_data_seed)
         pool_idx = pool_rng.permutation(n_train_full)[: args.subsample_size]
         n_train = args.subsample_size
-        data_hash = hashlib.sha256(
-            np.asarray(pool_idx, dtype=np.int64).tobytes()).hexdigest()[:16]
+        data_hash = _hash_idx(pool_idx)
+        objective_loader = canonical_loaders[args.objective_split]
         print(f"Subsample: training pool capped at M={n_train} "
               f"(canonical set has {n_train_full} examples).")
     else:
         pool_idx = None
         n_train = n_train_full
         data_hash = _idx_hash(canonical_loaders["train"])
-
-    if args.objective_split == "val":
-        objective_loader = val_loader
-        objective_hash = val_hash
-    else:
         objective_loader = canonical_loaders[args.objective_split]
-        objective_hash = _idx_hash(objective_loader)
-    test_hash = objective_hash
+
+    # Provenance: canonical id_test indices identify what we *report* on.
+    test_hash = _idx_hash(canonical_loaders["id_test"])
 
     print(f"Canonical test set: id n={len(canonical_loaders['id_test'].dataset)}, "
           f"ood n={len(canonical_loaders['ood_test'].dataset)}")
     print(f"Bayesian objective: split={args.objective_split}, "
+          f"cv_folds={args.cv_folds}, "
           f"lambda in [{args.lam_min:g}, {args.lam_max:g}]")
 
     initial_lams = _parse_lams(args.initial_lams)
@@ -357,12 +444,33 @@ def run(args) -> None:
             else:
                 lam = _candidate_lam(trials, args)
 
-            m_a, m_b = _train_twin_indep(
-                cfg, canonical_loaders, device, train_seed, epochs, lam,
-                pool_idx=pool_idx, n_train=n_train,
-            )
-            score, metrics = _score_twin(
-                cfg, m_a, m_b, objective_loader, device)
+            if folds is not None:
+                # k-fold CV: average the BO objective across folds.
+                fold_scores: list[float] = []
+                for f_train_idx, _, f_val_loader in folds:
+                    fm_a, fm_b = _train_twin_indep(
+                        cfg, canonical_loaders, device, train_seed, epochs,
+                        lam, pool_idx=f_train_idx, n_train=len(f_train_idx),
+                    )
+                    fs, _ = _score_twin(cfg, fm_a, fm_b, f_val_loader, device)
+                    fold_scores.append(float(fs))
+                    del fm_a, fm_b
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                score = float(np.mean(fold_scores))
+                metrics = {"acc_mean": score,
+                           "acc_per_fold": [round(s, 4) for s in fold_scores]}
+            else:
+                m_a, m_b = _train_twin_indep(
+                    cfg, canonical_loaders, device, train_seed, epochs, lam,
+                    pool_idx=pool_idx, n_train=n_train,
+                )
+                score, metrics = _score_twin(
+                    cfg, m_a, m_b, objective_loader, device)
+                del m_a, m_b
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
             record = {
                 "trial": trial_idx,
                 "lam": float(lam),
@@ -372,12 +480,11 @@ def run(args) -> None:
             trials.append(record)
             best = max(trials, key=lambda t: t["score"])
             _save_trials(trial_path, trials, best)
-            metric_text = " ".join(f"{k}={v:.4f}" for k, v in metrics.items())
+            extra_print = ""
+            if folds is not None:
+                extra_print = "  per-fold=" + str(metrics.get("acc_per_fold"))
             print(f"  trial={trial_idx:02d} lambda={lam:.6g} "
-                  f"score={score:.4f} {metric_text} best={best['lam']:.6g}")
-            del m_a, m_b
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+                  f"score={score:.4f} best={best['lam']:.6g}{extra_print}")
 
         best = max(trials, key=lambda t: t["score"])
         print(f"  selected lambda={best['lam']:.6g} "
@@ -390,6 +497,7 @@ def run(args) -> None:
             args, cfg, canonical_loaders, out_root, device, m_a, m_b, best,
             train_seed, epochs, n_train, n_train_full, data_hash, test_hash,
             val_hash=val_hash, val_size=val_size,
+            fold_val_hashes=fold_val_hashes, fold_val_sizes=fold_val_sizes,
         )
 
 
@@ -426,8 +534,17 @@ if __name__ == "__main__":
                          "oracle (upper-bound comparison only).")
     ap.add_argument("--val_frac", type=float, default=0.2,
                     help="Fraction of the canonical training pool held out as "
-                         "the BO objective when --objective_split=val.  "
-                         "Ignored otherwise.")
+                         "the BO objective when --objective_split=val and "
+                         "--cv_folds=1.  Ignored otherwise.")
+    ap.add_argument("--cv_folds", type=int, default=1,
+                    help="If >=2, replace the hold-out val with k-fold CV "
+                         "over the canonical training pool: each BO trial "
+                         "trains k twin-network pairs and averages val score "
+                         "across the k folds.  Final retraining at the "
+                         "selected lambda uses the FULL pool (no held-out "
+                         "portion).  Cost is k x the hold-out path, so prefer "
+                         "k=3 unless you specifically need k=5.  Only valid "
+                         "with --objective_split=val.")
     ap.add_argument("--subsample_size", type=int, default=None,
                     help="If set, cap the canonical training pool at this many examples.")
     ap.add_argument("--epochs", type=int, default=None,
