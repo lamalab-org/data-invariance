@@ -162,115 +162,193 @@ def _candidate_lam(trials: list[dict], args) -> float:
     return float(10.0 ** grid[int(order[0]), 0])
 
 
-def _twin_metrics(cfg, m_a, m_b, loader, device) -> dict[str, float]:
-    """Forward-pass metrics for one twin (A, B) on `loader`.
+def _twin_predict(cfg, m_a, m_b, loader, device):
+    """Return ``(ensemble, labels, p_a, p_b)`` on the loader.
 
-    Returns a flat dict with both an *accuracy* signal and a *churn*
-    signal so the BO objective can be composed downstream:
-
-      classification:
-        ``acc``    -- ensemble argmax accuracy of (A+B)/2
-        ``churn``  -- inter-network argmax disagreement (A.argmax != B.argmax)
-                      on the same loader, in [0, 1].  Free: A and B are
-                      already computed.
-
-      regression:
-        ``acc``    -- negative ensemble MAE (so larger is better, matching
-                      classification)
-        ``churn``  -- inter-network MAE: |A - B|.mean(), unsigned magnitude
-                      of inter-network disagreement.
-
-    The two signals share the same loader; for k-fold mode, the per-fold
-    dicts are averaged into a single mean dict before BO scoring.
+    For classification, ``ensemble = (softmax_A + softmax_B) / 2``
+    (probabilities, shape ``[N, C]``); for regression, scalar averages.
+    ``p_a`` and ``p_b`` are returned for inter-network churn.
     """
     if _is_regression(cfg):
         p_a, y, _ = _predict_reg(m_a, loader, device)
         p_b, _, _ = _predict_reg(m_b, loader, device)
-        avg = 0.5 * (p_a + p_b)
+        return 0.5 * (p_a + p_b), y, p_a, p_b
+    p_a, y, _ = _predict(m_a, loader, device)
+    p_b, _, _ = _predict(m_b, loader, device)
+    return 0.5 * (p_a + p_b), y, p_a, p_b
+
+
+def _twin_metrics(cfg, m_a, m_b, loader, device) -> dict[str, float]:
+    """Within-twin metrics on `loader`.
+
+    Returns ``acc`` (ensemble accuracy or negative MAE) and ``churn``
+    (inter-network argmax disagreement, or |A-B|.mean() for regression).
+    Both come from one forward-pass pair (A and B).
+    """
+    avg, y, p_a, p_b = _twin_predict(cfg, m_a, m_b, loader, device)
+    if _is_regression(cfg):
         return {
             "acc": -float(np.abs(avg - y).mean()),
             "churn": float(np.abs(p_a - p_b).mean()),
         }
-
-    p_a, y, _ = _predict(m_a, loader, device)
-    p_b, _, _ = _predict(m_b, loader, device)
-    avg = 0.5 * (p_a + p_b)
     return {
         "acc": float((avg.argmax(1) == y).mean()),
         "churn": float((p_a.argmax(1) != p_b.argmax(1)).mean()),
     }
 
 
-def _trial_metrics(cfg, canonical_loaders, device, train_seed: int,
-                   epochs: int, lam: float, *, folds, objective_loader,
-                   pool_idx, n_train: int) -> dict[str, float]:
-    """Train one twin (A, B) at ``lam`` and return mean ``{acc, churn}``.
+def _cross_sample_metrics(cfg, twin_canonical, twin_shadow, loader, device
+                          ) -> dict[str, float]:
+    """Cross-train_seed metrics on `loader`.
 
-    For k-fold mode, trains k twins (one per fold), averages metrics
-    over folds, and additionally records per-fold acc/churn under
-    ``acc_per_fold`` / ``churn_per_fold`` for diagnostics.
+    Both pairs are twins trained at the same lambda but with
+    *different* canonical train_seeds.  The reported metrics are:
 
-    For hold-out mode, trains a single twin on ``pool_idx`` and scores
-    it on ``objective_loader``.
+    * ``acc``         -- canonical ensemble accuracy (the deployed model).
+    * ``churn``       -- inter-network disagreement of the canonical pair
+                         (kept as a within-twin diagnostic).
+    * ``cross_churn`` -- argmax disagreement between the two ensembles
+                         on the same loader.  This is the direct
+                         val-side analogue of the cross-sample churn
+                         the paper reports on test, and is the BO
+                         objective in ``cross_sample_constrained`` mode.
+
+    For regression, ``cross_churn`` is the mean absolute difference
+    between the two ensemble predictions.
     """
-    if folds is not None:
-        per_fold: list[dict[str, float]] = []
-        for f_train_idx, _, f_val_loader in folds:
-            fm_a, fm_b = _train_twin_indep(
-                cfg, canonical_loaders, device, train_seed, epochs, lam,
-                pool_idx=f_train_idx, n_train=len(f_train_idx),
-            )
-            per_fold.append(_twin_metrics(cfg, fm_a, fm_b, f_val_loader, device))
-            del fm_a, fm_b
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-        accs = [m["acc"] for m in per_fold]
-        churns = [m["churn"] for m in per_fold]
+    m_a, m_b = twin_canonical
+    m_c, m_d = twin_shadow
+    canon_avg, y, p_a, p_b = _twin_predict(cfg, m_a, m_b, loader, device)
+    shadow_avg, _, _, _ = _twin_predict(cfg, m_c, m_d, loader, device)
+    if _is_regression(cfg):
         return {
-            "acc": float(np.mean(accs)),
-            "churn": float(np.mean(churns)),
-            "acc_per_fold": [round(a, 4) for a in accs],
-            "churn_per_fold": [round(c, 4) for c in churns],
+            "acc": -float(np.abs(canon_avg - y).mean()),
+            "churn": float(np.abs(p_a - p_b).mean()),
+            "cross_churn": float(np.abs(canon_avg - shadow_avg).mean()),
         }
+    return {
+        "acc": float((canon_avg.argmax(1) == y).mean()),
+        "churn": float((p_a.argmax(1) != p_b.argmax(1)).mean()),
+        "cross_churn": float((canon_avg.argmax(1) != shadow_avg.argmax(1)).mean()),
+    }
 
-    m_a, m_b = _train_twin_indep(
-        cfg, canonical_loaders, device, train_seed, epochs, lam,
+
+def _train_twin_pair(cfg, canonical_loaders, device, seed: int,
+                     epochs: int, lam: float, pool_idx, n_train: int):
+    """Wrapper around ``_train_twin_indep`` with explicit free-after-use.
+
+    Caller is responsible for ``del`` and ``empty_cache`` when done with
+    the returned ``(m_a, m_b)`` pair.
+    """
+    return _train_twin_indep(
+        cfg, canonical_loaders, device, seed, epochs, lam,
         pool_idx=pool_idx, n_train=n_train,
     )
-    out = _twin_metrics(cfg, m_a, m_b, objective_loader, device)
-    del m_a, m_b
+
+
+def _free_twins(*twins) -> None:
+    for pair in twins:
+        if pair is None:
+            continue
+        for m in pair:
+            del m
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-    return out
+
+
+def _trial_metrics(cfg, canonical_loaders, device, train_seed: int,
+                   epochs: int, lam: float, *, folds, objective_loader,
+                   pool_idx, n_train: int,
+                   shadow_seed_offset: int | None = None
+                   ) -> dict[str, float]:
+    """Run one BO trial at ``lam`` and return mean ``{acc, churn[, cross_churn]}``.
+
+    Standard mode (``shadow_seed_offset=None``): one twin pair per
+    fold (or one for hold-out), measured by ``_twin_metrics``.
+
+    Cross-sample mode (``shadow_seed_offset`` is an int): two twin
+    pairs per fold -- canonical at ``train_seed``, shadow at
+    ``train_seed + shadow_seed_offset`` -- measured by
+    ``_cross_sample_metrics``.  ``cross_churn`` is the val-side analogue
+    of the test-time cross-sample churn the paper reports, and feeds
+    the ``cross_sample_constrained`` BO objective.
+
+    k-fold mode averages metrics across folds and records per-fold
+    arrays under ``*_per_fold``.
+    """
+    use_shadow = shadow_seed_offset is not None
+
+    def _measure(loader, train_idx, n: int) -> dict[str, float]:
+        canonical = _train_twin_pair(
+            cfg, canonical_loaders, device, train_seed, epochs, lam,
+            pool_idx=train_idx, n_train=n,
+        )
+        if not use_shadow:
+            metrics = _twin_metrics(cfg, *canonical, loader, device)
+            _free_twins(canonical)
+            return metrics
+        shadow = _train_twin_pair(
+            cfg, canonical_loaders, device, train_seed + shadow_seed_offset,
+            epochs, lam, pool_idx=train_idx, n_train=n,
+        )
+        metrics = _cross_sample_metrics(cfg, canonical, shadow, loader, device)
+        _free_twins(canonical, shadow)
+        return metrics
+
+    if folds is not None:
+        per_fold: list[dict[str, float]] = [
+            _measure(f_val_loader, f_train_idx, len(f_train_idx))
+            for f_train_idx, _, f_val_loader in folds
+        ]
+        out: dict[str, float] = {}
+        for key in ("acc", "churn", "cross_churn"):
+            if key not in per_fold[0]:
+                continue
+            vals = [m[key] for m in per_fold]
+            out[key] = float(np.mean(vals))
+            out[f"{key}_per_fold"] = [round(v, 4) for v in vals]
+        return out
+
+    return _measure(objective_loader, pool_idx, n_train)
 
 
 def _bo_score(metrics: dict[str, float], args, baseline_acc: float | None
               ) -> float:
-    """Compose a scalar BO objective from twin metrics.
+    """Compose a scalar BO objective from a trial's metrics dict.
 
-    Two modes, switched by ``--bo_objective``:
+    Three modes, switched by ``--bo_objective``:
 
-    * ``acc``               -- maximise val accuracy (legacy default).
-    * ``churn_constrained`` -- maximise (-val_churn) subject to the
-      paper's accuracy constraint: val_acc must be within
-      ``--prereg_tolerance`` of the baseline (twin@lambda=0) val acc.
-      Constraint enforced via a steep linear penalty; ``--churn_penalty``
-      sets the slope.  Outside feasibility, the score grows more
-      negative the further the constraint is violated, so BO is pulled
-      back into the feasible region.
+    * ``acc``                       -- maximise val accuracy (legacy).
+    * ``churn_constrained``         -- maximise (-val_churn) subject to
+      the accuracy constraint.  ``val_churn`` is inter-network
+      disagreement (within-twin); a known lower bound on the
+      cross-sample churn the paper reports.
+    * ``cross_sample_constrained``  -- maximise (-val_cross_churn)
+      subject to the same accuracy constraint.  ``val_cross_churn`` is
+      argmax disagreement between two ensembles trained at different
+      ``train_seed``s on the same fold-train pool -- the val-side
+      direct analogue of the test-time cross-sample churn the paper
+      reports.
 
-    The first trial in ``churn_constrained`` mode is the baseline trial
-    itself (lambda=0); its score is ``-churn`` (no penalty) so BO has a
-    valid GP target before ``baseline_acc`` is known.
+    The constraint is enforced via a steep linear penalty proportional
+    to the accuracy deficit below ``baseline_acc - prereg_tolerance``;
+    ``--churn_penalty`` sets the slope.  The first trial (forced to
+    lambda=0) sets ``baseline_acc``; before that, the score is just
+    the negated churn (no penalty), giving BO a valid initial target.
     """
     if args.bo_objective == "acc":
         return metrics["acc"]
-    if args.bo_objective == "churn_constrained":
-        if baseline_acc is None:
-            return -metrics["churn"]
-        deficit = max(0.0, (baseline_acc - args.prereg_tolerance) - metrics["acc"])
-        return -metrics["churn"] - args.churn_penalty * deficit
-    raise ValueError(f"unknown --bo_objective: {args.bo_objective}")
+    churn_key = ("cross_churn" if args.bo_objective == "cross_sample_constrained"
+                 else "churn")
+    if churn_key not in metrics:
+        raise KeyError(
+            f"BO objective {args.bo_objective!r} expected '{churn_key}' in "
+            f"metrics; got keys {sorted(metrics)}"
+        )
+    if baseline_acc is None:
+        return -metrics[churn_key]
+    deficit = max(0.0, (baseline_acc - args.prereg_tolerance) - metrics["acc"])
+    return -metrics[churn_key] - args.churn_penalty * deficit
 
 
 def _idx_hash(loader) -> str:
@@ -483,12 +561,18 @@ def _save_final(args, cfg, canonical_loaders, out_root: Path, device, m_a, m_b,
         "cv_folds": int(args.cv_folds),
         "bo_objective": args.bo_objective,
         "churn_penalty": (args.churn_penalty
-                          if args.bo_objective == "churn_constrained"
+                          if args.bo_objective in ("churn_constrained",
+                                                   "cross_sample_constrained")
                           else None),
+        "shadow_seed_offset": (args.shadow_seed_offset
+                               if args.bo_objective == "cross_sample_constrained"
+                               else None),
         "selection_rule": args.selection_rule,
         "prereg_tolerance": (args.prereg_tolerance
                              if (args.selection_rule == "rule_largest_lam"
-                                 or args.bo_objective == "churn_constrained")
+                                 or args.bo_objective in (
+                                     "churn_constrained",
+                                     "cross_sample_constrained"))
                              else None),
         "val_frac": (args.val_frac if args.objective_split == "val"
                      and args.cv_folds == 1 else None),
@@ -598,14 +682,22 @@ def run(args) -> None:
           f"lambda in [{args.lam_min:g}, {args.lam_max:g}]")
 
     initial_lams = _parse_lams(args.initial_lams)
-    # In churn-constrained mode the first trial *must* be the unregularised
-    # baseline so we have a reference accuracy for the constraint.  Force
-    # it; tolerate the user also passing --include_zero_trial.
-    if args.bo_objective == "churn_constrained":
-        if not initial_lams or initial_lams[0] != 0.0:
-            initial_lams.insert(0, 0.0)
-    elif args.include_zero_trial:
+    # In any *_constrained mode the first trial must be the unregularised
+    # baseline so we have a reference accuracy for the constraint.
+    # ``--include_zero_trial`` opts in to the same lambda=0-first trial
+    # for the unconstrained ``acc`` objective.  In both cases, only
+    # insert if lambda=0 isn't already the first initial trial.
+    needs_baseline = args.bo_objective in ("churn_constrained",
+                                           "cross_sample_constrained")
+    want_zero_first = needs_baseline or args.include_zero_trial
+    if want_zero_first and (not initial_lams or initial_lams[0] != 0.0):
         initial_lams.insert(0, 0.0)
+
+    # Shadow-seed offset is only meaningful for cross_sample_constrained;
+    # forwarded to ``_trial_metrics`` to enable the second-twin training.
+    shadow_offset = (args.shadow_seed_offset
+                     if args.bo_objective == "cross_sample_constrained"
+                     else None)
 
     for train_seed in (int(s) for s in args.train_seeds.split(",")):
         print(f"\n=== {args.dataset}  canonical={args.canonical_data_seed}  "
@@ -621,10 +713,10 @@ def run(args) -> None:
                 cfg, canonical_loaders, device, train_seed, epochs, lam,
                 folds=folds, objective_loader=objective_loader,
                 pool_idx=pool_idx, n_train=n_train,
+                shadow_seed_offset=shadow_offset,
             )
             score = _bo_score(metrics, args, baseline_acc)
-            if (args.bo_objective == "churn_constrained"
-                    and baseline_acc is None and lam == 0.0):
+            if needs_baseline and baseline_acc is None and lam == 0.0:
                 baseline_acc = metrics["acc"]
 
             trials.append({
@@ -635,9 +727,11 @@ def run(args) -> None:
             })
             best = max(trials, key=lambda t: t["score"])
             _save_trials(trial_path, trials, best)
+            extra = (f" cross_churn={metrics['cross_churn']:.4f}"
+                     if "cross_churn" in metrics else "")
             print(f"  trial={trial_idx:02d} lambda={lam:.6g} "
-                  f"acc={metrics['acc']:.4f} churn={metrics['churn']:.4f} "
-                  f"score={score:.4f} best={best['lam']:.6g}")
+                  f"acc={metrics['acc']:.4f} churn={metrics['churn']:.4f}"
+                  f"{extra} score={score:.4f} best={best['lam']:.6g}")
 
         best = _select_lambda(trials, args)
         print(f"  selected lambda={best['lam']:.6g} "
@@ -690,19 +784,32 @@ if __name__ == "__main__":
                     help="Fraction of the canonical training pool held out as "
                          "the BO objective when --objective_split=val and "
                          "--cv_folds=1.  Ignored otherwise.")
-    ap.add_argument("--bo_objective", choices=["acc", "churn_constrained"],
+    ap.add_argument("--bo_objective",
+                    choices=["acc", "churn_constrained",
+                             "cross_sample_constrained"],
                     default="acc",
                     help="What BO maximises per trial.  'acc' (default): "
                          "ensemble val accuracy.  'churn_constrained': "
-                         "(-val_churn) with a steep penalty when val_acc "
-                         "drops more than --prereg_tolerance below the "
-                         "baseline (twin@lambda=0).  Forces the first trial "
-                         "to lambda=0 to set the baseline.")
+                         "(-val_churn) -- inter-network disagreement, a "
+                         "lower-bound proxy for cross-sample churn.  "
+                         "'cross_sample_constrained': (-val_cross_churn) -- "
+                         "argmax disagreement between two ensembles trained "
+                         "at different train_seeds, a *direct* val-side "
+                         "analogue of the cross-sample churn the paper "
+                         "reports on test (~2x compute per trial).  Both "
+                         "constrained modes force the first trial to "
+                         "lambda=0 to set the accuracy baseline.")
     ap.add_argument("--churn_penalty", type=float, default=100.0,
                     help="Slope of the accuracy-deficit penalty in "
-                         "--bo_objective churn_constrained.  100 -> a 0.01 "
-                         "acc shortfall costs 1.0 of score, dwarfing the "
-                         "feasible-region range [-1, 0] of (-val_churn).")
+                         "--bo_objective {churn,cross_sample}_constrained.  "
+                         "100 -> a 0.01 acc shortfall costs 1.0 of score, "
+                         "dwarfing the feasible-region range [-1, 0] of "
+                         "the negated churn proxy.")
+    ap.add_argument("--shadow_seed_offset", type=int, default=1000,
+                    help="Offset added to train_seed for the shadow twin in "
+                         "--bo_objective cross_sample_constrained.  E.g. "
+                         "with the default, train_seed=1 pairs with the "
+                         "shadow seed 1001.  Ignored for other objectives.")
     ap.add_argument("--selection_rule",
                     choices=["best_score", "rule_largest_lam"],
                     default="best_score",

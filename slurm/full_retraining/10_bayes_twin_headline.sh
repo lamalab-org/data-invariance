@@ -22,11 +22,16 @@
 #       1 = hold-out (val_frac of the pool), >=2 = k-fold CV (averaged
 #       over folds; final retrain on full pool).
 #
-#   BO_OBJECTIVE ∈ {acc, churn_constrained}      default acc
+#   BO_OBJECTIVE ∈ {acc, churn_constrained, cross_sample_constrained}
+#                                                 default acc
 #       'acc' maximises val accuracy.  'churn_constrained' maximises
-#       (-val_churn) with a steep penalty when val accuracy falls
-#       PREREG_TOLERANCE below the lambda=0 baseline.  See the python
-#       script's docstring for the exact formula.
+#       (-val_churn) -- inter-network disagreement on val (a lower-bound
+#       proxy for cross-sample churn).  'cross_sample_constrained'
+#       maximises (-val_cross_churn) -- argmax disagreement between two
+#       ensembles trained at train_seed and train_seed+SHADOW_SEED_OFFSET
+#       on the same fold-train pool, the val-side analogue of the
+#       cross-sample churn the paper reports on test.  Costs ~2x per
+#       trial.  See the python script's docstring for the exact formula.
 #
 #   SELECTION_RULE ∈ {best_score, rule_largest_lam}  default best_score
 #       'rule_largest_lam' is the paper's pre-registered rule applied
@@ -68,11 +73,15 @@ BO_OBJECTIVE=${BO_OBJECTIVE:-acc}
 CHURN_PENALTY=${CHURN_PENALTY:-100.0}
 SELECTION_RULE=${SELECTION_RULE:-best_score}
 PREREG_TOLERANCE=${PREREG_TOLERANCE:-0.02}
+SHADOW_SEED_OFFSET=${SHADOW_SEED_OFFSET:-1000}
 
-# Per-mode default output dirs so hold-out / k-fold / churn-BO sweeps
-# don't clobber each other.  An explicit OUTPUT_DIR= overrides.
+# Per-mode default output dirs so hold-out / k-fold / churn-BO /
+# cross-sample-BO sweeps don't clobber each other.  Explicit OUTPUT_DIR=
+# overrides.
 if [ -z "${OUTPUT_DIR:-}" ]; then
-  if [ "$BO_OBJECTIVE" = "churn_constrained" ]; then
+  if [ "$BO_OBJECTIVE" = "cross_sample_constrained" ]; then
+    OUTPUT_DIR="outputs/cross_sample_bayes_cross"
+  elif [ "$BO_OBJECTIVE" = "churn_constrained" ]; then
     OUTPUT_DIR="outputs/cross_sample_bayes_churn"
   elif [ "$CV_FOLDS" -ge 2 ]; then
     OUTPUT_DIR="outputs/cross_sample_bayes_kfold${CV_FOLDS}"
@@ -102,6 +111,7 @@ CMD=(
   --churn_penalty "$CHURN_PENALTY"
   --selection_rule "$SELECTION_RULE"
   --prereg_tolerance "$PREREG_TOLERANCE"
+  --shadow_seed_offset "$SHADOW_SEED_OFFSET"
   --output_dir "$OUTPUT_DIR"
 )
 
