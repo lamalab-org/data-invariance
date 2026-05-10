@@ -504,7 +504,9 @@ def main() -> None:
                 continue
             row = _flatten_row(label, ds, m)
             if baseline_root is not None:
-                _add_delta_fields(row, deltas_vs_baseline(root, baseline_root, ds))
+                _add_delta_fields(row, deltas_vs_baseline(
+                    root, baseline_root, ds,
+                    _glob_for(label), _glob_for(args.baseline_run)))
             rows.append(row)
             d_id = _delta_tuple(row, "id_acc")
             d_ood = _delta_tuple(row, "ood_acc")

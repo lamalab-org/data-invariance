@@ -443,12 +443,13 @@ def emit_entropy() -> None:
 def emit_bayes_twin() -> None:
     """Per-dataset twin-bootstrap Bayesian-optimisation summary.
 
-    Only emits *protocol* macros that don't change between runs.
-    Per-dataset deltas (range, head-counts) are no longer macroised
-    here -- when the full k-fold sweep regenerates
-    ``outputs/bayes_table.csv``, that CSV becomes the source of truth
-    and the appendix prose can pull values directly from
-    Table~\\ref{tab:bayes_twin} rather than via additional macros.
+    Emits BO protocol macros plus head-counts derived from
+    ``outputs/bayes_table.csv``.  The CSV is produced by
+    ``scripts/make_bayes_table.py`` from the cluster sweep's NPZs and
+    is the source of truth for these per-dataset comparisons.  When
+    the CSV is missing (e.g. before the cluster sweep has been run),
+    head-count macros fall back to ``??`` so the document still
+    compiles.
     """
     # Protocol values; match slurm/full_retraining/10_bayes_twin_headline.sh.
     add("bayesTwinTrials",      "50")
@@ -456,6 +457,37 @@ def emit_bayes_twin() -> None:
     add("bayesTwinKernel",      r"\textrm{Mat\'ern-2.5}")
     add("bayesTwinLamMin",      "10^{-3}")
     add("bayesTwinLamMax",      "10^{4}")
+
+    # BO-vs-rule head-counts on the *cross-sample* ID-churn delta
+    # column (BO row minus lambda=300 row).  ``bayesTwinBeatsRuleCount``
+    # = datasets where the delta CI is fully negative (BO strictly
+    # better); ``bayesTwinTiesRuleCount`` = CI overlaps zero;
+    # ``bayesTwinLosesRuleCount`` = CI fully positive.  The three sum
+    # to ``\nDatasetsHeadline``.
+    rows = [r for r in _read_csv(OUTPUTS / "bayes_table.csv")
+            if r.get("run") == "bo"]
+    fallback_keys = ["bayesTwinBeatsRuleCount",
+                     "bayesTwinTiesRuleCount",
+                     "bayesTwinLosesRuleCount",
+                     "bayesTwinTiesOrLosesCount"]
+    if not rows or any(not r.get("delta_id_churn_lo") for r in rows):
+        for k in fallback_keys:
+            add(k, "??")
+        return
+    beats = ties = loses = 0
+    for r in rows:
+        lo = float(r["delta_id_churn_lo"]) * 100
+        hi = float(r["delta_id_churn_hi"]) * 100
+        if hi < 0:
+            beats += 1
+        elif lo > 0:
+            loses += 1
+        else:
+            ties += 1
+    add("bayesTwinBeatsRuleCount", str(beats))
+    add("bayesTwinTiesRuleCount", str(ties))
+    add("bayesTwinLosesRuleCount", str(loses))
+    add("bayesTwinTiesOrLosesCount", str(ties + loses))
 
 
 def emit_bo_topk() -> None:
