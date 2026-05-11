@@ -427,7 +427,7 @@ def write_comparison_latex(rows: list[dict], path: Path, compare_run: str) -> No
         pretty_run = _pretty_run_label(run)
         pretty_baseline = _pretty_run_label(baseline)
         lines += [
-            rf"  \noindent\makebox[\textwidth][c]{{\textbf{{{pretty_run} vs.\ {pretty_baseline}}}}}",
+            rf"  \noindent\makebox[\textwidth][c]{{\textbf{{\boldmath {pretty_run} vs.\ {pretty_baseline}}}}}",
             r"  \vspace{-0.35em}",
             r"  \resizebox{\textwidth}{!}{%",
             r"  \begin{tabular}{@{}lrlllll@{}}",
