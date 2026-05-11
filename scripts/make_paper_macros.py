@@ -457,6 +457,7 @@ def emit_bayes_twin() -> None:
     add("bayesTwinKernel",      r"\textrm{Mat\'ern-2.5}")
     add("bayesTwinLamMin",      "10^{-3}")
     add("bayesTwinLamMax",      "10^{4}")
+    add("churnPenalty",         "100")
 
     # BO-vs-rule head-counts on the *cross-sample* ID-churn delta
     # column (BO row minus lambda=300 row).  ``bayesTwinBeatsRuleCount``
@@ -492,6 +493,9 @@ def emit_bayes_twin() -> None:
     add("bayesTwinTiesRuleCount", str(ties))
     add("bayesTwinLosesRuleCount", str(loses))
     add("bayesTwinTiesOrLosesCount", str(ties + loses))
+    # "Matches or beats" = beats + ties.  Used in the appendix prose
+    # so the count flows from the same CSV as the head-counts above.
+    add("bayesTwinMatchesOrBeatsCount", str(beats + ties))
 
 
 def emit_bo_topk() -> None:

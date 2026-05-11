@@ -100,8 +100,9 @@ $\preregTolerance$ of ERM id-accuracy.  The rule yields $\lambda{=}300$
 (Pareto curve in Appendix~\ref{app:pareto}).
 We apply $\lambda{=}300$ unchanged to every held-out dataset; per-dataset
 Bayesian optimisation of $\lambda$ with a cross-sample-churn objective
-matches or improves on this frozen choice on $7$ of
-$\nDatasetsHeadline$ datasets and beats it on
+matches or beats this frozen choice on
+$\bayesTwinMatchesOrBeatsCount/\nDatasetsHeadline$ datasets and
+strictly improves on
 $\bayesTwinBeatsRuleCount/\nDatasetsHeadline$
 (Appendix~\ref{app:bayes_twin}).
 $K$ for ensemble methods is set a priori to $5$ following

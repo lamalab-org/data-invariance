@@ -233,27 +233,32 @@ def _cross_sample_metrics(cfg, twin_canonical, twin_shadow, loader, device
     }
 
 
-def _train_twin_pair(cfg, canonical_loaders, device, seed: int,
-                     epochs: int, lam: float, pool_idx, n_train: int):
-    """Wrapper around ``_train_twin_indep`` with explicit free-after-use.
+def _measure_one(cfg, canonical_loaders, device, train_seed: int, epochs: int,
+                 lam: float, train_idx, val_loader,
+                 shadow_seed_offset: int | None) -> dict[str, float]:
+    """Train one BO trial's twin(s) on ``train_idx`` and measure on ``val_loader``.
 
-    Caller is responsible for ``del`` and ``empty_cache`` when done with
-    the returned ``(m_a, m_b)`` pair.
+    ``shadow_seed_offset=None`` -> one twin at ``train_seed``, returns
+    ``{acc, churn}`` (within-twin metrics).
+
+    ``shadow_seed_offset=N`` -> a second twin at ``train_seed + N`` is
+    also trained on the same pool, and the return dict additionally
+    carries ``cross_churn`` -- the argmax disagreement between the two
+    ensembles on ``val_loader``.  This is the val-side analogue of the
+    cross-sample churn the paper reports on test, and feeds the
+    ``cross_sample_constrained`` BO objective.
     """
-    return _train_twin_indep(
-        cfg, canonical_loaders, device, seed, epochs, lam,
-        pool_idx=pool_idx, n_train=n_train,
+    canonical = _train_twin_indep(
+        cfg, canonical_loaders, device, train_seed, epochs, lam,
+        pool_idx=train_idx, n_train=len(train_idx),
     )
-
-
-def _free_twins(*twins) -> None:
-    for pair in twins:
-        if pair is None:
-            continue
-        for m in pair:
-            del m
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
+    if shadow_seed_offset is None:
+        return _twin_metrics(cfg, *canonical, val_loader, device)
+    second = _train_twin_indep(
+        cfg, canonical_loaders, device, train_seed + shadow_seed_offset,
+        epochs, lam, pool_idx=train_idx, n_train=len(train_idx),
+    )
+    return _cross_sample_metrics(cfg, canonical, second, val_loader, device)
 
 
 def _trial_metrics(cfg, canonical_loaders, device, train_seed: int,
@@ -261,55 +266,35 @@ def _trial_metrics(cfg, canonical_loaders, device, train_seed: int,
                    pool_idx, n_train: int,
                    shadow_seed_offset: int | None = None
                    ) -> dict[str, float]:
-    """Run one BO trial at ``lam`` and return mean ``{acc, churn[, cross_churn]}``.
+    """Run one BO trial at ``lam``; return mean metrics across folds.
 
-    Standard mode (``shadow_seed_offset=None``): one twin pair per
-    fold (or one for hold-out), measured by ``_twin_metrics``.
+    Hold-out mode (``folds=None``): one ``_measure_one`` call on the
+    full bootstrap pool, scored against ``objective_loader``.
 
-    Cross-sample mode (``shadow_seed_offset`` is an int): two twin
-    pairs per fold -- canonical at ``train_seed``, shadow at
-    ``train_seed + shadow_seed_offset`` -- measured by
-    ``_cross_sample_metrics``.  ``cross_churn`` is the val-side analogue
-    of the test-time cross-sample churn the paper reports, and feeds
-    the ``cross_sample_constrained`` BO objective.
-
-    k-fold mode averages metrics across folds and records per-fold
-    arrays under ``*_per_fold``.
+    k-fold mode: one ``_measure_one`` per fold; per-fold dicts are
+    averaged and the per-fold arrays are kept under ``*_per_fold``
+    for diagnostics.  ``cross_churn`` keys only appear when
+    ``shadow_seed_offset`` is set.
     """
-    use_shadow = shadow_seed_offset is not None
+    if folds is None:
+        train_idx = pool_idx if pool_idx is not None else np.arange(n_train)
+        return _measure_one(cfg, canonical_loaders, device, train_seed,
+                            epochs, lam, train_idx, objective_loader,
+                            shadow_seed_offset)
 
-    def _measure(loader, train_idx, n: int) -> dict[str, float]:
-        canonical = _train_twin_pair(
-            cfg, canonical_loaders, device, train_seed, epochs, lam,
-            pool_idx=train_idx, n_train=n,
-        )
-        if not use_shadow:
-            metrics = _twin_metrics(cfg, *canonical, loader, device)
-            _free_twins(canonical)
-            return metrics
-        shadow = _train_twin_pair(
-            cfg, canonical_loaders, device, train_seed + shadow_seed_offset,
-            epochs, lam, pool_idx=train_idx, n_train=n,
-        )
-        metrics = _cross_sample_metrics(cfg, canonical, shadow, loader, device)
-        _free_twins(canonical, shadow)
-        return metrics
-
-    if folds is not None:
-        per_fold: list[dict[str, float]] = [
-            _measure(f_val_loader, f_train_idx, len(f_train_idx))
-            for f_train_idx, _, f_val_loader in folds
-        ]
-        out: dict[str, float] = {}
-        for key in ("acc", "churn", "cross_churn"):
-            if key not in per_fold[0]:
-                continue
-            vals = [m[key] for m in per_fold]
-            out[key] = float(np.mean(vals))
-            out[f"{key}_per_fold"] = [round(v, 4) for v in vals]
-        return out
-
-    return _measure(objective_loader, pool_idx, n_train)
+    per_fold = [
+        _measure_one(cfg, canonical_loaders, device, train_seed, epochs,
+                     lam, f_train_idx, f_val_loader, shadow_seed_offset)
+        for f_train_idx, _, f_val_loader in folds
+    ]
+    out: dict[str, float] = {}
+    for key in ("acc", "churn", "cross_churn"):
+        if key not in per_fold[0]:
+            continue
+        vals = [m[key] for m in per_fold]
+        out[key] = float(np.mean(vals))
+        out[f"{key}_per_fold"] = [round(v, 4) for v in vals]
+    return out
 
 
 def _bo_score(metrics: dict[str, float], args, baseline_acc: float | None
