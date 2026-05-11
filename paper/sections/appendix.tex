@@ -221,42 +221,60 @@ networks trained jointly on independent bootstraps with the sym-KL
 consistency loss; deployment averages their softmax outputs).
 
 \begin{algorithm}[H]
-  \caption{Per-dataset BO of $\lambda$, cross-sample-churn objective.}
+  \caption{Per-dataset BO of $\lambda$ with cross-sample-churn
+           objective.  Stage~1 (lines~1--16) runs once per
+           (dataset, training seed) and returns the seed-level
+           selection $\lambda^\star_s$; stage~2 (lines~17--19)
+           aggregates across seeds and retrains.}
   \label{alg:bayes_twin_bo}
   \begin{algorithmic}[1]
     \Require fold-train indices $\{I_f\}_{f=1}^{k}$ and val loaders
-             $\{V_f\}_{f=1}^{k}$;
-             trial count $T$, accuracy tolerance $\delta$, penalty $C$
-    \State $\lambda_1 \gets 0$ \Comment{forced baseline trial}
-    \For{$t = 1, \dots, T$}
-      \State $\bar a, \bar c \gets 0, 0$
-      \For{$f = 1, \dots, k$}
-        \State $(\theta_A, \theta_B) \gets$ twin-bootstrap on $I_f$ at $\lambda_t$
-        \State $(\theta_A^\prime, \theta_B^\prime) \gets$ twin-bootstrap on $I_f$ at $\lambda_t$
-               with an independent training seed
-        \State $p \gets \tfrac{1}{2}(f_{\theta_A} + f_{\theta_B})$,
-               \, $p^\prime \gets \tfrac{1}{2}(f_{\theta_A^\prime} + f_{\theta_B^\prime})$
-               on $V_f$
-        \State $\bar a \mathrel{+}= \text{acc}(p, V_f) / k$
-        \State $\bar c \mathrel{+}= \Pr_{x \in V_f}[\arg\max p(x) \neq \arg\max p^\prime(x)] / k$
+             $\{V_f\}_{f=1}^{k}$; trial count $T$;
+             init-trial count $T_0$;
+             accuracy tolerance $\delta$; penalty $C$;
+             training seeds $\{s_1, \dots, s_S\}$
+    \For{$s \in \{s_1, \dots, s_S\}$}
+      \Comment{stage 1: per-seed BO}
+      \State $\lambda_1 \gets 0$ \Comment{forced baseline trial}
+      \For{$t = 1, \dots, T$}
+        \State $\bar a, \bar c \gets 0, 0$
+        \For{$f = 1, \dots, k$}
+          \State $(\theta_A, \theta_B) \gets$ twin-bootstrap on $I_f$ at $\lambda_t$
+          \State $(\theta_A^\prime, \theta_B^\prime) \gets$ twin-bootstrap on $I_f$ at $\lambda_t$
+                 with an independent training seed
+          \State $p \gets \tfrac{1}{2}(f_{\theta_A} + f_{\theta_B})$,
+                 \, $p^\prime \gets \tfrac{1}{2}(f_{\theta_A^\prime} + f_{\theta_B^\prime})$
+                 on $V_f$
+          \State $\bar a \mathrel{+}= \text{acc}(p, V_f) / k$
+          \State $\bar c \mathrel{+}= \Pr_{x \in V_f}[\arg\max p(x) \neq \arg\max p^\prime(x)] / k$
+        \EndFor
+        \If{$t = 1$} $a_0 \gets \bar a$ \EndIf
+        \State $\text{score}_t \gets -\bar c - C \cdot \max(0, a_0 - \delta - \bar a)$
+        \State $\lambda_{t+1} \gets$ log-uniform random if $t \leq T_0$, else GP-EI argmax over
+               $\{(\log_{10}\lambda_i, \text{score}_i)\}_{i \leq t}$
       \EndFor
-      \If{$t = 1$} $a_0 \gets \bar a$ \EndIf
-      \State $\text{score}_t \gets -\bar c - C \cdot \max(0, a_0 - \delta - \bar a)$
-      \If{$t < T$}
-        \State $\lambda_{t+1} \gets$ argmax of GP-EI fitted to
-                                  $\{(\log_{10}\lambda_i, \text{score}_i)\}_{i \leq t}$
-      \EndIf
+      \State $\lambda^\star_s \gets \lambda_{\arg\max_t \text{score}_t}$
     \EndFor
-    \State \Return $\lambda^\star \gets \lambda_{\arg\max_t \text{score}_t}$
+    \State $\lambda_{\text{dataset}} \gets \mathrm{median}\bigl(\lambda^\star_{s_1}, \dots, \lambda^\star_{s_S}\bigr)$
+           \Comment{stage 2: aggregate}
+    \For{$s \in \{s_1, \dots, s_S\}$}
+      \State retrain twin-bootstrap on the full canonical pool at $\lambda_{\text{dataset}}$
+             with training seed $s$
+    \EndFor
+    \State \Return the $S$ retrained twins
   \end{algorithmic}
 \end{algorithm}
 
-For an apples-to-apples comparison against the frozen
-$\lambda{=}\preregLambda$, we take the median of the per-seed BO
-selections as the dataset's tuned $\lambda$ and retrain all
-$\nSeeds$ training seeds at that single value, so cross-sample
-churn between any two retrainings is fixed-$\lambda$ variance on
-both arms.
+Cross-sample churn between any two retrainings within a dataset is
+then fixed-$\lambda$ variance on both arms of the comparison vs.\
+the frozen $\lambda{=}\preregLambda$ baseline.  Stage~1 is
+\texttt{scripts/cross\_sample\_train\_bayes.py} (one (dataset,
+seed) per slurm task in
+\texttt{slurm/full\_retraining/10\_bayes\_twin\_headline.sh});
+\texttt{scripts/select\_perdataset\_lambda.py} computes the median
+and writes \texttt{outputs/bo\_perdataset\_lambdas.csv}; stage~2 is
+\texttt{slurm/full\_retraining/11\_bo\_perdataset\_lam.sh}, which
+reads that CSV.
 
 \paragraph{Findings.}
 The per-dataset tuned $\lambda$ varies by roughly two orders of
