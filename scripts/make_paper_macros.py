@@ -464,8 +464,12 @@ def emit_bayes_twin() -> None:
     # better); ``bayesTwinTiesRuleCount`` = CI overlaps zero;
     # ``bayesTwinLosesRuleCount`` = CI fully positive.  The three sum
     # to ``\nDatasetsHeadline``.
+    # The "BO" row label depends on which experiment generated the CSV
+    # (per-seed: "bo"; per-dataset fixed-lambda follow-up: "bo_perds").
+    # Accept either; the macros below describe BO-vs-rule head-counts
+    # regardless of which BO protocol is on disk.
     rows = [r for r in _read_csv(OUTPUTS / "bayes_table.csv")
-            if r.get("run") == "bo"]
+            if r.get("run") in ("bo", "bo_perds")]
     fallback_keys = ["bayesTwinBeatsRuleCount",
                      "bayesTwinTiesRuleCount",
                      "bayesTwinLosesRuleCount",

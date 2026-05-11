@@ -52,6 +52,12 @@ RUN_GLOBS = {
     "erm": GLOBS["erm"],
     "lam0": GLOBS["twin_indep"].format(lam="0.0"),
     "lam300": GLOBS["twin_indep"].format(lam="300.0"),
+    # 'bo_perds': fixed-lambda twin_indep runs where the lambda was
+    # *chosen per dataset* (e.g. by an upstream BO), so the value
+    # differs across datasets but is constant across train_seeds within
+    # one dataset.  Use this label when comparing per-dataset BO
+    # retrainings vs. the frozen lambda=300 baseline.
+    "bo_perds": GLOBS["twin_indep"].format(lam="*"),
 }
 
 
@@ -450,13 +456,15 @@ def write_comparison_latex(rows: list[dict], path: Path, compare_run: str) -> No
 
 
 def _pretty_run_label(run: str) -> str:
-    if run == "bo":
+    if run in ("bo", "bo_perds"):
         return "BO"
     if run == "erm":
         return "ERM"
     if run.startswith("lam"):
         return run.replace("lam", r"$\lambda{=}") + "$"
-    return run
+    # Fallback: escape LaTeX-special underscores so unknown labels at
+    # least render rather than crashing the build.
+    return run.replace("_", r"\_")
 
 
 def main() -> None:
@@ -499,7 +507,7 @@ def main() -> None:
           f"{'Δid_churn':>18s} {'Δood_churn':>18s}")
     for label, root in root_specs:
         for ds in args.datasets:
-            m = metrics_with_cis(root / ds)
+            m = metrics_with_cis(root / ds, _glob_for(label))
             if m is None:
                 continue
             row = _flatten_row(label, ds, m)

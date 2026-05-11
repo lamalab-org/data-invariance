@@ -185,49 +185,54 @@ the rule would reject the BACE-frozen $\lambda$).
 \section{\boldmath Per-dataset Bayesian optimisation of $\lambda$}
 \label{app:bayes_twin}
 
-To probe twin-bootstrap's per-dataset stability ceiling, we ran a
-per-dataset BO that minimises the same statistic the paper reports:
-cross-sample churn.  Each BO trial trains \emph{two} twin pairs at
-different \texttt{train\_seed}s on the same fold-train pool; the BO
-objective is \(-\text{val\_cross\_churn} - C\cdot\max(0,\, a_0 -
-\preregTolerance - \text{val\_acc})\), where
-$\text{val\_cross\_churn}$ is the argmax disagreement between the
-two ensembles' predictions on the held-out fold,
-$\text{val\_acc}$ is the canonical ensemble's accuracy, $a_0$ is
-the unregularised baseline (twin at $\lambda{=}0$), and $C{=}100$
-enforces the constraint with a slope steep enough to dwarf the
-feasible-region range of $-\text{val\_cross\_churn}$.  The first
-trial is forced to $\lambda{=}0$ to set $a_0$; the remaining
+The rule freezes $\lambda{=}\preregLambda$ on BACE and applies it to
+every other dataset.  Does per-dataset tuning win on the metric the
+paper reports?  We test this with a BO whose objective is the
+val-side analogue of cross-sample churn itself.
+
+\paragraph{Protocol.}
+Each BO trial trains \emph{two} twin pairs on the same fold-train
+pool: one at the canonical \texttt{train\_seed} and one at
+\texttt{train\_seed}+1000 (the "shadow" seed).  The BO objective is
+\(-\text{val\_cross\_churn} - C\cdot\max(0,\, a_0 - \preregTolerance
+- \text{val\_acc})\), where $\text{val\_cross\_churn}$ is the argmax
+disagreement between the two ensembles on the held-out fold,
+$\text{val\_acc}$ is the canonical ensemble's accuracy, $a_0$ is the
+unregularised baseline (twin at $\lambda{=}0$, the first forced
+trial), and $C{=}100$ makes the constraint steep enough to dwarf the
+feasible-region range of $-\text{val\_cross\_churn}$.  The remaining
 $\bayesTwinTrials{-}1$ trials are GP-EI ($\bayesTwinKernel$ kernel,
-$\lambda \in [\bayesTwinLamMin, \bayesTwinLamMax]$).  Val scores
-are averaged across $k{=}3$ cross-validation folds carved
-deterministically with seed $\canonicalSeed$; \texttt{id\_test} and
-\texttt{ood\_test} are never seen during selection, and final
-retraining at the BO-selected $\lambda$ uses the full pool with the
-canonical \texttt{train\_seed} only.
+$\lambda \in [\bayesTwinLamMin, \bayesTwinLamMax]$); val scores
+average over $k{=}3$ cross-validation folds carved deterministically
+from the canonical training pool with seed $\canonicalSeed$.
+\texttt{id\_test} and \texttt{ood\_test} are never seen during
+selection.  For an apples-to-apples comparison against the frozen
+$\lambda{=}\preregLambda$, we take the median of the per-seed BO
+selections as the dataset's tuned $\lambda$ and retrain all
+$\nSeeds$ train\_seeds at that single value -- so cross-sample
+churn between any two retrainings is fixed-$\lambda$ variance on
+both arms.
 
-Two findings from Table~\ref{tab:bayes_twin}:
-\textbf{(i)} the BO-selected mean $\lambda$ varies by roughly two
-orders of magnitude across datasets and lands on both sides of
-$\preregLambda$, so the per-dataset cross-sample optima are
-genuinely different;
-\textbf{(ii)} measured on cross-sample ID-churn -- the metric
-Table~\ref{tab:main} reports -- per-dataset BO does not beat the
-rule on any dataset.  It ties on
-$\bayesTwinTiesRuleCount/\nDatasetsHeadline$ (CIs overlap zero) and
-loses by $\leq 7$\,pp on the remaining
+\paragraph{Findings.}
+The per-dataset tuned $\lambda$ varies by roughly two orders of
+magnitude and lands on both sides of $\preregLambda$
+(Table~\ref{tab:bayes_twin}, ``Mean $\lambda$'' column).  On
+cross-sample ID-churn -- the metric Table~\ref{tab:main} reports --
+per-dataset BO beats the rule on
+$\bayesTwinBeatsRuleCount/\nDatasetsHeadline$ datasets (CI
+excludes zero), ties on
+$\bayesTwinTiesRuleCount/\nDatasetsHeadline$, and loses on
 $\bayesTwinLosesRuleCount/\nDatasetsHeadline$.  Against
-bootstrap-matched ERM (Table~\ref{tab:main}), BO still cuts
+bootstrap-matched ERM (Table~\ref{tab:main}), per-dataset BO cuts
 cross-sample ID-churn on every dataset, so per-dataset tuning
-preserves the twin-bootstrap effect rather than erasing it -- it just
-cannot improve on the BACE-frozen choice.
+preserves and modestly extends the twin-bootstrap effect rather
+than erasing it.
 
-The frozen $\lambda{=}\preregLambda$ -- the largest $\lambda$ on the
-BACE Pareto within $\preregTolerance$ of the unregularised
-accuracy -- transfers across the dataset spectrum because cross-sample
-churn is bounded below by between-bootstrap consensus drift, which
-the consistency loss cannot reduce indefinitely.  Per-dataset BO can
-locate that frontier per dataset, but does not push past it.
+The frozen $\lambda{=}\preregLambda$ is a robust default -- within a
+few pp of the per-dataset optimum on $7$ of $\nDatasetsHeadline$
+datasets -- but it is not the optimum everywhere: per-dataset tuning
+is worth the BO cost when the dataset's class structure or size
+diverges from BACE.
 
 \input{sections/tables/bayes_twin.tex}
 
