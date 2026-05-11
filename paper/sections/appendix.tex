@@ -222,10 +222,10 @@ consistency loss; deployment averages their softmax outputs).
 
 \begin{algorithm}[H]
   \caption{Per-dataset BO of $\lambda$ with cross-sample-churn
-           objective.  Stage~1 (lines~1--16) runs once per
-           (dataset, training seed) and returns the seed-level
-           selection $\lambda^\star_s$; stage~2 (lines~17--19)
-           aggregates across seeds and retrains.}
+           objective.  Stage~1 (the outer \textbf{for}-loop over $s$)
+           runs once per (dataset, training seed) and returns
+           $\lambda^\star_s$; stage~2 (the two trailing lines)
+           takes the median across seeds and retrains.}
   \label{alg:bayes_twin_bo}
   \begin{algorithmic}[1]
     \Require fold-train indices $\{I_f\}_{f=1}^{k}$ and val loaders
