@@ -267,14 +267,10 @@ consistency loss; deployment averages their softmax outputs).
 
 Cross-sample churn between any two retrainings within a dataset is
 then fixed-$\lambda$ variance on both arms of the comparison vs.\
-the frozen $\lambda{=}\preregLambda$ baseline.  Stage~1 is
-\texttt{scripts/cross\_sample\_train\_bayes.py} (one (dataset,
-seed) per slurm task in
-\texttt{slurm/full\_retraining/10\_bayes\_twin\_headline.sh});
-\texttt{scripts/select\_perdataset\_lambda.py} computes the median
-and writes \texttt{outputs/bo\_perdataset\_lambdas.csv}; stage~2 is
-\texttt{slurm/full\_retraining/11\_bo\_perdataset\_lam.sh}, which
-reads that CSV.
+the frozen $\lambda{=}\preregLambda$ baseline.  The full protocol
+(per-seed BO sweep, median aggregation, fixed-$\lambda$ retraining,
+and table regeneration) is reproducible with the repository's
+\texttt{make bayes-twin} target.
 
 \paragraph{Findings.}
 The per-dataset tuned $\lambda$ varies by roughly two orders of
