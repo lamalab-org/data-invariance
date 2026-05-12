@@ -17,7 +17,7 @@ training set.
 \paragraph{Stochastic weight averaging (SWA)~\citep{izmailov2018averaging}.}
 Trained as ERM, but at the end of every epoch in the second half of
 training we snapshot model weights and accumulate a running average.
-The averaged weights replace the final-epoch weights at deployment;
+The averaged weights replace the final-epoch weights at inference time;
 prediction is a single forward pass through the averaged-weight
 model.  SWA is a parameter-side smoother: it modifies the weight
 trajectory without varying the data sample.  Cross-sample churn is
@@ -26,7 +26,7 @@ independent bootstraps.
 
 \paragraph{MC dropout.}
 A single model with dropout layers ($p=0.2$) inserted after each
-hidden ReLU, trained by SGD on one bootstrap.  At deployment, $T=20$
+hidden ReLU, trained by SGD on one bootstrap.  At inference time, $T=20$
 stochastic forward passes are averaged with dropout active
 \citep{gal2015dropout}.  This captures dropout-mask variance at fixed
 data; cross-sample churn is then measured between the
@@ -35,13 +35,13 @@ bootstraps.
 
 \paragraph{Deep ensemble.}
 $K$ models trained on the \emph{same} bootstrap with different
-initialisation seeds; predictions are averaged at deployment.  This
+initialisation seeds; predictions are averaged at inference time.  This
 captures parameter-distribution variance only.
 
 \paragraph{\boldmath$K$-bootstrap bagging.}
 The classical estimator of \citet{Breiman1996}: $K$ models
 trained on $K$ independent bootstraps of the canonical training set,
-predictions averaged at deployment.  No auxiliary loss; the data
+predictions averaged at inference time.  No auxiliary loss; the data
 axis is varied along with parameters.
 
 \paragraph{Twin-bootstrap.}
@@ -58,7 +58,7 @@ where $\mathcal{L}_{\mathrm{CE}}$ is standard cross-entropy on each
 network's own bootstrap, and the consistency term
 $\mathcal{L}_{\mathrm{cons}}$ is the symmetric KL between the two
 networks' softmax distributions evaluated on the union of the two
-mini-batches.  At deployment, predictions are averaged.
+mini-batches.  At inference time, predictions are averaged.
 
 \paragraph{Mechanism.}
 At $\lambda{=}0$ the procedure is $K{=}2$ bagging.  At $\lambda > 0$

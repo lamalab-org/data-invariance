@@ -80,9 +80,9 @@ and average precision (AP) on each of the \nDatasetsHeadline{} chemistry
 datasets, using the same $\nSeedPairs$ seed pairs of ERM
 bootstraps.
 Table~\ref{tab:additional-metrics} reports the result.  On the
-imbalanced ADME datasets (cyp2d6\_substrate, DILI), recall and
+imbalanced ADME datasets (CYP2D6-Sub, DILI), recall and
 precision drifts are $2\text{--}3\times$ accuracy drift, but the
-per-example argmax-churn rate ($\cypTwoOverallChurn\%$ on cyp2d6, $\diliOverallChurn\%$ on DILI)
+per-example argmax-churn rate ($\cypTwoOverallChurn\%$ on CYP2D6-Sub, $\diliOverallChurn\%$ on DILI)
 still exceeds every aggregate-metric drift on every dataset.
 
 \input{sections/tables/additional_metrics.tex}
@@ -452,7 +452,7 @@ $T{=}\boLoopRegK$ independent BO trajectories
 given method share the same random initial labelled subset of
 $\boLoopRegInitN$ molecules; trajectories diverge only in the
 in-loop training-data bootstraps, the same source of variance the
-paper measures elsewhere.  Acquisition is greedy top-$1$
+measured elsewhere.  Acquisition is greedy top-$1$
 maximisation: ERM has no natural per-prediction variance estimate,
 while bagging and twin-bootstrap do (head-spread).  Implementing
 UCB / EI / Thompson acquisition asymmetrically across methods would
@@ -645,7 +645,7 @@ $\rho_{\mathrm{reg}}(\mathcal{A}, x) =
 twin-bootstrap consistency loss is MSE between the two networks'
 predictions (instead of sym-KL on softmax outputs); the rule-selected
 $\lambda$ is the largest value in $\{1, 3\}$ keeping id-MAE within
-$0.05$ of ERM id-MAE, which is $\lambda{=}3$ on all three datasets
+$0.04$ of ERM id-MAE, which is $\lambda{=}3$ on all three datasets
 (both candidates \emph{improve} id-MAE, so the tolerance constraint
 is not active).  All other protocol choices (canonical-data seed
 $\canonicalSeed$, $\nSeeds$ train-seeds, paired-bootstrap CIs over
