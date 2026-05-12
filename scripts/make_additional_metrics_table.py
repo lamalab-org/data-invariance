@@ -118,7 +118,7 @@ def main() -> None:
         r"argmax-churn ranges $\churnMin\text{--}\churnMax\%$; the "
         r"strongest aggregate-metric drift on any cell is "
         r"$|\Delta\text{recall}|=10.5$\,pp on the imbalanced "
-        r"cyp2d6\_substrate dataset.}",
+        r"CYP2D6-Sub dataset.}",
         r"  \label{tab:additional-metrics}",
         r"  \scriptsize",
         r"  \resizebox{\linewidth}{!}{%",
