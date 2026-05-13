@@ -84,14 +84,14 @@ Per-example churn, computed across pairs of ERM bootstraps, ranks
 test examples by how likely they are to flip class on retraining.
 Figure~\ref{fig:decile} reports the cumulative fraction of total
 flip-mass captured if the practitioner sorts predictions by
-churn and reviews the top fraction.  Reviewing the top $\reviewFraction\%$
-captures $\triageKtenLow\text{--}\triageKtenHigh\%$ of all flips
-when churn is scored from all $10$ bootstraps; with a single
-extra retraining ($K{=}2$, the one-bootstrap practitioner workflow)
-the top-$30\%$ recall is
-$\triageKtwoLow\text{--}\triageKtwoHigh\%$, within
+churn and reviews the top fraction.  Reviewing the top $\reviewFraction\%$ captures
+$\triageKtenLow\text{--}\triageKtenHigh\%$ of all flips when churn
+is scored from all $10$ bootstraps.  With a single extra retraining
+($K{=}2$, the one-bootstrap practitioner workflow), the
+top-$\reviewFraction\%$ recall drops only to
+$\triageKtwoLow\text{--}\triageKtwoHigh\%$ -- a gap of just
 $\triageKtwoToKtenGapLow\text{--}\triageKtwoToKtenGapHigh$\,pp
-of the $K{=}10$ gold standard on every dataset
+from the $K{=}10$ gold standard on every dataset
 (Appendix~\ref{app:convergence}).  Predictive entropy from a single
 ERM model ranks worse on this task: churn captures
 $\fragTopLow\text{--}\fragTopHigh\%$ of flips in its top decile vs.\
@@ -105,7 +105,7 @@ bootstrap on top of the deployed pipeline.
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.75\linewidth]{figures/fig3_decile.pdf}
-  \caption{\textbf{Routing the top $\reviewFraction\%$ of test predictions
+  \caption{\textbf{\boldmath Routing the top $\reviewFraction\%$ of test predictions
     (ranked by per-example churn from one extra retraining) to a
     human reviewer captures $\triageKtenLow$--$\triageKtenHigh\%$ of
     all retraining-induced class flips on the \nDatasetsHeadline{}

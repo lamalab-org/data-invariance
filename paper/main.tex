@@ -81,7 +81,13 @@
 \input{sections/scope}
 \input{sections/discussion}
 
-\section*{Declaration of Generative AI and AI-assisted Technologies in the Research and Writing Process}
+\section*{Acknowledgements}
+K.M.J.'s work is supported by the Carl Zeiss Foundation.
+G.P.'s work was supported by the HPC Gateway measure of the Helmholtz
+Association.  The authors thank Marti\~no R\'ios-Garc\'ia for feedback
+on an early draft of the manuscript.
+
+\section*{Declaration of generative AI and AI-assisted technologies in the research and writing process}
 In addition to using Anthropic’s Claude models to write this declaration,
 we used Anthropic's Claude models and OpenAI's Codex as copilots
 during code development and cluster experiment submission, and
@@ -90,17 +96,23 @@ manuscript.  After using these services we reviewed and edited the
 content as needed and take full responsibility for the content of
 the publication.
 
-\section*{Code Availability}
-Code is available at \url{https://anonymous.4open.science/r/data-invariance-51DD}.
+\section*{Code availability}
+Code is available at \url{https://github.com/lamalab-org/data-invariance}.
+% Anonymous review mirror (used during double-blind submission):
+% \url{https://anonymous.4open.science/r/data-invariance-51DD}
 
 \bibliographystyle{plainnat}
 \bibliography{references}
 
 \appendix
-\section*{Appendix}
+\begin{center}
+  {\LARGE\bfseries Appendix\par}
+\end{center}
 \addcontentsline{toc}{section}{Appendix}
+\vspace{0.5em}
 \input{sections/appendix}
 
-\clearpage
-\input{checklist}
+% NeurIPS submission checklist (\input{checklist}) is intentionally
+% omitted from the preprint build; it lives in the repo for the
+% camera-ready compile.
 \end{document}

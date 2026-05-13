@@ -1,20 +1,21 @@
 \noindent\textbf{Appendix roadmap.}
-Appendices~\ref{app:nscaling}--\ref{app:borderline} support the
-measurement framework ($N$-scaling, borderline datasets).
+Appendices~\ref{app:nscaling}--\ref{app:filter_outcomes} support the
+measurement framework ($N$-scaling, per-class breakdown,
+aggregate-metric drift, borderline datasets, and the
+ERM-vs-majority filter outcomes).
 Appendix~\ref{app:seed_sensitivity} reports the canonical-seed
 sensitivity of every magnitude in the main table.
 Appendices~\ref{app:pareto}--\ref{app:ablations} support the methods
-(Pareto curve, twin-bootstrap bayesian optimisation, overlap spectrum, ablations).
+(Pareto curve, twin-bootstrap bayesian optimisation, overlap
+spectrum, ablations).
 Appendices~\ref{app:case_study}--\ref{app:bo_loop_reg} support the
 empirical results (per-molecule case study, distributional
 disagreement, Friedman test, triage convergence, entropy baseline,
-top-$K$ ranking stability and a full BO-loop simulation on
-regression as Bayesian-optimisation analogues).
+top-$K$ ranking stability and a full BO-loop simulation on regression
+as Bayesian-optimisation analogues).
 Appendices~\ref{app:gin}--\ref{app:regression} document the
 cross-architecture and cross-task generalisation evidence.
-Appendix~\ref{app:compute} reports the per-method compute footprint;
-Appendix~\ref{app:filter_outcomes} lists the datasets excluded by
-the ERM-vs-majority filter.
+Appendix~\ref{app:compute} reports the per-method compute footprint.
 
 \section{\boldmath$N$-scaling on BACE}
 \label{app:nscaling}
@@ -91,14 +92,28 @@ still exceeds every aggregate-metric drift on every dataset.
 \label{app:borderline}
 
 \paragraph{hERG, HIA\_Hou, Skin\_Reaction.}
-These three datasets pass the ERM-versus-majority filter only
-marginally ($+\borderlineGapMin$ to $+\borderlineGapMax$pp on test
-sets of $\borderlineNTestMin$--$\borderlineNTestMax$ examples).
-Their cross-sample magnitudes are reported below; the method
-comparison is not run on them because the small test sets do not give
-enough statistical power.
+The headline analysis requires ERM to clear majority-class
+accuracy by at least $\preregFilterPP$\,pp, otherwise cross-sample
+churn would conflate the model shifting its decision boundary with
+the majority class itself shuffling under sampling noise.  These
+three datasets pass that filter only marginally
+($+\borderlineGapMin$ to $+\borderlineGapMax$\,pp on test sets of
+$\borderlineNTestMin$--$\borderlineNTestMax$ examples).  Their
+cross-sample magnitudes are reported below for transparency; the
+method comparison is not run on them because the small test sets do
+not give enough statistical power.
 
 \input{sections/tables/borderline_magnitudes.tex}
+
+\section{Filter outcomes for excluded datasets}
+\label{app:filter_outcomes}
+
+Table~\ref{tab:filter-outcomes} reports the per-dataset ERM id-acc
+and the canonical majority-class baseline on the five chemistry
+datasets that fail the $+\preregFilterPP$\,pp filter and are
+therefore excluded from the main analysis.
+
+\input{sections/tables/filter_outcomes.tex}
 
 \section{Canonical-seed sensitivity}
 \label{app:seed_sensitivity}
@@ -189,8 +204,11 @@ The pre-registered rule (Section~\ref{sec:methods}) freezes
 $\lambda{=}\preregLambda$ on BACE and applies it to every other
 dataset.  Does per-dataset tuning win on the metric the paper reports
 (cross-sample churn between independent retrainings)?  We test this
-with a Bayesian optimisation whose objective is the val-side
-analogue of cross-sample churn itself.
+with a Bayesian optimisation that minimises the argmax disagreement
+between two independent twin-bootstrap ensembles on a held-out
+validation fold, subject to an accuracy constraint relative to the
+unregularised baseline -- the val-side analogue of the cross-sample
+churn the paper reports on test.
 
 \paragraph{Protocol.}
 For each (dataset, training seed), $\bayesTwinTrials$ BO trials over
@@ -358,8 +376,12 @@ consistency loss.
 
 Table~\ref{tab:distributional} reports paired $\Delta$ sym-KL vs.\
 ERM per dataset and per method, in the same format as the
-argmax-churn main result (Table~\ref{tab:main}).  The summary is in
-\S\ref{sec:experiments}; this appendix gives the per-dataset CIs.
+argmax-churn main result (Table~\ref{tab:main}).  Aggregating over
+datasets, bagging-$K{=}5$ cuts sym-KL by
+$\symKLBagFoldLow\text{--}\symKLBagFoldHigh\times$ vs.\ ERM and
+twin-bootstrap by a further median ${\sim}\symKLTwinAdditionalFoldMedian\times$;
+the table below shows the per-method, per-dataset paired CIs behind
+those aggregates.
 
 \input{sections/tables/distributional.tex}
 
@@ -542,9 +564,13 @@ $T{=}\boLoopRegK$ independent BO trajectories
 given method share the same random initial labelled subset of
 $\boLoopRegInitN$ molecules; trajectories diverge only in the
 in-loop training-data bootstraps, the same source of variance the
-measured elsewhere.  Acquisition is greedy top-$1$
-maximisation: ERM has no natural per-prediction variance estimate,
-while bagging and twin-bootstrap do (head-spread).  Implementing
+measured elsewhere.  Acquisition is greedy top-$1$ maximisation of
+the predicted regression target (ESOL log-solubility,
+FreeSolv hydration free energy, Lipo log-octanol/water partition);
+\textbf{higher $y$ is the BO objective on all three datasets} and
+``final-best $y$'' below refers to the largest $y$ acquired along
+a trajectory.  ERM has no natural per-prediction variance estimate,
+while bagging and twin-bootstrap do (head-spread); implementing
 UCB / EI / Thompson acquisition asymmetrically across methods would
 not be a fair comparison, so we use greedy for every method.  The
 budget is $\boLoopRegBudget$ acquisitions on top of the initial
@@ -588,16 +614,14 @@ Bagging-$K{=}5$ reduces std on
 $\boLoopRegBagStdRedWins/\boLoopRegNumDatasets$ datasets (down to
 $\boLoopRegBagStdLow$--$\boLoopRegBagStdHigh$ across the three) but
 does not improve on ERM on the third (Lipo), where ERM's std is
-already small ($\boLoopRegErmStdLow$).  In absolute terms the std
-is small relative to each dataset's $y$ range
-($\boLoopRegErmStdRangePctLow\%$--$\boLoopRegErmStdRangePctHigh\%$
-of the range under ERM); but it is large relative to the gap
-between the top molecules a BO loop is choosing between, which is
-what determines how reproducible the loop's next-batch decision is.
-On ESOL every bagging and twin-bootstrap trajectory converges to
-the same final molecule (std $= 0$) --- both methods consistently
-locate the dominant high-$y$ molecule in the unlabelled pool, while
-ERM trajectories scatter across $y$ values from
+already small ($\boLoopRegErmStdLow$).  In absolute terms the std is
+$\boLoopRegErmStdRangePctLow\%$--$\boLoopRegErmStdRangePctHigh\%$
+of each dataset's $y$ range under ERM.  What matters for BO
+reproducibility is whether independent trajectories converge to the
+same molecule, not whether their final-$y$ spread is fractionally
+small: on ESOL every bagging and twin-bootstrap trajectory
+converges to the same final molecule (std $= 0$), while ERM
+trajectories scatter across final-best $y$ values from
 $\boLoopRegEsolErmFinalLo$ to $\boLoopRegEsolErmFinalHi$.
 
 The identity-level Jaccard of acquired-molecule sequences also
@@ -636,10 +660,10 @@ CIs, plus paired $\Delta$ vs.\ ERM on the same $\nSeedPairs$ seed-pairs.
 
 \input{sections/tables/gin.tex}
 
-The consistency loss is real and effective at suppressing
-inter-network disagreement on GIN ($\ginSymKLReductionPct\%$ sym-KL reduction), but
-the fixed $\lambda$ from the MLP development run is too strong for
-GIN.  We re-applied the same selection rule on
+The consistency loss is active and suppresses inter-network
+disagreement on GIN ($\ginSymKLReductionPct\%$ sym-KL reduction),
+but the fixed $\lambda$ from the MLP development run is too strong
+for GIN.  We re-applied the same selection rule on
 BACE-GIN, sweeping $\lambda \in \{1, 3, 10, 30, 100, 300\}$:
 
 \input{sections/tables/gin_lambda.tex}
@@ -761,7 +785,7 @@ no accuracy regression on this task.
 
 \begin{table}[h]
   \centering
-  \caption{\textbf{Twin-bootstrap costs $\sim$$2\times$ ERM
+  \caption{\textbf{\boldmath Twin-bootstrap costs $\sim$$2\times$ ERM
     wall-clock --- matched compute against bagging-$K{=}2$.}
     Per-step compute footprint of each method, expressed in units of
     an ERM training step.  Forward / backward counts are per training
@@ -793,12 +817,3 @@ terms this is roughly $2\times$ ERM, matched to bagging-$K{=}2$.  The
 $5\times$ Bagging-$K{=}5$ results in the same table are not matched
 compute; we include them as a stronger no-cost baseline.
 
-\section{Filter outcomes for excluded datasets}
-\label{app:filter_outcomes}
-
-Table~\ref{tab:filter-outcomes} reports the per-dataset ERM id-acc
-and the canonical majority-class baseline on the five chemistry
-datasets that fail the $+\preregFilterPP$pp filter and are therefore
-excluded from the main analysis.
-
-\input{sections/tables/filter_outcomes.tex}

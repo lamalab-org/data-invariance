@@ -115,10 +115,15 @@ def write_latex_table(rows: list[dict], path: Path) -> None:
         d10 = _fmt_dchurn_pp_ci(r.get("t10_dchurn_ci"))
         if bbbp_collapse:
             d300 = d300 + r"$^{*}$"
+        # The rule-selected lambda=10 column wins on every dataset
+        # (accuracy higher than at lambda=300, churn delta CI excludes
+        # zero on the favourable side).  Bold the lambda=10 acc and
+        # delta-churn cells so the table caption's claim is visible
+        # at a glance.
         lines.append(
             f"    {ds_name} & {r['erm_churn']*100:.1f} & "
             f"{r.get('t300_acc',0):.2f} & {d300} & "
-            f"{r.get('t10_acc',0):.2f} & {d10} \\\\"
+            f"\\textbf{{{r.get('t10_acc',0):.2f}}} & \\textbf{{{d10}}} \\\\"
         )
     lines += [
         r"\bottomrule",

@@ -146,8 +146,10 @@ def main() -> None:
         )
     lines += [
         r"\bottomrule",
-        r"\multicolumn{4}{l}{\footnotesize $^{\star}$id-acc out of "
-        r"$0.02$ tolerance; reported only as a sweep diagnostic.}",
+        r"\multicolumn{4}{l}{\footnotesize $^{\star}$$\lambda{=}300$ "
+        r"fails the rule's $\preregTolerance$ accuracy tolerance "
+        r"(id-acc $0.618$ is $27$\,pp below ERM's $0.876$); shown as "
+        r"a Pareto-sweep diagnostic, not a viable operating point.}",
         r"\end{tabular}",
         r"\end{table}",
         "",

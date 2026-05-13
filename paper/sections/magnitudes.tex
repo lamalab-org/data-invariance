@@ -2,11 +2,16 @@
 \label{sec:churn-magnitudes}
 
 Table~\ref{tab:fragility-magnitudes} reports the cross-bootstrap
-class-flip rate and the corresponding distributional
-gap (sym-KL) for each of the \nDatasetsHeadline{} chemistry datasets
-that pass the $+\preregFilterPP$pp ERM-vs-majority filter, alongside training-set
-size $N$, ERM accuracy, and the mean pairwise accuracy difference
-$|\Delta\text{acc}|$ between two retrainings.  Class-flip rate ranges from $\churnMin\%$ (BBB-Martins)
+class-flip rate and the corresponding distributional gap (sym-KL)
+for each of the \nDatasetsHeadline{} chemistry datasets that pass the
+$+\preregFilterPP$pp ERM-vs-majority filter -- on datasets where ERM
+fails to beat majority-class prediction by at least
+$\preregFilterPP$pp, cross-sample churn conflates the method shifting
+its decision boundary with the majority class itself shuffling under
+sampling noise.  Excluded datasets are listed in
+Appendix~\ref{app:filter_outcomes}.  Alongside the churn columns we
+report training-set size $N$, ERM accuracy, and the mean pairwise
+accuracy difference $|\Delta\text{acc}|$ between two retrainings.  Class-flip rate ranges from $\churnMin\%$ (BBB-Martins)
 to $\churnMax\%$ (MOF-thermal).  Aggregate accuracy moves
 $\accDiffMin\text{--}\accDiffMax$\,pp between two retrainings while
 individual predictions disagree at
@@ -19,9 +24,14 @@ At these magnitudes, $\churnMin\text{--}\churnMax\%$ of the
 per-molecule decisions a downstream pipeline would route to
 synthesis or screening change between two retrainings on the same
 training population --- a reshuffling that is invisible in
-aggregate metrics such as mean accuracy.  Appendices~\ref{app:bo_topk}
-and~\ref{app:bo_loop_reg} measure this consequence directly at the
-Bayesian-optimisation acquisition layer.
+aggregate metrics such as mean accuracy.  Two acquisition-layer ablations confirm this carries through to
+Bayesian optimisation: the top-$\boTopkK$ Jaccard overlap of ERM's
+acquisition shortlist across retrainings sits at
+$\boTopkErmJaccardLow$--$\boTopkErmJaccardHigh$ on chemistry
+benchmarks (Appendix~\ref{app:bo_topk}), and on regression the
+cross-trajectory standard deviation of the BO final-best $y$ under
+ERM reaches $\boLoopRegErmStdRangePctLow$--$\boLoopRegErmStdRangePctHigh\%$
+of the response range (Appendix~\ref{app:bo_loop_reg}).
 
 \input{sections/tables/fragility_magnitudes.tex}
 

@@ -4,10 +4,12 @@
 \paragraph{Setting.}
 A learner $\mathcal{A}$ maps a training set
 $S = \{(x_i, y_i)\}_{i=1}^{N}$ drawn iid from population $\mathcal{D}$
-to a classifier $f_S = \mathcal{A}(S)$ that returns a class
-$\hat{y}(x) = \arg\max_c f_S(x)_c$ at each test example $x$.
-Cross-sample churn quantifies how $\hat{y}(x)$ changes when $S$
-is replaced by an independent iid draw from $\mathcal{D}$.
+to a classifier $f_S = \mathcal{A}(S)$ whose output $f_S(x) \in
+\mathbb{R}^{|\mathcal{C}|}$ scores the classes $c \in \mathcal{C}$;
+the predicted label at $x$ is
+$\hat{y}(x) = \arg\max_{c} f_S(x)_c$.
+Cross-sample churn quantifies how $\hat{y}(x)$ changes when $S$ is
+replaced by an independent iid draw from $\mathcal{D}$.
 
 \paragraph{Definition.}
 Given two iid training samples $S_A, S_B \sim \mathcal{D}^N$ and a
