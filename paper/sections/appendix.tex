@@ -365,8 +365,12 @@ consistency loss.
 
 Table~\ref{tab:distributional} reports paired $\Delta$ sym-KL vs.\
 ERM per dataset and per method, in the same format as the
-argmax-churn main result (Table~\ref{tab:main}).  The summary is in
-\S\ref{sec:experiments}; this appendix gives the per-dataset CIs.
+argmax-churn main result (Table~\ref{tab:main}).  Aggregating over
+datasets, bagging-$K{=}5$ cuts sym-KL by
+$\symKLBagFoldLow\text{--}\symKLBagFoldHigh\times$ vs.\ ERM and
+twin-bootstrap by a further median ${\sim}\symKLTwinAdditionalFoldMedian\times$;
+the table below shows the per-method, per-dataset paired CIs behind
+those aggregates.
 
 \input{sections/tables/distributional.tex}
 
