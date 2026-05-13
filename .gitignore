@@ -48,3 +48,6 @@ paper/main.fdb_latexmk
 paper/build*.log
 paper/.texpadtmp/
 paper/sections/*.aux
+
+# Manim render output
+media/

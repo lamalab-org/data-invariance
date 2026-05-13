@@ -185,23 +185,113 @@ the rule would reject the BACE-frozen $\lambda$).
 \section{\boldmath Per-dataset Bayesian optimisation of $\lambda$}
 \label{app:bayes_twin}
 
-We replace the BACE-frozen $\lambda{=}\preregLambda$ with per-dataset
-Bayesian optimisation: $\bayesTwinTrials$ GP-EI trials per dataset
-and seed ($\bayesTwinKernel$ kernel, $\lambda \in [\bayesTwinLamMin,
-\bayesTwinLamMax]$, $\bayesTwinInitTrials$ random init), maximising
-twin-network ID accuracy on the canonical \texttt{id\_test} split.
-The same split is used for selection and reporting, so the
-ID-accuracy column of Table~\ref{tab:bayes_twin} is an upper bound;
-OOD accuracy and both churn columns are held out.  Selected mean
-$\lambda$ is below $\preregLambda$ on every dataset (range
-$\bayesTwinMeanLamLo$--$\bayesTwinMeanLamHi$).  Against
-$\lambda{=}\preregLambda$, BO recovers ID accuracy on every dataset
-and increases ID churn by $\bayesTwinVsRuleIdChurnLo$ to
-$\bayesTwinVsRuleIdChurnHi$\,pp.  Against bootstrap-matched ERM
-(Table~\ref{tab:main}), BO cuts ID churn on
-$\bayesTwinVsErmIdChurnCount/\nDatasetsHeadline$ datasets and OOD
-churn on $\bayesTwinVsErmOodChurnCount/\nDatasetsHeadline$ (DILI is
-the OOD exception).
+The pre-registered rule (Section~\ref{sec:methods}) freezes
+$\lambda{=}\preregLambda$ on BACE and applies it to every other
+dataset.  Does per-dataset tuning win on the metric the paper reports
+(cross-sample churn between independent retrainings)?  We test this
+with a Bayesian optimisation whose objective is the val-side
+analogue of cross-sample churn itself.
+
+\paragraph{Protocol.}
+For each (dataset, training seed), $\bayesTwinTrials$ BO trials over
+$\log_{10}\lambda \in [\log_{10}\bayesTwinLamMin,\,
+\log_{10}\bayesTwinLamMax]$.  Each trial trains \emph{two}
+independent twin-bootstrap pairs on the same fold-train pool with
+different training seeds, and measures the argmax disagreement
+between their two ensembles on the held-out fold
+($\text{val\_cross\_churn}$).  The first trial is forced to
+$\lambda{=}0$ so the unregularised baseline accuracy $a_0$ is set
+before the constraint kicks in; the next $\bayesTwinInitTrials$ trials
+are log-uniform random, after which BO acquisition uses GP-EI
+($\bayesTwinKernel$ kernel) on the scalar
+\[
+  \text{score}(\lambda) = -\text{val\_cross\_churn}(\lambda)
+    - C\cdot\max\bigl(0,\, a_0 - \preregTolerance - \text{val\_acc}(\lambda)\bigr).
+\]
+With $\text{val\_cross\_churn} \in [0,1]$ and $C{=}\churnPenalty$,
+an accuracy shortfall of $0.01$ subtracts $1.0$ from the score, i.e.\
+the full feasible-region range of the first term -- so BO is pulled
+back inside the accuracy constraint within a few trials of any
+violation.  Val scores average over $k{=}3$ cross-validation folds
+carved deterministically from the canonical training pool with seed
+$\canonicalSeed$; \texttt{id\_test} and \texttt{ood\_test} are never
+seen during selection.  Algorithm~\ref{alg:bayes_twin_bo} gives the
+loop; we denote a twin-bootstrap pair as $\theta_A, \theta_B$ (two
+networks trained jointly on independent bootstraps with the sym-KL
+consistency loss; deployment averages their softmax outputs).
+
+\begin{algorithm}[H]
+  \caption{Per-dataset BO of $\lambda$ with cross-sample-churn
+           objective.  Stage~1 (the outer \textbf{for}-loop over $s$)
+           runs once per (dataset, training seed) and returns
+           $\lambda^\star_s$; stage~2 (the two trailing lines)
+           takes the median across seeds and retrains.}
+  \label{alg:bayes_twin_bo}
+  \begin{algorithmic}[1]
+    \Require fold-train indices $\{I_f\}_{f=1}^{k}$ and val loaders
+             $\{V_f\}_{f=1}^{k}$; trial count $T$;
+             init-trial count $T_0$;
+             accuracy tolerance $\delta$; penalty $C$;
+             training seeds $\{s_1, \dots, s_S\}$
+    \For{$s \in \{s_1, \dots, s_S\}$}
+      \Comment{stage 1: per-seed BO}
+      \State $\lambda_1 \gets 0$ \Comment{forced baseline trial}
+      \For{$t = 1, \dots, T$}
+        \State $\bar a, \bar c \gets 0, 0$
+        \For{$f = 1, \dots, k$}
+          \State $(\theta_A, \theta_B) \gets$ twin-bootstrap on $I_f$ at $\lambda_t$
+          \State $(\theta_A^\prime, \theta_B^\prime) \gets$ twin-bootstrap on $I_f$ at $\lambda_t$
+                 with an independent training seed
+          \State $p \gets \tfrac{1}{2}(f_{\theta_A} + f_{\theta_B})$,
+                 \, $p^\prime \gets \tfrac{1}{2}(f_{\theta_A^\prime} + f_{\theta_B^\prime})$
+                 on $V_f$
+          \State $\bar a \mathrel{+}= \text{acc}(p, V_f) / k$
+          \State $\bar c \mathrel{+}= \Pr_{x \in V_f}[\arg\max p(x) \neq \arg\max p^\prime(x)] / k$
+        \EndFor
+        \If{$t = 1$} $a_0 \gets \bar a$ \EndIf
+        \State $\text{score}_t \gets -\bar c - C \cdot \max(0, a_0 - \delta - \bar a)$
+        \State $\lambda_{t+1} \gets$ log-uniform random if $t \leq T_0$, else GP-EI argmax over
+               $\{(\log_{10}\lambda_i, \text{score}_i)\}_{i \leq t}$
+      \EndFor
+      \State $\lambda^\star_s \gets \lambda_{\arg\max_t \text{score}_t}$
+    \EndFor
+    \State $\lambda_{\text{dataset}} \gets \mathrm{median}\bigl(\lambda^\star_{s_1}, \dots, \lambda^\star_{s_S}\bigr)$
+           \Comment{stage 2: aggregate}
+    \For{$s \in \{s_1, \dots, s_S\}$}
+      \State retrain twin-bootstrap on the full canonical pool at $\lambda_{\text{dataset}}$
+             with training seed $s$
+    \EndFor
+    \State \Return the $S$ retrained twins
+  \end{algorithmic}
+\end{algorithm}
+
+Cross-sample churn between any two retrainings within a dataset is
+then fixed-$\lambda$ variance on both arms of the comparison vs.\
+the frozen $\lambda{=}\preregLambda$ baseline.  The full protocol
+(per-seed BO sweep, median aggregation, fixed-$\lambda$ retraining,
+and table regeneration) is reproducible with the repository's
+\texttt{make bayes-twin} target.
+
+\paragraph{Findings.}
+The per-dataset tuned $\lambda$ varies by roughly two orders of
+magnitude and lands on both sides of $\preregLambda$
+(Table~\ref{tab:bayes_twin}, ``Mean $\lambda$'' column).  On
+cross-sample ID-churn -- the metric Table~\ref{tab:main} reports --
+per-dataset BO beats the rule on
+$\bayesTwinBeatsRuleCount/\nDatasetsHeadline$ datasets (CI excludes
+zero), ties on $\bayesTwinTiesRuleCount/\nDatasetsHeadline$, and
+loses on $\bayesTwinLosesRuleCount/\nDatasetsHeadline$.  Against
+bootstrap-matched ERM (Table~\ref{tab:main}), per-dataset BO cuts
+cross-sample ID-churn on every dataset, so per-dataset tuning
+preserves and modestly extends the twin-bootstrap effect rather than
+erasing it.
+
+The frozen $\lambda{=}\preregLambda$ is therefore a robust default --
+it matches or beats per-dataset BO on
+$\bayesTwinTiesOrLosesCount/\nDatasetsHeadline$ datasets -- but not
+the per-dataset optimum everywhere: per-dataset tuning is worth the
+BO cost when the dataset's class structure or size diverges from
+BACE.
 
 \input{sections/tables/bayes_twin.tex}
 

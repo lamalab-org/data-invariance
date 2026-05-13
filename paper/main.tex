@@ -8,8 +8,7 @@
 % whether the work yields insight beyond the application.
 
 \documentclass{article}
-\usepackage{neurips_2026}              % default = Main Track, double-blind
-% \usepackage[main, final]{neurips_2026}  % camera-ready
+\usepackage[main, preprint]{neurips_2026}  % preprint with names + affiliations
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
@@ -33,9 +32,28 @@
 \title{Reducing cross-sample prediction churn in scientific machine learning}
 
 \author{%
-  Anonymous Authors\\
-  Anonymous Affiliation\\
-  \texttt{anonymous@example.com}
+  Gordan Prastalo$^{1,2}$ \\
+  \texttt{mail@prastalog.com}
+  \And
+  Kevin Maik Jablonka$^{2,3,4,5}$ \\
+  \texttt{mail@kjablonka.com}
+}
+
+\renewcommand{\thefootnote}{\fnsymbol{footnote}}
+\newcommand{\affiliations}{%
+  \begin{minipage}{\textwidth}
+    \centering\small\itshape
+    $^{1}$Helmholtz-Zentrum Berlin f\"ur Materialien und Energie GmbH,
+    Hahn-Meitner-Platz 1, 14109 Berlin, Germany \\
+    $^{2}$HIPOLE Jena (Helmholtz Institute for Polymers in Energy Applications
+    Jena), Lessingstrasse 12--14, 07743 Jena, Germany \\
+    $^{3}$Laboratory of Organic and Macromolecular Chemistry (IOMC),
+    Friedrich Schiller University Jena, Humboldtstrasse 10, 07743 Jena, Germany \\
+    $^{4}$Center for Energy and Environmental Chemistry Jena (CEEC Jena),
+    Friedrich Schiller University Jena, Philosophenweg 7a, 07743 Jena, Germany \\
+    $^{5}$Jena Center for Soft Matter (JCSM), Friedrich Schiller University
+    Jena, Philosophenweg 7, 07743 Jena, Germany
+  \end{minipage}%
 }
 
 % Auto-generated macros for every numerical claim quoted in the prose.
@@ -51,6 +69,7 @@
 
 \begin{document}
 \maketitle
+\affiliations\vspace{0.6em}
 
 \input{sections/abstract}
 \input{sections/introduction}
@@ -62,10 +81,14 @@
 \input{sections/scope}
 \input{sections/discussion}
 
-%\section*{Acknowledgements}
-%\emph{Anonymised for review.}  The full acknowledgements (funding,
-%compute provider, contributors) will appear in the camera-ready
-%version.
+\section*{Declaration of Generative AI and AI-assisted Technologies in the Research and Writing Process}
+In addition to using Anthropic’s Claude models to write this declaration,
+we used Anthropic's Claude models and OpenAI's Codex as copilots
+during code development and cluster experiment submission, and
+Claude additionally to improve language and readability of the
+manuscript.  After using these services we reviewed and edited the
+content as needed and take full responsibility for the content of
+the publication.
 
 \section*{Code Availability}
 Code is available at \url{https://anonymous.4open.science/r/data-invariance-51DD}.

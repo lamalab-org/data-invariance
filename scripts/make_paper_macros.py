@@ -443,33 +443,59 @@ def emit_entropy() -> None:
 def emit_bayes_twin() -> None:
     """Per-dataset twin-bootstrap Bayesian-optimisation summary.
 
-    No source CSV exists yet (the cluster sweep produced NPZs that fed
-    paper/sections/tables/bayes_twin.tex directly).  These macros mirror
-    the published table so the appendix prose can reference them via
-    \\bayesTwin{...}.  When ``outputs/bayes_table.csv`` lands later,
-    swap this hard-coded block for a loop over that CSV.
+    Emits BO protocol macros plus head-counts derived from
+    ``outputs/bayes_table.csv``.  The CSV is produced by
+    ``scripts/make_bayes_table.py`` from the cluster sweep's NPZs and
+    is the source of truth for these per-dataset comparisons.  When
+    the CSV is missing (e.g. before the cluster sweep has been run),
+    head-count macros fall back to ``??`` so the document still
+    compiles.
     """
     # Protocol values; match slurm/full_retraining/10_bayes_twin_headline.sh.
     add("bayesTwinTrials",      "50")
     add("bayesTwinInitTrials",  "4")
     add("bayesTwinKernel",      r"\textrm{Mat\'ern-2.5}")
     add("bayesTwinLamMin",      "10^{-3}")
-    add("bayesTwinLamMax",      r"3{\cdot}10^2")
-    # Range of mean BO-selected lambda across the nine datasets.
-    # From paper/sections/tables/bayes_twin.tex (MOF-thermal=1.122, BBBP=153.3).
-    add("bayesTwinMeanLamLo",   "1.1")
-    add("bayesTwinMeanLamHi",   "153")
-    # ID-churn delta range (BO minus lambda=preregLambda) across the table:
-    # min Pgp=-0.1, max MOF-thermal=+7.2.
-    add("bayesTwinVsRuleIdChurnLo", "-0.1")
-    add("bayesTwinVsRuleIdChurnHi", "+7.2")
-    # BO-vs-ERM head-counts: number of datasets (out of nDatasetsHeadline)
-    # on which BO beats ERM on each axis.  ID churn 9/9; OOD churn 8/9
-    # (DILI is the outlier on both OOD axes).  Accuracy counts are not
-    # quoted in prose because the BO objective is id_test, so they would
-    # be selection-on-test artefacts rather than a real held-out claim.
-    add("bayesTwinVsErmIdChurnCount", "9")
-    add("bayesTwinVsErmOodChurnCount", "8")
+    add("bayesTwinLamMax",      "10^{4}")
+    add("churnPenalty",         "100")
+
+    # BO-vs-rule head-counts on the *cross-sample* ID-churn delta
+    # column (BO row minus lambda=300 row).  ``bayesTwinBeatsRuleCount``
+    # = datasets where the delta CI is fully negative (BO strictly
+    # better); ``bayesTwinTiesRuleCount`` = CI overlaps zero;
+    # ``bayesTwinLosesRuleCount`` = CI fully positive.  The three sum
+    # to ``\nDatasetsHeadline``.
+    # The "BO" row label depends on which experiment generated the CSV
+    # (per-seed: "bo"; per-dataset fixed-lambda follow-up: "bo_perds").
+    # Accept either; the macros below describe BO-vs-rule head-counts
+    # regardless of which BO protocol is on disk.
+    rows = [r for r in _read_csv(OUTPUTS / "bayes_table.csv")
+            if r.get("run") in ("bo", "bo_perds")]
+    fallback_keys = ["bayesTwinBeatsRuleCount",
+                     "bayesTwinTiesRuleCount",
+                     "bayesTwinLosesRuleCount",
+                     "bayesTwinTiesOrLosesCount"]
+    if not rows or any(not r.get("delta_id_churn_lo") for r in rows):
+        for k in fallback_keys:
+            add(k, "??")
+        return
+    beats = ties = loses = 0
+    for r in rows:
+        lo = float(r["delta_id_churn_lo"]) * 100
+        hi = float(r["delta_id_churn_hi"]) * 100
+        if hi < 0:
+            beats += 1
+        elif lo > 0:
+            loses += 1
+        else:
+            ties += 1
+    add("bayesTwinBeatsRuleCount", str(beats))
+    add("bayesTwinTiesRuleCount", str(ties))
+    add("bayesTwinLosesRuleCount", str(loses))
+    add("bayesTwinTiesOrLosesCount", str(ties + loses))
+    # "Matches or beats" = beats + ties.  Used in the appendix prose
+    # so the count flows from the same CSV as the head-counts above.
+    add("bayesTwinMatchesOrBeatsCount", str(beats + ties))
 
 
 def emit_bo_topk() -> None:

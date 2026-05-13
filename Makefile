@@ -1,7 +1,9 @@
 .PHONY: install lint format test check figures tables analysis macros \
         sweep-erm sweep-bagging sweep-deep-ensemble sweep-twin-indep \
         sweep-pareto-bace sweep-borderline sweep-excluded \
-        bo-loop-regression bo-topk help
+        bo-loop-regression bo-topk \
+        bayes-twin bayes-twin-bo bayes-twin-aggregate \
+        bayes-twin-retrain bayes-twin-table help
 
 # === Development ===
 
@@ -195,6 +197,73 @@ bo-loop-regression:
 	uv run python scripts/make_paper_macros.py
 
 
+# === Per-dataset Bayesian optimisation of lambda (App. bayes_twin) ===
+#
+# Two-stage protocol (the apples-to-apples version):
+#   1. per-seed BO with the cross-sample-churn objective; for each
+#      (dataset, train_seed) the BO returns lambda*_s.
+#   2. retrain twin-bootstrap at the per-dataset median(lambda*_s)
+#      across all train_seeds so cross-sample churn between any two
+#      retrainings is fixed-lambda variance.
+#
+# Stages 1 and 2 are cluster-bound; the local Makefile targets either
+# print the submission command or run the cheap local post-processing.
+# Run them in order:
+#
+#   make bayes-twin-bo          # prints stage-1 cluster command
+#   make bayes-twin-aggregate   # runs stage-1.5: median per dataset (local)
+#   make bayes-twin-retrain     # prints stage-2 cluster command
+#   make bayes-twin-table       # rebuilds tab:bayes_twin + macros (local)
+#
+# or just `make bayes-twin` for an end-to-end checklist.
+BAYES_DATASETS := $(DEV_DATASET) dili pgp_broccatelli bbb_martins bbbp tadf \
+                  mof_thermal ames cyp2d6_substrate
+BAYES_CROSS_ROOT     := outputs/cross_sample_bayes_cross
+BAYES_PERDS_ROOT     := outputs/cross_sample_bayes_perdataset
+BAYES_LAM300_ROOT    := outputs/cross_sample
+BAYES_PERDS_LAM_CSV  := outputs/bo_perdataset_lambdas.csv
+
+bayes-twin:
+	@echo "Per-dataset BO protocol (App. bayes_twin):"
+	@echo "  1. make bayes-twin-bo        # stage 1: cluster"
+	@echo "  2. make bayes-twin-aggregate # local"
+	@echo "  3. make bayes-twin-retrain   # stage 2: cluster"
+	@echo "  4. make bayes-twin-table     # local"
+
+bayes-twin-bo:
+	@echo "Submit stage 1 on the cluster:"
+	@echo "  BO_OBJECTIVE=cross_sample_constrained CV_FOLDS=3 LAM_MAX=1e4 \\"
+	@echo "    sbatch slurm/full_retraining/10_bayes_twin_headline.sh"
+	@echo "Then rsync $(BAYES_CROSS_ROOT)/ back and run: make bayes-twin-aggregate"
+
+# Stage 1.5: aggregate per-seed BO selections to one lambda per dataset.
+bayes-twin-aggregate: $(BAYES_PERDS_LAM_CSV)
+$(BAYES_PERDS_LAM_CSV):
+	uv run python scripts/select_perdataset_lambda.py \
+	  --source $(BAYES_CROSS_ROOT) \
+	  --csv $(BAYES_PERDS_LAM_CSV)
+
+bayes-twin-retrain: $(BAYES_PERDS_LAM_CSV)
+	@echo "Submit stage 2 on the cluster (reads $(BAYES_PERDS_LAM_CSV)):"
+	@echo "  sbatch slurm/full_retraining/11_bo_perdataset_lam.sh"
+	@echo "Then rsync $(BAYES_PERDS_ROOT)/ back and run: make bayes-twin-table"
+
+# Build Table~\ref{tab:bayes_twin} from the stage-2 NPZs and refresh
+# the macros so the appendix prose's head-counts (beats / ties /
+# loses) flow from the data.  Requires stage 2 to be complete.
+bayes-twin-table:
+	uv run python scripts/make_bayes_table.py \
+	  --roots bo_perds=$(BAYES_PERDS_ROOT) lam300=$(BAYES_LAM300_ROOT) \
+	  --datasets $(BAYES_DATASETS) \
+	  --erm-root $(BAYES_LAM300_ROOT) \
+	  --baseline-run lam300 \
+	  --baseline-runs lam300 \
+	  --compare-run bo_perds \
+	  --csv outputs/bayes_table.csv \
+	  --latex paper/sections/tables/bayes_twin.tex
+	uv run python scripts/make_paper_macros.py
+
+
 # === Training sweeps (long-running; produce NPZs in outputs/cross_sample/) ===
 
 DATASETS_BORDERLINE := skin_reaction herg hia_hou
@@ -279,3 +348,10 @@ help:
 	@echo "Standalone BO trajectory simulation (~2 h CPU; produces"
 	@echo "outputs/bo_loop_regression.json):"
 	@echo "  bo-loop-regression"
+	@echo ""
+	@echo "Per-dataset BO of lambda (App. bayes_twin; two cluster sweeps + local):"
+	@echo "  bayes-twin                end-to-end checklist"
+	@echo "  bayes-twin-bo             stage 1 (cluster command)"
+	@echo "  bayes-twin-aggregate      aggregate per-seed selections (local)"
+	@echo "  bayes-twin-retrain        stage 2 (cluster command)"
+	@echo "  bayes-twin-table          rebuild tab:bayes_twin + macros (local)"
