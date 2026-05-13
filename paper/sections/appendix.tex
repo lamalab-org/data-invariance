@@ -91,12 +91,16 @@ still exceeds every aggregate-metric drift on every dataset.
 \label{app:borderline}
 
 \paragraph{hERG, HIA\_Hou, Skin\_Reaction.}
-These three datasets pass the ERM-versus-majority filter only
-marginally ($+\borderlineGapMin$ to $+\borderlineGapMax$pp on test
-sets of $\borderlineNTestMin$--$\borderlineNTestMax$ examples).
-Their cross-sample magnitudes are reported below; the method
-comparison is not run on them because the small test sets do not give
-enough statistical power.
+The headline analysis requires ERM to clear majority-class
+accuracy by at least $\preregFilterPP$\,pp, otherwise cross-sample
+churn would conflate the model shifting its decision boundary with
+the majority class itself shuffling under sampling noise.  These
+three datasets pass that filter only marginally
+($+\borderlineGapMin$ to $+\borderlineGapMax$\,pp on test sets of
+$\borderlineNTestMin$--$\borderlineNTestMax$ examples).  Their
+cross-sample magnitudes are reported below for transparency; the
+method comparison is not run on them because the small test sets do
+not give enough statistical power.
 
 \input{sections/tables/borderline_magnitudes.tex}
 
@@ -189,8 +193,11 @@ The pre-registered rule (Section~\ref{sec:methods}) freezes
 $\lambda{=}\preregLambda$ on BACE and applies it to every other
 dataset.  Does per-dataset tuning win on the metric the paper reports
 (cross-sample churn between independent retrainings)?  We test this
-with a Bayesian optimisation whose objective is the val-side
-analogue of cross-sample churn itself.
+with a Bayesian optimisation that minimises the argmax disagreement
+between two independent twin-bootstrap ensembles on a held-out
+validation fold, subject to an accuracy constraint relative to the
+unregularised baseline -- the val-side analogue of the cross-sample
+churn the paper reports on test.
 
 \paragraph{Protocol.}
 For each (dataset, training seed), $\bayesTwinTrials$ BO trials over
