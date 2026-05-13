@@ -19,9 +19,14 @@ At these magnitudes, $\churnMin\text{--}\churnMax\%$ of the
 per-molecule decisions a downstream pipeline would route to
 synthesis or screening change between two retrainings on the same
 training population --- a reshuffling that is invisible in
-aggregate metrics such as mean accuracy.  Appendices~\ref{app:bo_topk}
-and~\ref{app:bo_loop_reg} measure this consequence directly at the
-Bayesian-optimisation acquisition layer.
+aggregate metrics such as mean accuracy.  Two acquisition-layer ablations confirm this carries through to
+Bayesian optimisation: the top-$\boTopkK$ Jaccard overlap of ERM's
+acquisition shortlist across retrainings sits at
+$\boTopkErmJaccardLow$--$\boTopkErmJaccardHigh$ on chemistry
+benchmarks (Appendix~\ref{app:bo_topk}), and on regression the
+cross-trajectory standard deviation of the BO final-best $y$ under
+ERM reaches $\boLoopRegErmStdRangePctLow$--$\boLoopRegErmStdRangePctHigh\%$
+of the response range (Appendix~\ref{app:bo_loop_reg}).
 
 \input{sections/tables/fragility_magnitudes.tex}
 
