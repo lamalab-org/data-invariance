@@ -2,11 +2,16 @@
 \label{sec:churn-magnitudes}
 
 Table~\ref{tab:fragility-magnitudes} reports the cross-bootstrap
-class-flip rate and the corresponding distributional
-gap (sym-KL) for each of the \nDatasetsHeadline{} chemistry datasets
-that pass the $+\preregFilterPP$pp ERM-vs-majority filter, alongside training-set
-size $N$, ERM accuracy, and the mean pairwise accuracy difference
-$|\Delta\text{acc}|$ between two retrainings.  Class-flip rate ranges from $\churnMin\%$ (BBB-Martins)
+class-flip rate and the corresponding distributional gap (sym-KL)
+for each of the \nDatasetsHeadline{} chemistry datasets that pass the
+$+\preregFilterPP$pp ERM-vs-majority filter -- on datasets where ERM
+fails to beat majority-class prediction by at least
+$\preregFilterPP$pp, cross-sample churn conflates the method shifting
+its decision boundary with the majority class itself shuffling under
+sampling noise.  Excluded datasets are listed in
+Appendix~\ref{app:filter_outcomes}.  Alongside the churn columns we
+report training-set size $N$, ERM accuracy, and the mean pairwise
+accuracy difference $|\Delta\text{acc}|$ between two retrainings.  Class-flip rate ranges from $\churnMin\%$ (BBB-Martins)
 to $\churnMax\%$ (MOF-thermal).  Aggregate accuracy moves
 $\accDiffMin\text{--}\accDiffMax$\,pp between two retrainings while
 individual predictions disagree at
