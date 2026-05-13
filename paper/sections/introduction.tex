@@ -12,9 +12,9 @@ training population.
 This is a per-prediction stability gap that aggregate-performance reporting in scientific-ML benchmarks systematically
 hides.  In closed-loop laboratories, Bayesian-optimisation campaigns,
 and virtual-screening pipelines, model predictions feed directly into
-experimental decisions: each prediction is the unit of action --- the
-molecule selected for synthesis, the candidate prioritised in a
-screening campaign, the hit returned by a virtual screen.  Churn is
+experimental decisions: the molecule selected for synthesis, the
+candidate prioritised in a screening campaign, the hit returned by a
+virtual screen.  Churn is
 the rate at which retraining changes which molecules the model
 selects, and is therefore the operational stability the practitioner
 cares about.
@@ -41,8 +41,8 @@ rotation, and translation; $E(3)$-equivariant message passing and
 permutation-equivariant aggregators are standard.  \emph{Sample invariance} --- invariance to which independent
 draw of the training population the model was fit on --- is the
 analogue on the data axis, but is not routinely measured in scientific
-ML.  A practitioner who updates a screening set, retrains, and
-reroutes synthesis based on the new top predictions confronts the
+ML.  However, a practitioner who updates a screening set, retrains,
+and reroutes synthesis based on the new top predictions confronts the
 challenge of cross-sample churn on every dataset update.
 
 Two existing approaches are conceptually nearby but do not measure
@@ -50,7 +50,7 @@ or reduce this gap.  \emph{Prediction churn}~\citep{launch_and_iterate,
 bhojanapalli2021reproducibility, jiang2022} measures
 retraining-induced disagreement on web-scale data; prior work varies
 training conditions on a fixed dataset or compares a candidate model
-against a deployed incumbent.  In scientific ML there is no
+against a deployed incumbent.  In scientific ML there is often no
 incumbent, and the dominant source of variance is the small training
 set itself, redrawn between retrainings.  \emph{Epistemic uncertainty} tools --- deep
 ensembles~\citep{lakshminarayanan2017simple}, Monte Carlo (MC)
@@ -66,20 +66,22 @@ the twin-bootstrap procedure we propose --- do reduce it.
 
 \paragraph{Contributions.}
 \begin{itemize}\itemsep0pt
-  \item \textbf{Cross-sample prediction churn} as the data-sampling
-        analogue of model variance --- the slice of uncertainty that deep ensembles,
-        MC dropout, and SWA all miss because they sample over weights
-        at fixed data (Section~\ref{sec:measurement}).
-  \item \textbf{Magnitudes} on \nDatasetsHeadline{} chemistry benchmarks
-        (MoleculeNet, TDC ADME and Tox, materials-science): per-prediction
-        churn flips $\churnMin\text{--}\churnMax\%$ of test predictions
-        while aggregate accuracy moves only
+  \item \textbf{Cross-sample prediction churn.}  The data-sampling
+        analogue of model variance --- the slice of uncertainty that
+        deep ensembles, MC dropout, and SWA all miss because they
+        sample over weights at fixed data
+        (Section~\ref{sec:measurement}).
+  \item \textbf{Magnitudes.}  On \nDatasetsHeadline{} chemistry
+        benchmarks (MoleculeNet, TDC ADME and Tox, materials-science),
+        per-prediction churn flips
+        $\churnMin\text{--}\churnMax\%$ of test predictions while
+        aggregate accuracy moves only
         $\accDiffMin\text{--}\accDiffMax$\,pp
         (Table~\ref{tab:fragility-magnitudes}).
-  \item \textbf{Bagging.}
-        $K$-bootstrap bagging~\citep{Breiman1996} cuts churn
-        $\bagFiveLow\text{--}\bagFiveHigh\%$ on every dataset at no
-        accuracy cost, at $K\times$-ERM compute (Table~\ref{tab:main}).
+  \item \textbf{Bagging.}  $K$-bootstrap bagging~\citep{Breiman1996}
+        cuts churn $\bagFiveLow\text{--}\bagFiveHigh\%$ on every
+        dataset at no accuracy cost, at $K\times$-ERM compute
+        (Table~\ref{tab:main}).
   \item \textbf{Twin-bootstrap.}  Two networks are trained jointly
         on independent bootstraps with a symmetric-KL consistency
         loss between their predictions ($\sim\overlapPctMid\%$
@@ -90,11 +92,12 @@ the twin-bootstrap procedure we propose --- do reduce it.
         (Table~\ref{tab:main}, Figure~\ref{fig:main}); the same
         reduction shows up at the Bayesian-optimisation acquisition
         layer (Appendices~\ref{app:bo_topk} and~\ref{app:bo_loop_reg}).
-  \item \textbf{Per-prediction triage} on top of any deployed model:
-        sorting by per-example churn from a single extra retraining
-        captures $\triageKtenLow\text{--}\triageKtenHigh\%$ of class
-        flips at the top-$\reviewFraction\%$ review fraction; better
-        than predictive entropy on every dataset
+  \item \textbf{Per-prediction triage.}  On top of any deployed
+        model, sorting by per-example churn from a single extra
+        retraining captures
+        $\triageKtenLow\text{--}\triageKtenHigh\%$ of class flips at
+        the top-$\reviewFraction\%$ review fraction; better than
+        predictive entropy on every dataset
         (Section~\ref{sec:churn-decile}).
 \end{itemize}
 
