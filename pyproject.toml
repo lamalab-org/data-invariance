@@ -9,7 +9,7 @@ description = "Adversarial data splitting for training stability"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "torch>=2.2",
+    "torch>=2.13.0",
     "torchvision>=0.17",
     "numpy>=1.26",
     "matplotlib>=3.8",
